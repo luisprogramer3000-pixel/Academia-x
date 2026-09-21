@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/ai-credit-reset?limit=200",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
