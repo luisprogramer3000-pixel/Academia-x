@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-El presente documento constituye la **Auditoría y Diseño Económico Definitivo de AI Credits para Academia X**, elaborado bajo el rol de *Senior SaaS Architect, AI Credit Economics Specialist, SaaS Monetization Expert, LLM Cost Specialist y Auditor Multi-tenant*.
+El presente documento constituye la **Auditoría y Diseño Económico Definitivo de AI Credits para Mentor Studio Global**, elaborado bajo el rol de *Senior SaaS Architect, AI Credit Economics Specialist, SaaS Monetization Expert, LLM Cost Specialist y Auditor Multi-tenant*.
 
 ### Objetivos Clave de la Auditoría:
 1. **Evaluar el valor y la usabilidad para el cliente**: Garantizar que los profesores y alumnos dispongan de capacidad suficiente para utilizar la plataforma de forma fluida y recurrente.
@@ -93,7 +93,7 @@ No debe asumirse que `COURSE_GENERATION` representa la creación de un curso com
   - 1 `COURSE_GENERATION` = 5 cr
   - 6 `LESSON_GENERATION` = 12 cr (6 x 2 cr)
 - **Créditos Consumidos**: **17 Teacher Credits**.
-- **Costo Real API para Academia X**: ~$0.0026 USD.
+- **Costo Real API para Mentor Studio Global**: ~$0.0026 USD.
 
 ---
 
@@ -108,7 +108,7 @@ No debe asumirse que `COURSE_GENERATION` representa la creación de un curso com
   - 1 `LANDING_GENERATION` = 8 cr
   - 2 `LESSON_REGENERATION` = 2 cr (2 x 1 cr)
 - **Créditos Consumidos**: **31 Teacher Credits**.
-- **Costo Real API para Academia X**: ~$0.0051 USD.
+- **Costo Real API para Mentor Studio Global**: ~$0.0051 USD.
 
 ---
 
@@ -124,7 +124,7 @@ No debe asumirse que `COURSE_GENERATION` representa la creación de un curso com
   - 1 `COURSE_REGENERATION` = 3 cr
   - 5 `LESSON_REGENERATION` = 5 cr (5 x 1 cr)
 - **Créditos Consumidos**: **71 Teacher Credits**.
-- **Costo Real API para Academia X**: ~$0.0118 USD.
+- **Costo Real API para Mentor Studio Global**: ~$0.0118 USD.
 
 ---
 
@@ -163,7 +163,7 @@ No debe asumirse que `COURSE_GENERATION` representa la creación de un curso com
 
 ---
 
-## 12. Coste Real Estimado para Academia X
+## 12. Coste Real Estimado para Mentor Studio Global
 
 Resumen de costos directos de API cobrados por el proveedor de IA por plan bajo consumo total:
 
@@ -249,7 +249,7 @@ Se recomienda implementar un patrón de **Reversión Atómica (Compensating Tran
 
 ## 19. Recomendación de Catálogo Futuro (Propuesta de Diseño — NO IMPLEMENTADO)
 
-| Operación | Costo Actual | Costo Recomendado | Justificación Técnica | Impacto en Usuario | Impacto en Costo Academia X |
+| Operación | Costo Actual | Costo Recomendado | Justificación Técnica | Impacto en Usuario | Impacto en Costo Mentor Studio Global |
 |---|---|---|---|---|---|
 | `COURSE_GENERATION` | 5 | **5** | Adecuado. Genera mapa mental y estructura completa de módulos. | Ninguno | Neutro |
 | `LESSON_GENERATION` | 2 | **2** | Precio justo por lección con 3 bloques pedagógicos complejos. | Ninguno | Neutro |
@@ -298,7 +298,7 @@ Se recomienda implementar un patrón de **Reversión Atómica (Compensating Tran
 
 ## 24. Conclusión
 
-La arquitectura de AI Credits de Academia X es **altamente rentable, robusta y escalable**. Preserva un margen bruto de IA superior al **99.6%**, protege el sistema mediante idempotencia y aislamiento atómico, y ofrece un modelo de abstracción claro y sostenible para el negocio.
+La arquitectura de AI Credits de Mentor Studio Global es **altamente rentable, robusta y escalable**. Preserva un margen bruto de IA superior al **99.6%**, protege el sistema mediante idempotencia y aislamiento atómico, y ofrece un modelo de abstracción claro y sostenible para el negocio.
 
 ---
 

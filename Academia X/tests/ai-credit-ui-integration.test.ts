@@ -64,7 +64,9 @@ describe("AI Credit UI & Dashboard Integration — Step 4.4.5", () => {
   });
 
   it("2. getAICreditSummaryAction ejecuta la acción del servidor y retorna estructura consistente", async () => {
-    await loginAs(tenantAId, userAId);
+    // loginAs crea una suscripción PRO por defecto; aquí el resto del archivo trabaja
+    // sobre STARTER, así que se fija el plan para que la cuota devuelta sea la esperada.
+    await loginAs(tenantAId, userAId, { ensurePlan: "STARTER" });
     const res = await getAICreditSummaryAction(tenantAId);
 
     expect(res.success).toBe(true);

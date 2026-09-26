@@ -358,10 +358,10 @@ describe("AI Credit Administration, Monitoring & Economic Observability — Step
   it("15. Confirma que PLAN_AI_CREDIT_CONFIG mantiene las cuotas oficiales autoritativas ($29/$79/$199)", () => {
     expect(PLAN_AI_CREDIT_CONFIG.STARTER.teacherAllowance).toBe(150);
     expect(PLAN_AI_CREDIT_CONFIG.STARTER.studentAllowance).toBe(0);
-    expect(PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance).toBe(600);
-    expect(PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance).toBe(200);
-    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance).toBe(2000);
-    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance).toBe(800);
+    expect(PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance).toBe(800);
+    expect(PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance).toBe(0);
+    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance).toBe(2800);
+    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance).toBe(0);
   });
 
   // 16. No modificación del Top-Up Catalog

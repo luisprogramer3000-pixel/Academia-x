@@ -192,7 +192,7 @@ export class AIService {
       if (!existingTenant) {
         existingTenant = await prisma.tenant.create({
           data: {
-            name: "Academia X Central",
+            name: "Mentor Studio Global Central",
             slug: "central",
             language: "es",
             primaryColor: "#3B82F6",
@@ -216,7 +216,7 @@ export class AIService {
       if (!existingUser) {
         existingUser = await prisma.user.create({
           data: {
-            email: "admin@academiax.com",
+            email: "admin@mentorstudioglobal.com",
             name: "Super Admin",
             globalRole: "SUPER_ADMIN",
           },

@@ -69,12 +69,12 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
     name: "Professional VIP",
     price: 79,
     currency: "USD",
-    maxStudents: 500,
+    maxStudents: 1000,
     maxTeachers: 3,
     aiCreditsPerMonth: PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance + PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance,
     teacherCredits: PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance,
     studentCredits: PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance,
-    features: ["Hasta 500 estudiantes", "Hasta 3 profesores", "600 Cr. Profesor + 200 Cr. Estudiante IA / mes", "Branding completo", "Certificados verificables"],
+    features: ["Hasta 1000 estudiantes", "Hasta 3 profesores", "800 Créditos Profesor IA / mes", "Branding completo", "Certificados verificables"],
     capabilities: { customBranding: true, customDomain: false, advancedAnalytics: false },
     pricing: {
       MONTHLY: {
@@ -103,7 +103,7 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
     aiCreditsPerMonth: PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance + PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance,
     teacherCredits: PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance,
     studentCredits: PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance,
-    features: ["Hasta 5,000 estudiantes", "Hasta 15 profesores", "Dominio personalizado", "2,000 Cr. Profesor + 800 Cr. Estudiante IA / mes", "Analíticas avanzadas"],
+    features: ["Hasta 5,000 estudiantes", "Hasta 15 profesores", "Dominio personalizado", "2,800 Créditos Profesor IA / mes", "Analíticas avanzadas", "Soporte Prioritario VIP"],
     capabilities: { customBranding: true, customDomain: true, advancedAnalytics: true },
     pricing: {
       MONTHLY: {

@@ -16,6 +16,7 @@ const generateCourseAISchema = z.object({
   language: z.string().default("es"),
   audience: z.string().optional(),
   modulesCount: z.coerce.number().min(1).max(10).default(3),
+  countryStandard: z.string().optional(),
   idempotencyKey: z.string().optional(),
 });
 
@@ -66,6 +67,7 @@ export async function generateCourseAIAction(formData: FormData) {
       language: (formData.get("language") as string) || "es",
       audience: (formData.get("audience") as string) || undefined,
       modulesCount: formData.get("modulesCount") ? Number(formData.get("modulesCount")) : undefined,
+      countryStandard: (formData.get("countryStandard") as string) || undefined,
       idempotencyKey: rawIdempotencyKey || crypto.randomUUID(),
     };
 

@@ -81,12 +81,12 @@ describe("AI Credit Economic Decision Gate — PASO 4.4.3.1", () => {
     expect(starterConfig.studentAllowance).toBe(0);
 
     const proConfig = getPlanAIConfig("PRO");
-    expect(proConfig.teacherAllowance).toBe(600);
-    expect(proConfig.studentAllowance).toBe(200);
+    expect(proConfig.teacherAllowance).toBe(800);
+    expect(proConfig.studentAllowance).toBe(0);
 
     const academyConfig = getPlanAIConfig("ACADEMY");
-    expect(academyConfig.teacherAllowance).toBe(2000);
-    expect(academyConfig.studentAllowance).toBe(800);
+    expect(academyConfig.teacherAllowance).toBe(2800);
+    expect(academyConfig.studentAllowance).toBe(0);
   });
 
   // 5. Cálculos de escenarios (Eficiente = 17, Normal = 31, Intensivo = 71)
@@ -153,10 +153,10 @@ describe("AI Credit Economic Decision Gate — PASO 4.4.3.1", () => {
     expect(getMaxStudentRollover("STARTER")).toBe(0);
 
     expect(getMaxTeacherRollover("PRO")).toBe(100);
-    expect(getMaxStudentRollover("PRO")).toBe(50);
+    expect(getMaxStudentRollover("PRO")).toBe(0);
 
     expect(getMaxTeacherRollover("ACADEMY")).toBe(300);
-    expect(getMaxStudentRollover("ACADEMY")).toBe(150);
+    expect(getMaxStudentRollover("ACADEMY")).toBe(0);
   });
 
   // 10. Verificación de sincronización de constantes en billing.service.ts frente a ai.config.ts
@@ -182,7 +182,7 @@ describe("AI Credit Economic Decision Gate — PASO 4.4.3.1", () => {
 
   // 12. Cálculos sin saldo negativo
   it("12. Simulación de consumo no produce saldos negativos en wallet", () => {
-    let walletBalance = getMonthlyTeacherAllowance("PRO"); // 600 créditos
+    let walletBalance = getMonthlyTeacherAllowance("PRO"); // 800 créditos
     const escBCost = 31; // Escenario B
 
     let totalCursos = 0;
@@ -192,7 +192,7 @@ describe("AI Credit Economic Decision Gate — PASO 4.4.3.1", () => {
     }
 
     expect(walletBalance).toBeGreaterThanOrEqual(0);
-    expect(totalCursos).toBe(19); // 600 - (19 * 31) = 11 sobrante
-    expect(walletBalance).toBe(11);
+    expect(totalCursos).toBe(25); // 800 - (25 * 31) = 25 sobrante
+    expect(walletBalance).toBe(25);
   });
 });

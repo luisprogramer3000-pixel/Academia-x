@@ -207,7 +207,7 @@ export function AICreditTopUpModal({
         {/* Footer Informativo */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex items-center justify-between text-[11px] text-slate-500">
           <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Transacción segura de prueba (Mock Mode)
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Transacción segura
           </span>
           <span>Facturación instantánea</span>
         </div>

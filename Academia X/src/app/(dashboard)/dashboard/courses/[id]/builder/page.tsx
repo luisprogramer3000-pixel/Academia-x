@@ -6,6 +6,7 @@ import { createModuleAction, createLessonAction, toggleCourseStatusAction } from
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Layers, Plus, BookOpen, Edit, Eye, ArrowLeft, CheckCircle2, Globe, FileText, Sparkles, ShieldCheck, AlertCircle } from "lucide-react";
+import { PdfExportButton } from "@/components/dashboard/PdfExportButton";
 
 interface BuilderPageProps {
   params: Promise<{ id: string }>;
@@ -91,6 +92,7 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
               </div>
 
               <div className="flex items-center gap-3">
+                <PdfExportButton />
                 <form action={toggleCourseStatusAction.bind(null, courseData.id, courseData.status)}>
                   <button
                     type="submit"

@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { Sparkles, ArrowRight, ArrowLeft, School, UserPlus, BookOpen } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function RegisterPage() {
+function RegisterContent() {
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
+  const createAcademyHref = queryString ? `/create-academy?${queryString}` : "/create-academy";
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 selection:bg-blue-500 selection:text-white relative overflow-hidden">
       {/* Background ambient light */}
@@ -13,12 +18,13 @@ export default function RegisterPage() {
         {/* Header Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 group">
+            {/* Provisional hasta que esté el logo definitivo de Mentor Studio Global */}
             <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-xl shadow-blue-500/25 group-hover:scale-105 transition-transform">
-              AX
+              MSG
             </div>
             <div className="text-left">
               <span className="font-bold text-2xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                Academia X
+                Mentor Studio Global
               </span>
               <span className="block text-[10px] text-blue-400 font-mono tracking-widest uppercase">
                 EdTech Platform
@@ -34,14 +40,14 @@ export default function RegisterPage() {
               ¿Cómo deseas comenzar?
             </h1>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Selecciona tu tipo de cuenta para continuar con la configuración en Academia X.
+              Selecciona tu tipo de cuenta para continuar con la configuración en Mentor Studio Global.
             </p>
           </div>
 
           <div className="space-y-4">
             {/* Option 1: Create Academy */}
             <Link
-              href="/create-academy"
+              href={createAcademyHref}
               className="group block p-6 rounded-2xl bg-gradient-to-r from-blue-950/60 to-indigo-950/60 hover:from-blue-900/80 hover:to-indigo-900/80 border border-blue-500/30 hover:border-blue-400 transition-all shadow-xl"
             >
               <div className="flex items-start gap-4">
@@ -103,5 +109,13 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-100">Cargando...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

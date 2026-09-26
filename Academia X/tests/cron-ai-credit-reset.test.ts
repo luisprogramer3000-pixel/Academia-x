@@ -83,7 +83,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
   });
 
   // B. Asignación mensual de créditos según plan
-  it("B. Debe asignar la cuota mensual exacta de créditos según el plan activo (Starter 150/0, Pro 600/200, Academy 2000/800)", async () => {
+  it("B. Debe asignar la cuota mensual exacta de créditos según el plan activo (Starter 150/0, Pro 800/0, Academy 2800/0)", async () => {
     const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // 1. STARTER
@@ -102,8 +102,8 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
       },
     });
     const resetPro = await AICreditEngine.processMonthlyReset(tenantProId, pastDate);
-    expect(resetPro.teacherCredits.newAllowance).toBe(600);
-    expect(resetPro.studentCredits.newAllowance).toBe(200);
+    expect(resetPro.teacherCredits.newAllowance).toBe(800);
+    expect(resetPro.studentCredits.newAllowance).toBe(0);
 
     // 3. ACADEMY
     await prisma.subscription.create({
@@ -116,12 +116,12 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
       },
     });
     const resetAcademy = await AICreditEngine.processMonthlyReset(tenantAcademyId, pastDate);
-    expect(resetAcademy.teacherCredits.newAllowance).toBe(2000);
-    expect(resetAcademy.studentCredits.newAllowance).toBe(800);
+    expect(resetAcademy.teacherCredits.newAllowance).toBe(2800);
+    expect(resetAcademy.studentCredits.newAllowance).toBe(0);
   });
 
   // C. Rollover respetando límites de cada plan
-  it("C. Debe calcular el rollover respetando estrictamente los topes por plan (Starter: 30/0, Pro: 100/50, Academy: 300/150)", async () => {
+  it("C. Debe calcular el rollover respetando estrictamente los topes por plan (Starter: 30/0, Pro: 100/0, Academy: 300/0)", async () => {
     const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // STARTER con 150 créditos restantes -> Rollover máximo = 30
@@ -136,7 +136,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     const resStarter = await AICreditEngine.processMonthlyReset(tenantStarterId, pastDate);
     expect(resStarter.teacherCredits.rolloverGranted).toBe(30);
 
-    // PRO con 600 Teacher y 200 Student restantes -> Rollover máximo = 100 Teacher / 50 Student
+    // PRO con 800 Teacher restantes -> Rollover máximo = 100 Teacher / 0 Student
     await prisma.subscription.create({
       data: {
         tenantId: tenantProId,
@@ -149,18 +149,18 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.aICreditWallet.create({
       data: {
         tenantId: tenantProId,
-        teacherCredits: 600,
-        studentCredits: 200,
-        monthlyTeacherAllowance: 600,
-        monthlyStudentAllowance: 200,
+        teacherCredits: 800,
+        studentCredits: 0,
+        monthlyTeacherAllowance: 800,
+        monthlyStudentAllowance: 0,
         resetAt: pastDate,
       },
     });
     const resPro = await AICreditEngine.processMonthlyReset(tenantProId, pastDate);
     expect(resPro.teacherCredits.rolloverGranted).toBe(100);
-    expect(resPro.studentCredits.rolloverGranted).toBe(50);
+    expect(resPro.studentCredits.rolloverGranted).toBe(0);
 
-    // ACADEMY con 2000 Teacher y 800 Student restantes -> Rollover máximo = 300 Teacher / 150 Student
+    // ACADEMY con 2800 Teacher restantes -> Rollover máximo = 300 Teacher / 0 Student
     await prisma.subscription.create({
       data: {
         tenantId: tenantAcademyId,
@@ -173,16 +173,16 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.aICreditWallet.create({
       data: {
         tenantId: tenantAcademyId,
-        teacherCredits: 2000,
-        studentCredits: 800,
-        monthlyTeacherAllowance: 2000,
-        monthlyStudentAllowance: 800,
+        teacherCredits: 2800,
+        studentCredits: 0,
+        monthlyTeacherAllowance: 2800,
+        monthlyStudentAllowance: 0,
         resetAt: pastDate,
       },
     });
     const resAcademy = await AICreditEngine.processMonthlyReset(tenantAcademyId, pastDate);
     expect(resAcademy.teacherCredits.rolloverGranted).toBe(300);
-    expect(resAcademy.studentCredits.rolloverGranted).toBe(150);
+    expect(resAcademy.studentCredits.rolloverGranted).toBe(0);
   });
 
   // D. Expiración del excedente de rollover
@@ -253,8 +253,8 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
         tenantId: tenantProId,
         teacherCredits: 0,
         studentCredits: 0,
-        monthlyTeacherAllowance: 600,
-        monthlyStudentAllowance: 200,
+        monthlyTeacherAllowance: 800,
+        monthlyStudentAllowance: 0,
         resetAt: pastDate,
       },
     });
@@ -264,8 +264,8 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     expect(summary.processedCount).toBe(1);
 
     const wallet = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantProId } });
-    expect(wallet?.teacherCredits).toBe(600);
-    expect(wallet?.studentCredits).toBe(200);
+    expect(wallet?.teacherCredits).toBe(800);
+    expect(wallet?.studentCredits).toBe(0);
   });
 
   // G & H. Suscripciones YEARLY no reciben 12 meses por adelantado
@@ -289,8 +289,8 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
         tenantId: tenantYearlyId,
         teacherCredits: 0,
         studentCredits: 0,
-        monthlyTeacherAllowance: 600,
-        monthlyStudentAllowance: 200,
+        monthlyTeacherAllowance: 800,
+        monthlyStudentAllowance: 0,
         resetAt: pastDate,
       },
     });
@@ -298,11 +298,11 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     const resetResult = await AICreditEngine.processMonthlyReset(tenantYearlyId, pastDate);
     expect(resetResult.success).toBe(true);
 
-    // Debe otorgar únicamente 600 Teacher / 200 Student (1 mes), NUNCA 7,200 / 2,400
-    expect(resetResult.teacherCredits.newAllowance).toBe(600);
-    expect(resetResult.studentCredits.newAllowance).toBe(200);
-    expect(resetResult.teacherCredits.newTotalAvailable).toBe(600);
-    expect(resetResult.studentCredits.newTotalAvailable).toBe(200);
+    // Debe otorgar únicamente 800 Teacher (1 mes), NUNCA 9,600 de golpe
+    expect(resetResult.teacherCredits.newAllowance).toBe(800);
+    expect(resetResult.studentCredits.newAllowance).toBe(0);
+    expect(resetResult.teacherCredits.newTotalAvailable).toBe(800);
+    expect(resetResult.studentCredits.newTotalAvailable).toBe(0);
   });
 
   // I. Idempotencia ante ejecuciones repetidas

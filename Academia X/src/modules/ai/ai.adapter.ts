@@ -6,6 +6,7 @@ export interface CourseGenParams {
   language: string;
   audience?: string;
   modulesCount?: number;
+  countryStandard?: string;
 }
 
 export interface LessonGenParams {
@@ -182,7 +183,7 @@ export class MockAIAdapter implements AIProviderAdapter {
 
     for (let i = 1; i <= modulesCount; i++) {
       modules.push({
-        title: `Módulo ${i}: Fundamentos de ${params.topic} (${params.level})`,
+        title: `Módulo ${i}: Fundamentos de ${params.topic} (${params.level})${params.countryStandard ? ` - ${params.countryStandard}` : ""}`,
         description: `Unidad práctica enfocada en aplicar ${params.topic} para el nivel ${params.level}.`,
         lessons: [
           {
@@ -423,7 +424,7 @@ export class OpenAIAdapter implements AIProviderAdapter {
 
   async generateCourseStructure(params: CourseGenParams): Promise<CourseStructureOutput> {
     const systemPrompt = `Eres un diseñador curricular experto en plataformas EdTech. Genera una estructura de curso en formato JSON con las claves: "title" (string), "description" (string), "level" (string) y "modules" (array de módulos con "title", "description", y "lessons" (array con "title" y "summary")). Idioma: ${params.language || "es"}.`;
-    const userPrompt = `Tema: ${params.topic}. Nivel: ${params.level}. Módulos a generar: ${params.modulesCount || 3}. Audiencia: ${params.audience || "estudiantes"}.`;
+    const userPrompt = `Tema: ${params.topic}. Nivel: ${params.level}. Módulos a generar: ${params.modulesCount || 3}. Audiencia: ${params.audience || "estudiantes"}.${params.countryStandard ? ` Estándar Educativo: ${params.countryStandard}.` : ""}`;
 
     const result = await this.callChatCompletion([
       { role: "system", content: systemPrompt },

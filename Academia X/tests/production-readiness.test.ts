@@ -140,14 +140,14 @@ describe("Production Readiness & Environment Safety Suite — Step 6.1", () => {
     expect(PLAN_AI_CREDIT_CONFIG.STARTER.teacherAllowance).toBe(150);
     expect(PLAN_AI_CREDIT_CONFIG.STARTER.maxRolloverTeacher).toBe(30);
 
-    expect(PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance).toBe(600);
-    expect(PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance).toBe(200);
+    expect(PLAN_AI_CREDIT_CONFIG.PRO.teacherAllowance).toBe(800);
+    expect(PLAN_AI_CREDIT_CONFIG.PRO.studentAllowance).toBe(0);
     expect(PLAN_AI_CREDIT_CONFIG.PRO.maxRolloverTeacher).toBe(100);
-    expect(PLAN_AI_CREDIT_CONFIG.PRO.maxRolloverStudent).toBe(50);
+    expect(PLAN_AI_CREDIT_CONFIG.PRO.maxRolloverStudent).toBe(0);
 
-    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance).toBe(2000);
-    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance).toBe(800);
+    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.teacherAllowance).toBe(2800);
+    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.studentAllowance).toBe(0);
     expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.maxRolloverTeacher).toBe(300);
-    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.maxRolloverStudent).toBe(150);
+    expect(PLAN_AI_CREDIT_CONFIG.ACADEMY.maxRolloverStudent).toBe(0);
   });
 });

@@ -33,7 +33,7 @@ export function getStripe(): Stripe {
   if (!stripeClient) {
     stripeClient = new Stripe(key, {
       apiVersion: "2025-02-24.acacia",
-      appInfo: { name: "Academia X" },
+      appInfo: { name: "Mentor Studio Global" },
     });
   }
   return stripeClient;

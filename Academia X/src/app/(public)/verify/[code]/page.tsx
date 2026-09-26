@@ -14,10 +14,12 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
   const certData = certificate
     ? {
         code: certificate.code,
+        cryptoHash: certificate.cryptoHash,
         studentName: certificate.user.name || certificate.user.email,
         courseTitle: certificate.course.title,
         courseLevel: certificate.course.level,
         academyName: certificate.tenant.name,
+        logoUrl: certificate.tenant.logoUrl,
         primaryColor: certificate.tenant.primaryColor || "#2563eb",
         issuedAt: new Date(certificate.issuedAt).toLocaleDateString("es-ES", {
           year: "numeric",
@@ -39,7 +41,7 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
             El código de verificación <code className="text-red-400 font-mono font-bold">{code}</code> no coincide con ningún registro emitido en el sistema.
           </p>
           <Link href="/" className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold transition-colors">
-            Volver a Academia X
+            Volver a Mentor Studio Global
           </Link>
         </div>
       </div>
@@ -67,12 +69,16 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
           {/* Academy Header */}
           <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md"
-                style={{ backgroundColor: certData.primaryColor }}
-              >
-                {certData.academyName.slice(0, 2).toUpperCase()}
-              </div>
+              {certData.logoUrl ? (
+                <img src={certData.logoUrl} alt={certData.academyName} className="w-10 h-10 rounded-xl object-cover shadow-md" />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md"
+                  style={{ backgroundColor: certData.primaryColor }}
+                >
+                  {certData.academyName.slice(0, 2).toUpperCase()}
+                </div>
+              )}
               <div>
                 <h2 className="font-bold text-white text-base">{certData.academyName}</h2>
                 <span className="text-xs text-blue-400 font-mono">Institución Emisora Acreditada</span>
@@ -110,14 +116,24 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
               <Calendar className="w-4 h-4 text-slate-500" /> Fecha de Emisión: {certData.issuedAt}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <Globe className="w-4 h-4 text-emerald-400" /> Hash de Verificación Auténtico
-            </div>
+            {certData.cryptoHash ? (
+              <div className="flex items-center gap-1.5 text-amber-400 group relative">
+                <ShieldCheck className="w-4 h-4" /> Certificado Premium Verificado
+                <div className="absolute bottom-full right-0 sm:left-1/2 sm:-translate-x-1/2 mb-2 w-max max-w-[250px] p-2 bg-slate-900 text-[10px] rounded-lg border border-slate-700 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl">
+                  <span className="block text-slate-400 mb-1">Firma Criptográfica SHA-256:</span>
+                  <span className="break-all font-mono text-slate-300">{certData.cryptoHash}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-emerald-400" /> Verificación Estándar
+              </div>
+            )}
           </div>
         </div>
 
         <div className="text-center mt-6 text-xs text-slate-500">
-          Validado oficialmente por <Link href="/" className="text-slate-400 hover:text-white underline">Academia X Platform Engine</Link>.
+          Validado oficialmente por <Link href="/" className="text-slate-400 hover:text-white underline">Mentor Studio Global Platform Engine</Link>.
         </div>
       </div>
     </div>

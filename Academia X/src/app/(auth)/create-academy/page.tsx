@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createAcademyAction } from "@/app/actions/academy.actions";
 import { Sparkles, ArrowRight, ArrowLeft, CheckCircle2, School, Palette, AlertCircle } from "lucide-react";
@@ -9,8 +9,9 @@ import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
 
-export default function CreateAcademyPage() {
+function CreateAcademyContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +108,8 @@ export default function CreateAcademyPage() {
       const res = await createAcademyAction(body);
 
       if (res.success && res.data) {
-        router.push("/dashboard/billing?welcome=1");
+        const queryString = searchParams.toString();
+        router.push(`/dashboard/billing?welcome=1${queryString ? `&${queryString}` : ""}`);
       } else {
         setError(res.error || "Ocurrió un error al crear la academia");
         setLoading(false);
@@ -135,7 +137,7 @@ export default function CreateAcademyPage() {
             <NLogoBadge size="md" />
             <div className="text-left">
               <span className="font-extrabold text-2xl tracking-tight gold-gradient-text">
-                Academia X
+                Mentor Studio Global
               </span>
               <span className="block text-[10px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
                 Executive EdTech Suite
@@ -250,7 +252,7 @@ export default function CreateAcademyPage() {
                     URL / Subdominio *
                   </label>
                   <div className="flex items-center rounded-xl glass-panel border border-slate-300 dark:border-slate-700 overflow-hidden px-4 py-3 focus-within:border-amber-500 transition-colors">
-                    <span className="text-slate-500 dark:text-slate-400 text-sm font-mono mr-1">academiax.com/a/</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-sm font-mono mr-1">mentorstudioglobal.com/a/</span>
                     <input
                       type="text"
                       name="slug"
@@ -420,5 +422,13 @@ export default function CreateAcademyPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CreateAcademyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen text-slate-900 dark:text-slate-100 flex items-center justify-center">Cargando...</div>}>
+      <CreateAcademyContent />
+    </Suspense>
   );
 }

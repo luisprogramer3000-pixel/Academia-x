@@ -1,5 +1,5 @@
 # PRODUCT REQUIREMENTS DOCUMENT (PRD)
-## Virtual Language School in a Box (Academia X)
+## Virtual Language School in a Box (Mentor Studio Global)
 
 ### 1. Visión del Producto
 "Shopify para profesores y pequeñas academias de idiomas."

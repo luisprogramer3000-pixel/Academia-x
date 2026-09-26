@@ -57,16 +57,16 @@ describe("AI Credit Economic Model — Validation & Simulations", () => {
       expect(starter.maxRolloverTeacher).toBe(30);
 
       const pro = getPlanAIConfig("PRO");
-      expect(pro.teacherAllowance).toBe(600);
-      expect(pro.studentAllowance).toBe(200);
+      expect(pro.teacherAllowance).toBe(800);
+      expect(pro.studentAllowance).toBe(0);
       expect(pro.maxRolloverTeacher).toBe(100);
-      expect(pro.maxRolloverStudent).toBe(50);
+      expect(pro.maxRolloverStudent).toBe(0);
 
       const academy = getPlanAIConfig("ACADEMY");
-      expect(academy.teacherAllowance).toBe(2000);
-      expect(academy.studentAllowance).toBe(800);
+      expect(academy.teacherAllowance).toBe(2800);
+      expect(academy.studentAllowance).toBe(0);
       expect(academy.maxRolloverTeacher).toBe(300);
-      expect(academy.maxRolloverStudent).toBe(150);
+      expect(academy.maxRolloverStudent).toBe(0);
     });
   });
 
@@ -90,12 +90,12 @@ describe("AI Credit Economic Model — Validation & Simulations", () => {
       const fullCourseCost = 54;
 
       const starterCapacity = 150 / fullCourseCost;
-      const proCapacity = 600 / fullCourseCost;
-      const academyCapacity = 2000 / fullCourseCost;
+      const proCapacity = 800 / fullCourseCost;
+      const academyCapacity = 2800 / fullCourseCost;
 
       expect(starterCapacity).toBeCloseTo(2.77, 1);
-      expect(proCapacity).toBeCloseTo(11.11, 1);
-      expect(academyCapacity).toBeCloseTo(37.03, 1);
+      expect(proCapacity).toBeCloseTo(14.81, 1);
+      expect(academyCapacity).toBeCloseTo(51.85, 1);
     });
   });
 
@@ -112,36 +112,30 @@ describe("AI Credit Economic Model — Validation & Simulations", () => {
       expect(totalUsed).toBe(starterAllowance);
     });
 
-    it("Plan PRO (600 cr Teacher / 200 cr Student): Permite múltiples cursos y 200 interacciones de alumnos", () => {
-      const proTeacherAllowance = 600;
-      const proStudentAllowance = 200;
+    it("Plan PRO (800 cr Teacher): Permite múltiples cursos completos y material extra", () => {
+      const proTeacherAllowance = 800;
 
-      // 10 Cursos completos (540 cr) + 3 Landings extra (24 cr) + 20 Regeneraciones de lecciones (20 cr) + 16 Actividades extra (16 cr) = 600 cr
-      const tenCourses = 10 * 54; // 540
-      const threeLandings = 3 * 8; // 24
-      const twentyRegens = 20 * 1; // 20
-      const extraActivities = 16 * 1; // 16
+      // 14 Cursos completos (756 cr) + 4 Landings extra (32 cr) + 12 Regeneraciones de lecciones (12 cr) = 800 cr
+      const fourteenCourses = 14 * 54; // 756
+      const fourLandings = 4 * 8; // 32
+      const twelveRegens = 12 * 1; // 12
 
-      expect(tenCourses + threeLandings + twentyRegens + extraActivities).toBe(proTeacherAllowance);
+      expect(fourteenCourses + fourLandings + twelveRegens).toBe(proTeacherAllowance);
 
-      // Bolsa de Alumnos: 200 tutorías o retroalimentaciones
-      const studentTutorUses = 100 * getOperationCreditCost(AIOperation.AI_TUTOR); // 100
-      const studentFeedbackUses = 100 * getOperationCreditCost(AIOperation.AI_FEEDBACK); // 100
-      expect(studentTutorUses + studentFeedbackUses).toBe(proStudentAllowance);
+      // Los alumnos ya no tienen bolsa propia de créditos en ningún plan
+      expect(getPlanAIConfig("PRO").studentAllowance).toBe(0);
     });
 
-    it("Plan ACADEMY (2,000 cr Teacher / 800 cr Student): Permite producción masiva", () => {
-      const academyTeacher = 2000;
-      const academyStudent = 800;
+    it("Plan ACADEMY (2,800 cr Teacher): Permite producción masiva", () => {
+      const academyTeacher = 2800;
 
-      const coursesCount = Math.floor(academyTeacher / 54); // 37 cursos completos
-      const remainingCredits = academyTeacher - coursesCount * 54; // 2000 - 1998 = 2 cr
+      const coursesCount = Math.floor(academyTeacher / 54); // 51 cursos completos
+      const remainingCredits = academyTeacher - coursesCount * 54; // 2800 - 2754 = 46 cr
 
-      expect(coursesCount).toBe(37);
-      expect(remainingCredits).toBe(2);
+      expect(coursesCount).toBe(51);
+      expect(remainingCredits).toBe(46);
 
-      const studentInteractions = 800 * getOperationCreditCost(AIOperation.AI_TUTOR);
-      expect(studentInteractions).toBe(academyStudent);
+      expect(getPlanAIConfig("ACADEMY").studentAllowance).toBe(0);
     });
   });
 

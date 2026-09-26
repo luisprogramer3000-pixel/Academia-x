@@ -101,7 +101,7 @@ export interface SystemAnomaly {
 /**
  * AICreditAdminService
  * Servicio administrativo para la observabilidad, monitoreo, auditoría y métricas avanzadas
- * de la economía de créditos de IA en Academia X.
+ * de la economía de créditos de IA en Mentor Studio Global.
  */
 export class AICreditAdminService {
   /**

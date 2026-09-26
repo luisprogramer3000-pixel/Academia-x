@@ -24,7 +24,7 @@ import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
 import { LandingPricing } from "@/components/landing/LandingPricing";
 
-// Landing page for Academia X EdTech Platform - Adaptative VIP Executive Style
+// Landing page for Mentor Studio Global EdTech Platform - Adaptative VIP Executive Style
 export default function Home() {
   return (
     <div className="min-h-screen relative text-main selection:bg-amber-500 selection:text-slate-950 font-sans transition-colors duration-300">
@@ -36,12 +36,12 @@ export default function Home() {
         {/* Header / Navbar */}
         <header className="sticky top-0 z-50 backdrop-blur-xl glass-panel border-b border-amber-500/30 transition-colors duration-300 shadow-sm">
           <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            {/* Logo area featuring AX + Stylized N Effect */}
+            {/* Logo de Mentor Studio Global (placeholder hasta recibir el definitivo) */}
             <div className="flex items-center gap-3">
               <NLogoBadge size="md" />
               <div>
                 <span className="font-extrabold text-xl tracking-tight gold-gradient-text block">
-                  Academia X
+                  Mentor Studio Global
                 </span>
                 <span className="block text-[10px] text-sky-custom font-mono tracking-widest uppercase font-semibold">
                   Executive EdTech Suite
@@ -137,7 +137,7 @@ export default function Home() {
                     href="/create-academy"
                     className="px-8 py-4 rounded-xl gold-gradient-bg font-bold text-base transition-all flex items-center justify-center gap-3 group shadow-xl shadow-amber-500/25"
                   >
-                    Comenzar Mi Academia Gratis
+                    Comenzar Mi Academia
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                   <Link
@@ -175,7 +175,7 @@ export default function Home() {
                   <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-2xl">
                     <Image
                       src="/images/teachers-hero.jpg"
-                      alt="Profesores realizando clases en plataforma Academia X"
+                      alt="Profesores realizando clases en plataforma Mentor Studio Global"
                       fill
                       priority
                       className="object-contain transition-transform duration-700 hover:scale-105"
@@ -194,7 +194,7 @@ export default function Home() {
                         +1,200 Estudiantes
                       </div>
                       <div className="text-[11px] text-gold-custom font-bold">
-                        Conectados en Vivo
+                        Comunidad Activa
                       </div>
                     </div>
                   </div>
@@ -230,7 +230,7 @@ export default function Home() {
                 Todo lo que necesitas para escalar tu enseñanza con prestigio
               </h2>
               <p className="text-muted-custom text-base font-medium">
-                Consolida tu presencia digital sin fragmentación. Elimina cobros paralelos, plataformas lentas y hojas de cálculo.
+                Consolida tu presencia digital sin fragmentación. Olvídate de plataformas lentas y hojas de cálculo.
               </p>
             </div>
 
@@ -245,7 +245,7 @@ export default function Home() {
                     LMS Modular & Cursos Premium
                   </h3>
                   <p className="text-muted-custom leading-relaxed text-sm font-medium">
-                    Estructura módulos interactivos, recursos multimedia, ejercicios avanzados y contenido descargable de alta fidelidad.
+                    Estructura módulos interactivos, recursos multimedia, ejercicios avanzados y enlaces a material complementario.
                   </p>
                 </div>
                 <div className="pt-6 mt-6 border-t border-amber-500/20 flex items-center justify-between text-xs text-gold-custom font-mono font-bold">
@@ -308,7 +308,7 @@ export default function Home() {
                   Genera Cursos Completo en Minutos alineados al Marco MCER
                 </h2>
                 <p className="text-muted-custom leading-relaxed font-medium">
-                  Nuestra Inteligencia Artificial comprende las metodologías de enseñanza de idiomas y creación de cursos profesionales. Te ayuda a redactar objetivos de aprendizaje, guiones de lección, quizes adaptativos y evaluaciones por rubricas automáticamente.
+                  Nuestra Inteligencia Artificial comprende las metodologías de enseñanza de idiomas y creación de cursos profesionales. Te ayuda a redactar objetivos de aprendizaje, guiones de lección y quizes adaptativos automáticamente.
                 </p>
 
                 <div className="space-y-4 pt-2">
@@ -347,7 +347,7 @@ export default function Home() {
                         <Bot className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-main">Academia X AI Copilot</div>
+                        <div className="text-xs font-bold text-main">Mentor Studio Global AI Copilot</div>
                         <div className="text-[10px] text-emerald-custom font-semibold flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                           Listo para asistir
@@ -417,11 +417,11 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <NLogoBadge size="sm" />
-              <span className="font-bold gold-gradient-text">Academia X</span>
+              <span className="font-bold gold-gradient-text">Mentor Studio Global</span>
               <span className="text-xs text-subtle-custom">| VIP EdTech Platform</span>
             </div>
             <p className="text-xs text-subtle-custom font-medium">
-              © 2026 Academia X — Virtual Language & Knowledge Suite. Todos los derechos reservados.
+              © 2026 Mentor Studio Global — Virtual Language & Knowledge Suite. Todos los derechos reservados.
             </p>
           </div>
         </footer>

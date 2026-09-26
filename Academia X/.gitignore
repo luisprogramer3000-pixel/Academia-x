@@ -39,3 +39,6 @@ next-env.d.ts
 *.njsproj
 *.sln
 *.sw?
+
+# user uploads (runtime, no versionar)
+/public/uploads/

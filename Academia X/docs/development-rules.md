@@ -8,3 +8,4 @@
 4. **Strong Types (TypeScript)**: Cero `any` explícito en el código.
 5. **Componentes Pequeños y Enfocados**: Separación de componentes UI de la lógica de negocio Server Side.
 6. **Integridad de Tests**: No dar por terminada una fase sin pasar los tests unitarios y de integración de esa fase.
+7. **Los tests NUNCA se ejecutan contra la base de datos real**: varios archivos limpian su estado con `deleteMany({})` sin filtro, es decir, vacían tablas completas (`Tenant`, `User`, `Subscription`, wallets...). Correr la suite contra producción borra todas las academias, usuarios y suscripciones. `tests/setup.ts` incluye un guardia que bloquea la ejecución salvo que `DATABASE_URL` apunte a una base local o con `test` en el nombre; ese guardia no se elimina ni se sortea con `ALLOW_DESTRUCTIVE_TESTS` sobre una base con datos que importen.

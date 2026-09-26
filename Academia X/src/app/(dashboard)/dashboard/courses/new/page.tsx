@@ -89,6 +89,30 @@ export default async function NewCoursePage() {
                 </div>
               </div>
 
+              <div className="grid sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Método de Cobro</label>
+                  <select
+                    name="paymentType"
+                    defaultValue="EXTERNAL"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  >
+                    <option value="EXTERNAL">Enlace Externo (Manual)</option>
+                    <option value="STRIPE_CONNECT">Stripe Integrado (Próximamente)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Link de Pago (Si es Externo)</label>
+                  <input
+                    type="url"
+                    name="paymentLink"
+                    placeholder="https://paypal.me/... o link de Stripe"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+
               <div className="pt-6 border-t border-slate-800 flex justify-end">
                 <button
                   type="submit"

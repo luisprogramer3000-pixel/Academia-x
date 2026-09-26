@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateBrandingAction } from "@/app/actions/academy.actions";
+import { uploadLogoAction } from "@/app/actions/upload.actions";
 import { Save, CheckCircle2, AlertCircle, Sparkles, Globe } from "lucide-react";
 
 interface BrandingSettingsFormProps {
@@ -25,6 +26,7 @@ export function BrandingSettingsForm({
   const [primaryColor, setPrimaryColor] = useState(initialPrimaryColor || "#3B82F6");
   const [secondaryColor, setSecondaryColor] = useState(initialSecondaryColor || "#1E293B");
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -34,12 +36,25 @@ export function BrandingSettingsForm({
     setSaving(true);
     setMessage(null);
 
+    let finalLogoUrl = logoUrl;
+    if (logoFile) {
+      const fileData = new FormData();
+      fileData.append("file", logoFile);
+      const uploadRes = await uploadLogoAction(fileData);
+      if (!uploadRes.success) {
+        setMessage({ type: "error", text: uploadRes.error || "Error al subir logo." });
+        setSaving(false);
+        return;
+      }
+      finalLogoUrl = uploadRes.logoUrl || logoUrl;
+    }
+
     const formData = new FormData();
     formData.append("tenantId", tenantId);
     formData.append("name", name);
     formData.append("primaryColor", primaryColor);
     formData.append("secondaryColor", secondaryColor);
-    formData.append("logoUrl", logoUrl);
+    formData.append("logoUrl", finalLogoUrl);
 
     const res = await updateBrandingAction(formData);
 
@@ -89,16 +104,24 @@ export function BrandingSettingsForm({
 
         <div>
           <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-            URL del Logo (Opcional)
+            Logo de la Academia (Imagen)
           </label>
-          <input
-            type="url"
-            name="logoUrl"
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://ejemplo.com/logo.png"
-            className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors text-sm font-medium"
-          />
+          <div className="flex items-center gap-4">
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-xl object-cover bg-slate-950 border border-slate-800" />
+            )}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  setLogoFile(e.target.files[0]);
+                  setLogoUrl(URL.createObjectURL(e.target.files[0]));
+                }
+              }}
+              className="flex-1 px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 focus:outline-none focus:border-blue-500 transition-colors text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+            />
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">
@@ -155,16 +178,20 @@ export function BrandingSettingsForm({
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md text-base"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {name ? name.slice(0, 2).toUpperCase() : "AX"}
-                </div>
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md text-base"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {name ? name.slice(0, 2).toUpperCase() : "MS"}
+                  </div>
+                )}
                 <div>
                   <h4 className="font-bold text-white text-base leading-tight">{name || "Tu Academia"}</h4>
                   <span className="text-xs text-blue-400 flex items-center gap-1 font-mono">
-                    <Globe className="w-3 h-3" /> {slug || "mi-escuela"}.academiax.com
+                    <Globe className="w-3 h-3" /> {slug || "mi-escuela"}.mentorstudioglobal.com
                   </span>
                 </div>
               </div>

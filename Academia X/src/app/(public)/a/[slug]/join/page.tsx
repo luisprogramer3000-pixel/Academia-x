@@ -127,7 +127,7 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
                 placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500"
               />
-              <p className="mt-2 text-[11px] text-slate-500">¿Ya tienes cuenta en Academia X? Usa tu contraseña actual.</p>
+              <p className="mt-2 text-[11px] text-slate-500">¿Ya tienes cuenta en Mentor Studio Global? Usa tu contraseña actual.</p>
             </div>
 
             <button
@@ -150,7 +150,7 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
 
       {/* Footer */}
       <footer className="text-center text-xs text-slate-500 py-4">
-        Powered by <span className="font-bold text-slate-400">Academia X</span>
+        Powered by <span className="font-bold text-slate-400">Mentor Studio Global</span>
       </footer>
     </div>
   );

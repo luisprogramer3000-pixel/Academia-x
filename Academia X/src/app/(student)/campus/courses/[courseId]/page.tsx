@@ -43,7 +43,7 @@ export default async function CampusCoursePage({ params }: CampusCoursePageProps
       modules={course.modules.map((m) => ({
         id: m.id,
         title: m.title,
-        lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, content: l.content })),
+        lessons: m.lessons.map((l) => ({ id: l.id, title: l.title, content: l.content, liveUrl: l.liveUrl })),
       }))}
       completedLessonIds={progress.completedLessonIds}
       mode="student"

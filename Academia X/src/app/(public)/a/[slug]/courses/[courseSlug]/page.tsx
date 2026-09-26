@@ -12,8 +12,8 @@ export async function generateMetadata({ params }: PublicCourseViewProps): Promi
   const dbCourse = await CourseService.getPublicCourseBySlug(slug, courseSlug);
 
   return {
-    title: dbCourse ? `${dbCourse.title} — ${dbCourse.tenant.name}` : "Curso no encontrado | Academia X",
-    description: dbCourse?.description || "Aprende idiomas de forma estructurada e interactiva en Academia X.",
+    title: dbCourse ? `${dbCourse.title} — ${dbCourse.tenant.name}` : "Curso no encontrado | Mentor Studio Global",
+    description: dbCourse?.description || "Aprende idiomas de forma estructurada e interactiva en Mentor Studio Global.",
   };
 }
 
@@ -39,7 +39,7 @@ export default async function PublicCourseViewerPage({ params }: PublicCourseVie
         blocks: [{ id: "locked", type: "text", content: "🔒 Esta lección está disponible para alumnos inscritos." }],
       });
       isFirstLesson = false;
-      return { id: l.id, title: l.title, content };
+      return { id: l.id, title: l.title, content, liveUrl: l.liveUrl };
     }),
   }));
 

@@ -137,11 +137,11 @@ describe("AI Credit Economic Architecture Audit — PASO 4.4.3", () => {
     expect(getMonthlyTeacherAllowance("STARTER")).toBe(150);
     expect(getMonthlyStudentAllowance("STARTER")).toBe(0);
 
-    expect(getMonthlyTeacherAllowance("PRO")).toBe(600);
-    expect(getMonthlyStudentAllowance("PRO")).toBe(200);
+    expect(getMonthlyTeacherAllowance("PRO")).toBe(800);
+    expect(getMonthlyStudentAllowance("PRO")).toBe(0);
 
-    expect(getMonthlyTeacherAllowance("ACADEMY")).toBe(2000);
-    expect(getMonthlyStudentAllowance("ACADEMY")).toBe(800);
+    expect(getMonthlyTeacherAllowance("ACADEMY")).toBe(2800);
+    expect(getMonthlyStudentAllowance("ACADEMY")).toBe(0);
   });
 
   // 9. Rollover correctamente considerado
@@ -150,10 +150,10 @@ describe("AI Credit Economic Architecture Audit — PASO 4.4.3", () => {
     expect(getMaxStudentRollover("STARTER")).toBe(0);
 
     expect(getMaxTeacherRollover("PRO")).toBe(100);
-    expect(getMaxStudentRollover("PRO")).toBe(50);
+    expect(getMaxStudentRollover("PRO")).toBe(0);
 
     expect(getMaxTeacherRollover("ACADEMY")).toBe(300);
-    expect(getMaxStudentRollover("ACADEMY")).toBe(150);
+    expect(getMaxStudentRollover("ACADEMY")).toBe(0);
   });
 
   // 10. Límites diarios/mensuales

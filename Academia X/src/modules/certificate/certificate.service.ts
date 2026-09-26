@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { cryptoNativeToken } from "@/lib/utils";
+import crypto from "crypto";
 
 export interface IssueCertificateInput {
   tenantId: string;
@@ -34,12 +35,26 @@ export class CertificateService {
       code = this.generateCertificateCode();
     }
 
+    const subscription = await prisma.subscription.findFirst({
+      where: { tenantId: input.tenantId, status: "active" },
+    });
+    
+    // PRO or ACADEMY are premium plans
+    const isPremium = subscription?.planId === "PRO" || subscription?.planId === "ACADEMY";
+
+    let cryptoHash = null;
+    if (isPremium) {
+      const payload = `${input.tenantId}-${input.userId}-${input.courseId}-${Date.now()}-${code}`;
+      cryptoHash = crypto.createHash("sha256").update(payload).digest("hex");
+    }
+
     return prisma.certificate.create({
       data: {
         tenantId: input.tenantId,
         userId: input.userId,
         courseId: input.courseId,
         code,
+        cryptoHash,
       },
       include: {
         course: true,

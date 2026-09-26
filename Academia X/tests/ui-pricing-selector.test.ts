@@ -121,10 +121,10 @@ describe("Frontend Pricing Selector Logic & UI Presentation Suite", () => {
     expect(SAAS_PLANS.STARTER.teacherCredits).toBe(150);
     expect(SAAS_PLANS.STARTER.studentCredits).toBe(0);
 
-    expect(SAAS_PLANS.PRO.teacherCredits).toBe(600);
-    expect(SAAS_PLANS.PRO.studentCredits).toBe(200);
+    expect(SAAS_PLANS.PRO.teacherCredits).toBe(800);
+    expect(SAAS_PLANS.PRO.studentCredits).toBe(0);
 
-    expect(SAAS_PLANS.ACADEMY.teacherCredits).toBe(2000);
-    expect(SAAS_PLANS.ACADEMY.studentCredits).toBe(800);
+    expect(SAAS_PLANS.ACADEMY.teacherCredits).toBe(2800);
+    expect(SAAS_PLANS.ACADEMY.studentCredits).toBe(0);
   });
 });

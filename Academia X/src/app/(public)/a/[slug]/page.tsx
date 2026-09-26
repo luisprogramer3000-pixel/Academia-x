@@ -13,10 +13,10 @@ export async function generateMetadata({ params }: TenantPageProps): Promise<Met
   const { slug } = await params;
   const dbAcademy = await AcademyService.getAcademyBySlug(slug);
 
-  const title = dbAcademy ? `${dbAcademy.name} — Cursos de Idiomas` : "Academia de Idiomas | Academia X";
+  const title = dbAcademy ? `${dbAcademy.name} — Cursos de Idiomas` : "Academia de Idiomas | Mentor Studio Global";
   const description = dbAcademy
     ? `Página oficial de ${dbAcademy.name}. Explora la oferta académica de cursos interactivos de idiomas.`
-    : "Aprende idiomas con profesores expertos e Inteligencia Artificial en Academia X.";
+    : "Aprende idiomas con profesores expertos e Inteligencia Artificial en Mentor Studio Global.";
 
   return {
     title,
@@ -57,7 +57,7 @@ export default async function TenantPublicPage({ params }: TenantPageProps) {
       price: Number(c.priceAmount) > 0 ? `$${c.priceAmount.toString()} ${c.currency}` : "Gratis",
     })),
   };
-  const appHost = process.env.NEXT_PUBLIC_APP_HOST || "academiax.com";
+  const appHost = process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">

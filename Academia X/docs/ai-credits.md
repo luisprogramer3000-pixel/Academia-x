@@ -1,8 +1,8 @@
-# Academia X — AI Credits Technical Documentation
+# Mentor Studio Global — AI Credits Technical Documentation
 
 ## Overview
 
-Academia X utiliza una unidad comercial llamada **AI Credits** para abstraer los costes variables de tokens de los Grandes Modelos de Lenguaje (LLM) subyacentes.
+Mentor Studio Global utiliza una unidad comercial llamada **AI Credits** para abstraer los costes variables de tokens de los Grandes Modelos de Lenguaje (LLM) subyacentes.
 
 - **AI Credits**: Unidad comercial fija asignada por plan y descontada por operación.
 - **Tokens de IA**: Métrica técnica interna registrada en `AIUsage` para medir los costes exactos de API pagados a proveedores de LLM.
@@ -98,7 +98,7 @@ Para garantizar que el usuario nunca pierda créditos en caso de un fallo en la 
 
 ## AI Credit Automation, Scheduling & Background Job Engine (PASO 4.4.9)
 
-Para garantizar la automatización segura y desatendida del reset mensual de cuotas sin alterar la economía aprobada, Academia X implementa una arquitectura de background jobs orquestada e idempotente.
+Para garantizar la automatización segura y desatendida del reset mensual de cuotas sin alterar la economía aprobada, Mentor Studio Global implementa una arquitectura de background jobs orquestada e idempotente.
 
 ### 1. Componentes Principales:
 - **`AICreditJobService` (`src/modules/ai/ai.job-service.ts`)**:
@@ -119,7 +119,7 @@ Para garantizar la automatización segura y desatendida del reset mensual de cuo
 
 ## AI Credit Administration, Monitoring & Economic Observability (PASO 4.4.10)
 
-Para proveer visibilidad completa en tiempo real de la economía de créditos sin alterar las reglas aprobadas, Academia X implementa una capa administrativa de observabilidad y auditoría.
+Para proveer visibilidad completa en tiempo real de la economía de créditos sin alterar las reglas aprobadas, Mentor Studio Global implementa una capa administrativa de observabilidad y auditoría.
 
 ### 1. Componentes Principales:
 - **`AICreditAdminService` (`src/modules/ai/ai.admin-service.ts`)**:

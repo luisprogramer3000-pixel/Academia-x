@@ -5,7 +5,7 @@
 
 ## 1. Executive Summary
 
-Este documento establece el **Decision Gate Definitivo** para la arquitectura económica de **AI Credits en Academia X**, elaborado bajo los roles combinados de *Senior SaaS Architect, AI Credit Economy Architect, LLM Cost Optimization Specialist, FinOps / Cloud Cost Analyst y Multi-Tenant Systems Architect*.
+Este documento establece el **Decision Gate Definitivo** para la arquitectura económica de **AI Credits en Mentor Studio Global**, elaborado bajo los roles combinados de *Senior SaaS Architect, AI Credit Economy Architect, LLM Cost Optimization Specialist, FinOps / Cloud Cost Analyst y Multi-Tenant Systems Architect*.
 
 ### Propósito del Decision Gate:
 1. **Auditar la consistencia entre código, base de datos y documentación histórica**: Identificar y resolver cualquier discrepancia en el catálogo de créditos, planes, límites y constantes de la interfaz.
@@ -102,7 +102,7 @@ flowchart LR
     C --> D["API Cost ($USD)<br/>Costo pagado a OpenAI / Anthropic / Google"]
 ```
 
-1. **SaaS Price ($USD)**: El cobro recurrente fijado comercialmente por la suscripción a Academia X.
+1. **SaaS Price ($USD)**: El cobro recurrente fijado comercialmente por la suscripción a Mentor Studio Global.
 2. **AI Credits**: La moneda virtual asignada al tenant para consumir capacidad en la plataforma de forma predecible.
 3. **Tokens (Input / Output)**: La métrica técnica de volumen de datos procesados por la red neuronal del proveedor.
 4. **API Cost ($USD)**: El costo directo pagado a los proveedores de infraestructura de IA por el volumen de tokens consumido.
@@ -157,19 +157,19 @@ Se han recalculado formalmente los tres escenarios de uso de un profesor sobre e
 - **Composición**: 1 `COURSE_GENERATION` (5 cr) + 6 `LESSON_GENERATION` (12 cr).
 - **Total Operaciones**: 7 ejecuciones.
 - **Créditos Consumidos**: **17 Teacher Credits**.
-- **Costo API para Academia X**: **$0.0026 USD**.
+- **Costo API para Mentor Studio Global**: **$0.0026 USD**.
 
 ### ESCENARIO B — USO NORMAL (Curso Completo con Landings y Evaluaciones)
 - **Composición**: 1 `COURSE_GENERATION` (5 cr) + 6 `LESSON_GENERATION` (12 cr) + 2 `ACTIVITY_GENERATION` (2 cr) + 2 `QUIZ_GENERATION` (2 cr) + 1 `LANDING_GENERATION` (8 cr) + 2 `LESSON_REGENERATION` (2 cr).
 - **Total Operaciones**: 14 ejecuciones.
 - **Créditos Consumidos**: **31 Teacher Credits**.
-- **Costo API para Academia X**: **$0.0051 USD**.
+- **Costo API para Mentor Studio Global**: **$0.0051 USD**.
 
 ### ESCENARIO C — USO INTENSIVO (Curso Grande de 15 Lecciones y Múltiples Regeneraciones)
 - **Composición**: 1 `COURSE_GENERATION` (5 cr) + 15 `LESSON_GENERATION` (30 cr) + 15 `ACTIVITY_GENERATION` (15 cr) + 5 `QUIZ_GENERATION` (5 cr) + 1 `LANDING_GENERATION` (8 cr) + 1 `COURSE_REGENERATION` (3 cr) + 5 `LESSON_REGENERATION` (5 cr).
 - **Total Operaciones**: 43 ejecuciones.
 - **Créditos Consumidos**: **71 Teacher Credits**.
-- **Costo API para Academia X**: **$0.0118 USD**.
+- **Costo API para Mentor Studio Global**: **$0.0118 USD**.
 
 ### Validación Matemática de las Cifras:
 - **17 créditos** = 5 + (6 × 2) = 17 ✓
@@ -294,8 +294,8 @@ sequenceDiagram
   - *Desventajas*: Añade columnas complejas a `AICreditWallet` (`reservedTeacherCredits`), requiere dos transacciones de DB por cada llamada a la IA y prolonga los bloqueos de concurrencia.
 - **MODELO C (Reserve -> Provider -> Settle/Refund con Sweeper Automático)**: Transacción de dos fases empresarial orientada a tareas asíncronas de larga duración (ej. renderizado de vídeo de 10 minutos).
 
-### Recomendación Definitiva para Academia X:
-Adoptar el **MODELO A (Compensating Transaction / Automatic Refund)**. Como las llamadas de LLM en Academia X son síncronas de corta duración (<3 segundos), el MODELO A ofrece máxima velocidad y simplicidad sin añadir sobrecarga de base de datos.
+### Recomendación Definitiva para Mentor Studio Global:
+Adoptar el **MODELO A (Compensating Transaction / Automatic Refund)**. Como las llamadas de LLM en Mentor Studio Global son síncronas de corta duración (<3 segundos), el MODELO A ofrece máxima velocidad y simplicidad sin añadir sobrecarga de base de datos.
 
 ---
 
@@ -361,7 +361,7 @@ Propuesta final de decisiones sobre el catálogo de producción:
 
 ### Dictamen: **READY WITH CONDITIONS**
 
-El modelo económico de AI Credits de Academia X es **comercialmente sostenible, financieramente altamente rentable (>99.6% de margen bruto de IA) y técnicamente robusto**.
+El modelo económico de AI Credits de Mentor Studio Global es **comercialmente sostenible, financieramente altamente rentable (>99.6% de margen bruto de IA) y técnicamente robusto**.
 
 ### Condiciones para Continuar al PASO 4.4.4:
 1. **Condición 1**: Mantener `ai.catalog.ts` y `ai.config.ts` como fuentes primarias de verdad sin alterar costes ni cuotas en el paso 4.4.4.

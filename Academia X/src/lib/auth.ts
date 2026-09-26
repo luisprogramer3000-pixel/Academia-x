@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 export const SESSION_COOKIE_NAME = "auth_token";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días
 
-const DEV_FALLBACK_SECRET = "dev-jwt-secret-academia-x-key-32-characters-minimum!";
+const DEV_FALLBACK_SECRET = "dev-jwt-secret-mentor-studio-key-32-characters-minimum!";
 
 function getJwtSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET;

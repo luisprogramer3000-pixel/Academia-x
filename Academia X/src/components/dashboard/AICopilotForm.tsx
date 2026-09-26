@@ -121,6 +121,19 @@ export function AICopilotForm({ tenantId, tenantSlug, isExceeded, availableTeach
         <div className="grid sm:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              País / Estándar Educativo (Opcional)
+            </label>
+            <input
+              type="text"
+              name="countryStandard"
+              disabled={isFormDisabled}
+              placeholder="Ej. Ministerio de Educación, SEP, etc."
+              className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 transition-colors text-sm font-medium disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
               Público Objetivo (Opcional)
             </label>
             <input

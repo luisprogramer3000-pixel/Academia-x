@@ -152,7 +152,7 @@ export function LandingPricing() {
             <ul className="space-y-3.5 text-sm text-main font-semibold mb-8">
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-gold-custom shrink-0" />
-                <span className="font-bold">Estudiantes ilimitados</span>
+                <span className="font-bold">Hasta 1000 estudiantes activos</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-gold-custom shrink-0" />
@@ -160,7 +160,7 @@ export function LandingPricing() {
               </li>
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-gold-custom shrink-0" />
-                <span>600 Cr. Profesor + 200 Cr. Estudiante IA / mes</span>
+                <span>800 Créditos Profesor IA / mes</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-gold-custom shrink-0" />
@@ -217,7 +217,7 @@ export function LandingPricing() {
               </li>
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-sky-custom shrink-0" />
-                <span>2,000 Cr. Profesor + 800 Cr. Estudiante IA / mes</span>
+                <span>2,800 Créditos Profesor IA / mes</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-sky-custom shrink-0" />

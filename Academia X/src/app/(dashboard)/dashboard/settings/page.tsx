@@ -60,7 +60,7 @@ export default async function SettingsPage() {
                 <Globe className="w-5 h-5 text-blue-400" /> Dominio personalizado
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Tu academia siempre está disponible en <span className="font-mono">{tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "academiax.com"}</span>.
+                Tu academia siempre está disponible en <span className="font-mono">{tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}</span>.
               </p>
             </div>
             {capabilities?.customDomain ? (
@@ -72,7 +72,7 @@ export default async function SettingsPage() {
                   className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500"
                 />
                 <p className="text-[11px] text-slate-500">
-                  Crea un registro CNAME de tu dominio apuntando a <span className="font-mono">cname.vercel-dns.com</span>. Deja vacío para quitarlo.
+                  En tu proveedor de dominio, crea un registro <strong>A</strong> apuntando a la IP de tu servidor Hostinger. Deja vacío para quitarlo.
                 </p>
                 <button type="submit" className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold">
                   Guardar dominio

@@ -18,7 +18,7 @@ export default function TermsPage() {
             <NLogoBadge size="sm" />
             <div>
               <span className="font-extrabold text-xl tracking-tight gold-gradient-text">
-                Academia X
+                Mentor Studio Global
               </span>
               <span className="block text-[9px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
                 Executive EdTech Suite
@@ -37,7 +37,7 @@ export default function TermsPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-            Última actualización: 16 de Agosto de 2026. Al utilizar o registrarte en **Academia X**, aceptas estos términos que rigen la relación entre la plataforma, los administradores de academias y los estudiantes.
+            Última actualización: 16 de Agosto de 2026. Al utilizar o registrarte en **Mentor Studio Global**, aceptas estos términos que rigen la relación entre la plataforma, los administradores de academias y los estudiantes.
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export default function TermsPage() {
               1. Descripción del Servicio y Arquitectura Multi-Tenant
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Academia X provee una plataforma EdTech multi-tenant (&quot;Software as a Service&quot; o SaaS) que permite a fundadores, profesores e instituciones crear, alojar y gestionar escuelas de idiomas y centros educativos virtuales independientes con aislamiento seguro de datos por academia.
+              Mentor Studio Global provee una plataforma EdTech multi-tenant (&quot;Software as a Service&quot; o SaaS) que permite a fundadores, profesores e instituciones crear, alojar y gestionar escuelas de idiomas y centros educativos virtuales independientes con aislamiento seguro de datos por academia.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function TermsPage() {
               2. Propiedad Intelectual y Titularidad de Contenidos
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Cada academia mantiene la titularidad absoluta de sus cursos, lecciones, recursos pedagógicos y marcas registradas. Academia X no reclama propiedad sobre el material didáctico subido por los creadores. El código fuente, arquitectura, diseño y marca **Academia X** son propiedad exclusiva de la plataforma.
+              Cada academia mantiene la titularidad absoluta de sus cursos, lecciones, recursos pedagógicos y marcas registradas. Mentor Studio Global no reclama propiedad sobre el material didáctico subido por los creadores. El código fuente, arquitectura, diseño y marca **Mentor Studio Global** son propiedad exclusiva de la plataforma.
             </p>
           </div>
 
@@ -72,7 +72,7 @@ export default function TermsPage() {
               3. Facturación, Planes SaaS y Modalidades de Pago
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Academia X ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Stripe. Las tarifas se facturan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente.
+              Mentor Studio Global ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Stripe. Las tarifas se facturan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente.
             </p>
           </div>
 

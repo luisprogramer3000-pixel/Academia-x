@@ -4,6 +4,7 @@ import { getDashboardContext } from "@/lib/session";
 import { CourseService } from "@/modules/course/course.service";
 import { selfEnrollAction, claimCertificateFormAction } from "@/app/actions/campus.actions";
 import { logoutAction } from "@/app/actions/auth.actions";
+import { safeExternalUrl } from "@/lib/utils";
 import { BookOpen, Award, LogOut, PlayCircle, LayoutDashboard } from "lucide-react";
 
 interface CampusPageProps {
@@ -33,7 +34,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
     prisma.certificate.findMany({ where: { tenantId, userId }, select: { courseId: true, code: true } }),
     prisma.course.findMany({
       where: { tenantId, status: "PUBLISHED" },
-      select: { id: true, title: true, level: true, priceAmount: true, currency: true },
+      select: { id: true, title: true, level: true, priceAmount: true, currency: true, paymentType: true, paymentLink: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -150,6 +151,10 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
                           Inscribirme
                         </button>
                       </form>
+                    ) : c.paymentType === "EXTERNAL" && safeExternalUrl(c.paymentLink) ? (
+                      <a href={safeExternalUrl(c.paymentLink) as string} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold">
+                        Comprar Curso
+                      </a>
                     ) : (
                       <span className="text-[11px] text-slate-500 text-right">Solicita tu inscripción a la academia</span>
                     )}

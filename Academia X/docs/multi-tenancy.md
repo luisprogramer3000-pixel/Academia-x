@@ -10,8 +10,8 @@ Adoptamos **Discriminador Row-Level Multi-Tenancy (Multi-tenancy por columna `te
 
 El tenant se identifica en cada Request a través del Middleware de Next.js (`src/middleware.ts`):
 
-1. **Subdominio o Dominio Custom**: `https://jl-institute.academiax.com` o `https://cursos.jlinstitute.com`
-2. **Ruta fallback (Dev/MVP)**: `https://app.academiax.com/a/jl-institute/...`
+1. **Subdominio o Dominio Custom**: `https://jl-institute.mentorstudioglobal.com` o `https://cursos.jlinstitute.com`
+2. **Ruta fallback (Dev/MVP)**: `https://app.mentorstudioglobal.com/a/jl-institute/...`
 3. **Session Context**: En solicitudes dentro del panel privado, la sesión del usuario contiene `activeTenantId`.
 
 ```typescript

@@ -53,7 +53,7 @@ export default function LoginPage() {
             <NLogoBadge size="md" />
             <div className="text-left">
               <span className="font-extrabold text-2xl tracking-tight gold-gradient-text">
-                Academia X
+                Mentor Studio Global
               </span>
               <span className="block text-[10px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
                 Executive EdTech Suite

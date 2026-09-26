@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { safeExternalUrl } from "@/lib/utils";
 import {
   BookOpen,
   CheckCircle,
@@ -20,6 +21,7 @@ export interface LessonData {
   id: string;
   title: string;
   content?: string | null;
+  liveUrl?: string | null;
 }
 
 export interface ModuleData {
@@ -191,6 +193,16 @@ export function PublicLMSViewer({
                   Lección #{activeLessonIndex + 1} de {totalLessons}
                 </span>
                 <h2 className="text-3xl font-extrabold text-white mb-4 leading-tight">{activeLesson.title}</h2>
+                {safeExternalUrl(activeLesson.liveUrl) && mode === "student" && (
+                  <a
+                    href={safeExternalUrl(activeLesson.liveUrl) as string}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-colors shadow-lg shadow-blue-600/20 mb-6"
+                  >
+                    <Video className="w-5 h-5" /> Unirse a la Clase en Vivo
+                  </a>
+                )}
               </div>
 
               {/* Render Block List */}
@@ -218,7 +230,7 @@ export function PublicLMSViewer({
 
                       {b.type === "resource" && (
                         <a
-                          href={b.url || "#"}
+                          href={safeExternalUrl(b.url) || "#"}
                           target="_blank"
                           rel="noreferrer"
                           className="p-5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 transition-all flex items-center justify-between text-sm text-emerald-400 font-medium shadow-md"

@@ -18,20 +18,20 @@ describe("Plan AI Configuration — Step 4.2", () => {
     expect(getMonthlyStudentAllowance("STARTER")).toBe(0);
   });
 
-  it("13. PRO = 600 Teacher Credits", () => {
-    expect(getMonthlyTeacherAllowance("PRO")).toBe(600);
+  it("13. PRO = 800 Teacher Credits", () => {
+    expect(getMonthlyTeacherAllowance("PRO")).toBe(800);
   });
 
-  it("14. PRO = 200 Student Credits", () => {
-    expect(getMonthlyStudentAllowance("PRO")).toBe(200);
+  it("14. PRO = 0 Student Credits (los alumnos ya no reciben cuota)", () => {
+    expect(getMonthlyStudentAllowance("PRO")).toBe(0);
   });
 
-  it("15. ACADEMY = 2000 Teacher Credits", () => {
-    expect(getMonthlyTeacherAllowance("ACADEMY")).toBe(2000);
+  it("15. ACADEMY = 2800 Teacher Credits", () => {
+    expect(getMonthlyTeacherAllowance("ACADEMY")).toBe(2800);
   });
 
-  it("16. ACADEMY = 800 Student Credits", () => {
-    expect(getMonthlyStudentAllowance("ACADEMY")).toBe(800);
+  it("16. ACADEMY = 0 Student Credits (los alumnos ya no reciben cuota)", () => {
+    expect(getMonthlyStudentAllowance("ACADEMY")).toBe(0);
   });
 
   it("17. STARTER Max Rollover Teacher = 30", () => {
@@ -41,12 +41,12 @@ describe("Plan AI Configuration — Step 4.2", () => {
 
   it("18. PRO Max Rollover Teacher = 100", () => {
     expect(getMaxTeacherRollover("PRO")).toBe(100);
-    expect(getMaxStudentRollover("PRO")).toBe(50);
+    expect(getMaxStudentRollover("PRO")).toBe(0);
   });
 
   it("19. ACADEMY Max Rollover Teacher = 300", () => {
     expect(getMaxTeacherRollover("ACADEMY")).toBe(300);
-    expect(getMaxStudentRollover("ACADEMY")).toBe(150);
+    expect(getMaxStudentRollover("ACADEMY")).toBe(0);
   });
 
   it("Conserva la configuración legacy de tokens intacta", () => {

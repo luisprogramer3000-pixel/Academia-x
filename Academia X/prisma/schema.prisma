@@ -1,4 +1,4 @@
-// Prisma Schema — Virtual Language School in a Box (Academia X)
+// Prisma Schema — Virtual Language School in a Box (Mentor Studio Global)
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
@@ -142,6 +142,8 @@ model Course {
   status      CourseStatus @default(DRAFT)
   priceAmount Decimal      @default(0.00)
   currency    String       @default("USD")
+  paymentType String       @default("EXTERNAL")
+  paymentLink String?
   imageUrl    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -173,6 +175,7 @@ model Lesson {
   title       String
   order       Int      @default(0)
   content     String?  // JSON string block data
+  liveUrl     String?
   createdAt   DateTime @default(now())
 
   module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -220,6 +223,7 @@ model Submission {
   assignmentId String
   userId       String
   content      String
+  fileUrl      String?
   grade        String?
   feedback     String?
   createdAt    DateTime   @default(now())
@@ -234,6 +238,7 @@ model Certificate {
   userId         String
   courseId       String
   code           String   @unique
+  cryptoHash     String?
   issuedAt       DateTime @default(now())
 
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)

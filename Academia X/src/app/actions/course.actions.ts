@@ -12,7 +12,20 @@ import {
   assertLessonInTenant,
 } from "@/lib/session";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import { safeExternalUrl } from "@/lib/utils";
 import { requireActiveSubscription } from "@/modules/billing/entitlements";
+
+/**
+ * Enlace externo (pago, clase en vivo, recurso): solo http(s) o rutas internas.
+ * Bloquea vectores tipo `javascript:` que terminarían en un href del alumno.
+ */
+const externalUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((value) => safeExternalUrl(value) !== null, "El enlace debe empezar por http:// o https://")
+  .transform((value) => safeExternalUrl(value) as string);
 
 const createCourseSchema = z.object({
   title: z.string().trim().min(3, "El título debe tener al menos 3 caracteres").max(150),
@@ -21,6 +34,8 @@ const createCourseSchema = z.object({
   level: z.string().max(20).default("A1"),
   language: z.string().max(10).default("es"),
   priceAmount: z.coerce.number().min(0).default(0),
+  paymentType: z.enum(["EXTERNAL", "STRIPE_CONNECT"]).default("EXTERNAL"),
+  paymentLink: externalUrlSchema.optional(),
 });
 
 const createModuleSchema = z.object({
@@ -37,30 +52,46 @@ const createLessonSchema = z.object({
 const MAX_LESSON_CONTENT_BYTES = 500_000;
 
 export async function createCourseAction(formData: FormData): Promise<void> {
-  const { tenantId } = await requireTenantAccess(STAFF_ROLES);
-  await requireActiveSubscription(tenantId);
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    console.log("[createCourseAction] tenantId:", tenantId);
 
-  const validated = createCourseSchema.parse({
-    title: formData.get("title") as string,
-    slug: (formData.get("slug") as string) || undefined,
-    description: (formData.get("description") as string) || undefined,
-    level: (formData.get("level") as string) || "A1",
-    language: (formData.get("language") as string) || "es",
-    priceAmount: formData.get("priceAmount") as string,
-  });
+    await requireActiveSubscription(tenantId);
+    console.log("[createCourseAction] Subscription check passed");
 
-  const course = await CourseService.createCourse({
-    tenantId,
-    title: validated.title,
-    slug: validated.slug || undefined,
-    description: validated.description || undefined,
-    level: validated.level,
-    language: validated.language,
-    priceAmount: validated.priceAmount,
-  });
+    const validated = createCourseSchema.parse({
+      title: formData.get("title") as string,
+      slug: (formData.get("slug") as string) || undefined,
+      description: (formData.get("description") as string) || undefined,
+      level: (formData.get("level") as string) || "A1",
+      language: (formData.get("language") as string) || "es",
+      priceAmount: formData.get("priceAmount") as string,
+      paymentType: (formData.get("paymentType") as string) || "EXTERNAL",
+      paymentLink: (formData.get("paymentLink") as string) || undefined,
+    });
+    console.log("[createCourseAction] Validation passed, title:", validated.title);
 
-  revalidatePath("/dashboard/courses");
-  redirect(`/dashboard/courses/${course.id}/builder`);
+    const course = await CourseService.createCourse({
+      tenantId,
+      title: validated.title,
+      slug: validated.slug || undefined,
+      description: validated.description || undefined,
+      level: validated.level,
+      language: validated.language,
+      priceAmount: validated.priceAmount,
+      paymentType: validated.paymentType,
+      paymentLink: validated.paymentLink ?? undefined,
+    });
+
+    console.log("[createCourseAction] Course created with id:", course.id);
+
+    revalidatePath("/dashboard/courses");
+    console.log("[createCourseAction] About to redirect to:", `/dashboard/courses/${course.id}/builder`);
+    redirect(`/dashboard/courses/${course.id}/builder`);
+  } catch (error: any) {
+    console.error("[createCourseAction] Error:", error?.message || error);
+    throw error;
+  }
 }
 
 export async function createModuleAction(formData: FormData): Promise<void> {
@@ -98,15 +129,254 @@ export async function updateLessonContentAction(lessonId: string, contentJsonStr
   if (typeof contentJsonString !== "string" || contentJsonString.length > MAX_LESSON_CONTENT_BYTES) {
     throw new Error("El contenido de la lección es demasiado grande.");
   }
+  let blocks: unknown;
   try {
-    JSON.parse(contentJsonString);
+    blocks = JSON.parse(contentJsonString);
   } catch {
     throw new Error("El contenido de la lección no es un JSON válido.");
+  }
+
+  // Los bloques de video/recurso se renderizan como enlaces para el alumno: solo http(s) o rutas internas.
+  if (Array.isArray(blocks)) {
+    for (const block of blocks) {
+      const url = (block as { url?: unknown })?.url;
+      if (url && safeExternalUrl(url) === null) {
+        throw new Error("Los enlaces de los bloques deben empezar por http:// o https://");
+      }
+    }
   }
 
   const lesson = await assertLessonInTenant(lessonId, tenantId);
   await CourseService.updateLessonContent(lessonId, contentJsonString);
   revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+}
+
+export async function updateLessonSettingsAction(lessonId: string, formData: FormData): Promise<void> {
+  const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+  const rawLiveUrl = ((formData.get("liveUrl") as string) || "").trim();
+  const liveUrl = rawLiveUrl ? externalUrlSchema.parse(rawLiveUrl) : null;
+  const lesson = await assertLessonInTenant(lessonId, tenantId);
+  await prisma.lesson.update({
+    where: { id: lessonId },
+    data: { liveUrl },
+  });
+  revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+}
+
+const updateCourseSchema = z.object({
+  title: z.string().trim().min(3, "El título debe tener al menos 3 caracteres").max(150),
+  description: z.string().max(5000).nullable().optional(),
+  level: z.string().max(20).default("A1"),
+  language: z.string().max(10).default("es"),
+  priceAmount: z.coerce.number().min(0).default(0),
+  paymentType: z.enum(["EXTERNAL", "STRIPE_CONNECT"]).default("EXTERNAL"),
+  paymentLink: externalUrlSchema.optional(),
+});
+
+/**
+ * Edita los datos de un curso ya creado. Sin esto, un error de tipeo en el
+ * precio o en el enlace de pago obligaba a rehacer el curso entero.
+ */
+export async function updateCourseAction(courseId: string, formData: FormData) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+
+    const validated = updateCourseSchema.parse({
+      title: formData.get("title") as string,
+      description: (formData.get("description") as string) || undefined,
+      level: (formData.get("level") as string) || "A1",
+      language: (formData.get("language") as string) || "es",
+      priceAmount: formData.get("priceAmount") as string,
+      paymentType: (formData.get("paymentType") as string) || "EXTERNAL",
+      paymentLink: (formData.get("paymentLink") as string) || undefined,
+    });
+
+    await CourseService.updateCourse(tenantId, courseId, {
+      title: validated.title,
+      description: validated.description ?? null,
+      level: validated.level,
+      language: validated.language,
+      priceAmount: validated.priceAmount,
+      paymentType: validated.paymentType,
+      paymentLink: validated.paymentLink ?? null,
+    });
+
+    revalidatePath(`/dashboard/courses/${courseId}/builder`);
+    revalidatePath("/dashboard/courses");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo actualizar el curso." };
+  }
+}
+
+const proposedStructureSchema = z.object({
+  modules: z
+    .array(
+      z.object({
+        title: z.string().trim().min(2).max(150),
+        description: z.string().trim().max(2000).optional().default(""),
+        lessons: z
+          .array(z.object({ title: z.string().trim().min(2).max(150) }))
+          .max(30)
+          .optional()
+          .default([]),
+      })
+    )
+    .min(1)
+    .max(20),
+});
+
+/**
+ * Añade al curso la estructura propuesta por la IA.
+ *
+ * Solo AÑADE: los módulos y lecciones existentes no se tocan. Reemplazarlos
+ * borraría el contenido que el profesor ya hubiera escrito.
+ */
+export async function applyCourseStructureAction(courseId: string, proposal: unknown) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+
+    const { modules } = proposedStructureSchema.parse(proposal);
+
+    const lastModule = await prisma.module.findFirst({
+      where: { courseId },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    });
+    let order = (lastModule?.order ?? 0) + 1;
+
+    for (const mod of modules) {
+      await prisma.module.create({
+        data: {
+          courseId,
+          title: mod.title,
+          description: mod.description || null,
+          order: order++,
+          lessons: {
+            create: mod.lessons.map((lesson, index) => ({
+              title: lesson.title,
+              order: index + 1,
+            })),
+          },
+        },
+      });
+    }
+
+    revalidatePath(`/dashboard/courses/${courseId}/builder`);
+    return { success: true, addedModules: modules.length };
+  } catch (error: any) {
+    return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo aplicar la estructura." };
+  }
+}
+
+const landingSchema = z.object({
+  headline: z.string().trim().min(3).max(200),
+  subheadline: z.string().trim().max(500).optional().default(""),
+  benefits: z.array(z.string().trim().max(300)).max(10).optional().default([]),
+  callToAction: z.string().trim().max(120).optional().default("Inscríbete ahora"),
+});
+
+/**
+ * Guarda la landing de venta del curso (la genera el Copiloto IA y la revisa
+ * el profesor antes de publicarla).
+ */
+export async function saveCourseLandingAction(courseId: string, landing: unknown) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+
+    const validated = landingSchema.parse(landing);
+
+    await prisma.course.updateMany({
+      where: { id: courseId, tenantId },
+      data: { landing: validated },
+    });
+
+    revalidatePath(`/dashboard/courses/${courseId}/builder`);
+    revalidatePath("/a", "layout");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo guardar la landing." };
+  }
+}
+
+/** Retira la landing del curso y vuelve a la presentación estándar. */
+export async function removeCourseLandingAction(courseId: string) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+    await prisma.course.updateMany({ where: { id: courseId, tenantId }, data: { landing: Prisma.DbNull } });
+    revalidatePath(`/dashboard/courses/${courseId}/builder`);
+    revalidatePath("/a", "layout");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "No se pudo quitar la landing." };
+  }
+}
+
+/**
+ * Elimina un curso con todo su contenido. Se rechaza si ya emitió
+ * certificados: en ese caso la salida correcta es archivarlo.
+ */
+export async function deleteCourseAction(courseId: string) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+    await CourseService.deleteCourse(tenantId, courseId);
+    revalidatePath("/dashboard/courses");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "No se pudo eliminar el curso." };
+  }
+}
+
+/**
+ * Archiva un curso: deja de aparecer en el catálogo público pero conserva
+ * el contenido, las inscripciones y los certificados emitidos.
+ */
+export async function archiveCourseAction(courseId: string) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    await assertCourseInTenant(courseId, tenantId);
+    await CourseService.updateCourseStatus(tenantId, courseId, "ARCHIVED");
+    revalidatePath("/dashboard/courses");
+    revalidatePath(`/dashboard/courses/${courseId}/builder`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "No se pudo archivar el curso." };
+  }
+}
+
+const teacherPlanSchema = z.object({
+  objective: z.string().max(1000).optional().default(""),
+  prerequisites: z.array(z.string().max(300)).max(10).optional().default([]),
+  classFlow: z
+    .array(z.object({ minute: z.number(), durationMinutes: z.number(), activity: z.string().max(500) }))
+    .max(20)
+    .optional()
+    .default([]),
+  homework: z.string().max(2000).optional().default(""),
+  teacherNotes: z.array(z.string().max(500)).max(15).optional().default([]),
+});
+
+/**
+ * Guarda el plan del profesor de una lección (guion, notas, tarea).
+ * NO es contenido del alumno: se queda en el panel docente.
+ */
+export async function saveTeacherPlanAction(lessonId: string, plan: unknown) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    const lesson = await assertLessonInTenant(lessonId, tenantId);
+    const validated = teacherPlanSchema.parse(plan);
+
+    await prisma.lesson.update({ where: { id: lessonId }, data: { teacherPlan: validated } });
+    revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo guardar el plan." };
+  }
 }
 
 export async function toggleCourseStatusAction(courseId: string, currentStatus: string): Promise<void> {

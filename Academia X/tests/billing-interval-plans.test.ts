@@ -197,8 +197,8 @@ describe("SaaS Plans Monthly & Yearly Billing Suite — 20% Discount Adjustment"
     // Verificar que la wallet recibe la asignación mensual estándar (2,000 Teacher / 800 Student)
     // y NO 24,000 ni 9,600 créditos
     const wallet = await AICreditEngine.getTenantWalletSummary(tenantAId);
-    expect(wallet.teacherCredits.available).toBe(2000);
-    expect(wallet.studentCredits.available).toBe(800);
+    expect(wallet.teacherCredits.available).toBe(2800);
+    expect(wallet.studentCredits.available).toBe(0);
   });
 
   it("M. Usuarios existentes con suscripción mensual deben seguir funcionando sin interrupción", async () => {

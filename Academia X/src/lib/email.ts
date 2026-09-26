@@ -27,7 +27,7 @@ function escapeHtml(value: string): string {
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "Academia X <no-reply@academiax.com>";
+  const from = process.env.EMAIL_FROM || "Mentor Studio Global <no-reply@mentorstudioglobal.com>";
 
   if (!apiKey) {
     if (process.env.NODE_ENV === "production") {
@@ -69,7 +69,7 @@ function layout(title: string, bodyHtml: string, cta?: { label: string; url: str
       <h1 style="font-size:20px;margin-top:0">${escapeHtml(title)}</h1>
       ${bodyHtml}
       ${button}
-      <p style="font-size:12px;color:#94a3b8;margin-top:32px">Academia X</p>
+      <p style="font-size:12px;color:#94a3b8;margin-top:32px">Mentor Studio Global</p>
     </div></body></html>`;
 }
 
@@ -90,7 +90,7 @@ export const EmailTemplates = {
   },
 
   welcomeOwner(params: { name: string; academyName: string; dashboardUrl: string }) {
-    const title = `¡Bienvenido a Academia X, ${params.name}!`;
+    const title = `¡Bienvenido a Mentor Studio Global, ${params.name}!`;
     return {
       subject: `Tu academia ${params.academyName} está lista`,
       html: layout(

@@ -10,6 +10,8 @@ export interface CreateCourseInput {
   level?: string;
   priceAmount?: number;
   currency?: string;
+  paymentType?: string;
+  paymentLink?: string;
   imageUrl?: string;
 }
 
@@ -67,6 +69,8 @@ export class CourseService {
         level: input.level || "A1",
         priceAmount: input.priceAmount || 0,
         currency: input.currency || "USD",
+        paymentType: input.paymentType || "EXTERNAL",
+        paymentLink: input.paymentLink || null,
         imageUrl: input.imageUrl,
         status: "DRAFT",
       },

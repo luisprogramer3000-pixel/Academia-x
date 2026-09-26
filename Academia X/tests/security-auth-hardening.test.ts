@@ -56,24 +56,24 @@ describe("Middleware: protección de rutas privadas", () => {
 
 describe("Middleware: enrutado multi-tenant por host", () => {
   it("reescribe el subdominio de una academia a /a/[slug]", async () => {
-    process.env.NEXT_PUBLIC_APP_HOST = "academiax.com";
-    const req = new NextRequest("https://mi-escuela.academiax.com/courses/ingles-b1", {
-      headers: { host: "mi-escuela.academiax.com" },
+    process.env.NEXT_PUBLIC_APP_HOST = "mentorstudioglobal.com";
+    const req = new NextRequest("https://mi-escuela.mentorstudioglobal.com/courses/ingles-b1", {
+      headers: { host: "mi-escuela.mentorstudioglobal.com" },
     });
     const res = await middleware(req);
     expect(res.headers.get("x-middleware-rewrite")).toContain("/a/mi-escuela/courses/ingles-b1");
   });
 
   it("reescribe un dominio personalizado a /d/[host]", async () => {
-    process.env.NEXT_PUBLIC_APP_HOST = "academiax.com";
+    process.env.NEXT_PUBLIC_APP_HOST = "mentorstudioglobal.com";
     const req = new NextRequest("https://www.escuelapropia.com/", { headers: { host: "www.escuelapropia.com" } });
     const res = await middleware(req);
     expect(res.headers.get("x-middleware-rewrite")).toContain("/d/www.escuelapropia.com");
   });
 
   it("no reescribe el dominio principal", async () => {
-    process.env.NEXT_PUBLIC_APP_HOST = "academiax.com";
-    const req = new NextRequest("https://academiax.com/", { headers: { host: "academiax.com" } });
+    process.env.NEXT_PUBLIC_APP_HOST = "mentorstudioglobal.com";
+    const req = new NextRequest("https://mentorstudioglobal.com/", { headers: { host: "mentorstudioglobal.com" } });
     const res = await middleware(req);
     expect(res.headers.get("x-middleware-rewrite")).toBeNull();
   });

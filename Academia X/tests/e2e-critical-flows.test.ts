@@ -10,8 +10,8 @@ import { AICreditJobService } from "@/modules/ai/ai.job-service";
 import { createSessionToken, verifySessionToken } from "@/lib/auth";
 import { TOPUP_PACKAGES } from "@/modules/ai/ai.topup-catalog";
 
-describe("E2E Critical Flow Suite — Academia X Platform", () => {
-  const testEmail = "e2e_owner@academiax.test";
+describe("E2E Critical Flow Suite — Mentor Studio Global Platform", () => {
+  const testEmail = "e2e_owner@mentorstudioglobal.test";
   const targetTenantId = "tenant_e2e_critical_001";
   const targetUserId = "usr_e2e_critical_001";
 
@@ -42,7 +42,7 @@ describe("E2E Critical Flow Suite — Academia X Platform", () => {
     const course = {
       id: "crs_e2e_001",
       title: "Curso E2E de IA Aplicada",
-      description: "Aprende automatizaciones avanzadas con Academia X",
+      description: "Aprende automatizaciones avanzadas con Mentor Studio Global",
       level: "INTERMEDIATE",
       tenantId: targetTenantId,
       status: "DRAFT",
@@ -89,8 +89,8 @@ describe("E2E Critical Flow Suite — Academia X Platform", () => {
     const plan = SAAS_PLANS.PRO;
     expect(plan.id).toBe("PRO");
     expect(plan.price).toBe(79);
-    expect(plan.teacherCredits).toBe(600);
-    expect(plan.studentCredits).toBe(200);
+    expect(plan.teacherCredits).toBe(800);
+    expect(plan.studentCredits).toBe(0);
   });
 
   it("Flujo 8: Reset Mensual & Reglas de Rollover Determinista", async () => {

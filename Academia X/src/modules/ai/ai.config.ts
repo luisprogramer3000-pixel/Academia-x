@@ -18,17 +18,17 @@ export const PLAN_AI_CREDIT_CONFIG: Record<PlanId, PlanAIConfig> = {
   },
   PRO: {
     planId: "PRO",
-    teacherAllowance: 600,
-    studentAllowance: 200,
+    teacherAllowance: 800,
+    studentAllowance: 0,
     maxRolloverTeacher: 100,
-    maxRolloverStudent: 50,
+    maxRolloverStudent: 0,
   },
   ACADEMY: {
     planId: "ACADEMY",
-    teacherAllowance: 2000,
-    studentAllowance: 800,
+    teacherAllowance: 2800,
+    studentAllowance: 0,
     maxRolloverTeacher: 300,
-    maxRolloverStudent: 150,
+    maxRolloverStudent: 0,
   },
 };
 

@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             <NLogoBadge size="sm" />
             <div>
               <span className="font-extrabold text-xl tracking-tight gold-gradient-text">
-                Academia X
+                Mentor Studio Global
               </span>
               <span className="block text-[9px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
                 Executive EdTech Suite

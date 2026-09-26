@@ -54,6 +54,7 @@ export default async function LessonEditorPage({ params }: LessonPageProps) {
             courseId={courseId}
             lessonTitle={lessonTitle}
             initialContentJson={initialContentJson}
+            initialLiveUrl={lesson.liveUrl}
             tenantSlug={tenantSlug}
           />
         </main>

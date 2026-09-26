@@ -1,8 +1,8 @@
-# Academia X — Modelo Económico de AI Credits & Análisis de Costes
+# Mentor Studio Global — Modelo Económico de AI Credits & Análisis de Costes
 
 ## 1. Principios del Modelo Económico
 
-El sistema de **AI Credits** de Academia X se concibe como una moneda interna de capacidad SaaS para profesores, academias y estudiantes. Su propósito principal es desacoplar la complejidad técnica de las llamadas a los LLM (Large Language Models) y ofrecer una experiencia de usuario clara, predecible y económicamente sostenible.
+El sistema de **AI Credits** de Mentor Studio Global se concibe como una moneda interna de capacidad SaaS para profesores, academias y estudiantes. Su propósito principal es desacoplar la complejidad técnica de las llamadas a los LLM (Large Language Models) y ofrecer una experiencia de usuario clara, predecible y económicamente sostenible.
 
 ### Principios Fundamentales:
 
@@ -10,7 +10,7 @@ El sistema de **AI Credits** de Academia X se concibe como una moneda interna de
 2. **Aislamiento Estricto de Bolsas**:
    - **Teacher Credits**: Utilizados por creadores de contenido (profesores, administradores) para estructurar cursos, generar lecciones, actividades, quizzes y landing pages.
    - **Student Credits**: Utilizados por estudiantes para interactuar con herramientas de asistencia activa (AI Tutor, AI Feedback). Nunca se permite la contaminación ni transferencia de saldo entre ambas bolsas.
-3. **Protección de Margen Bruto**: El valor asignado a cada crédito garantiza que, incluso bajo patrones de uso intensivo por parte del usuario, el margen bruto de la infraestructura de IA de Academia X se mantenga **superior al 85-90%**.
+3. **Protección de Margen Bruto**: El valor asignado a cada crédito garantiza que, incluso bajo patrones de uso intensivo por parte del usuario, el margen bruto de la infraestructura de IA de Mentor Studio Global se mantenga **superior al 85-90%**.
 4. **Política de Rollover Controlado**: El sobrante mensual no consumido se transfiere al mes siguiente hasta un límite máximo estricto por plan, incentivando el uso continuo y evitando la acumulación indeterminada de pasivo financiero en los balances.
 
 ---
@@ -23,14 +23,14 @@ Es crucial mantener la separación conceptual en tres capas independientes:
 flowchart TD
     A["1. AI CREDITS (Capa Comercial)<br/>Moneda interna que paga el usuario en su suscripción SaaS"] --> B["2. AI OPERATIONS (Capa de Negocio)<br/>COURSE_GENERATION, LESSON_GENERATION, etc."]
     B --> C["3. TOKENS DE IA (Capa Técnica)<br/>Prompt + Completion tokens procesados por el proveedor (LLM)"]
-    C --> D["4. COSTO REAL (Capa Financiera)<br/>Factura en USD pagada por Academia X (OpenAI, Anthropic, Google)"]
+    C --> D["4. COSTO REAL (Capa Financiera)<br/>Factura en USD pagada por Mentor Studio Global (OpenAI, Anthropic, Google)"]
 ```
 
 | Capa | Entidad | Definición | Propietario | Ejemplo |
 |---|---|---|---|---|
 | **Comercial** | **AI Credits** | Capacidad fija descontada de la billetera del tenant. | Usuario / Tenant | 5 Créditos Teacher por generar un borrador de curso |
 | **Técnica** | **Tokens de IA** | Volumen de texto (prompt + respuesta) procesado por la red neuronal. | Sistema / API | 1,850 tokens (450 prompt + 1,400 respuesta) |
-| **Financiera** | **Costo Real ($ USD)** | Gasto real en dólares cobrado por el proveedor por el volumen de tokens. | Academia X | $0.00075 USD (usando modelos tipo Gemini 1.5 Flash / GPT-4o-mini) |
+| **Financiera** | **Costo Real ($ USD)** | Gasto real en dólares cobrado por el proveedor por el volumen de tokens. | Mentor Studio Global | $0.00075 USD (usando modelos tipo Gemini 1.5 Flash / GPT-4o-mini) |
 
 ### Ejemplo Numérico de Margen:
 - **Plan STARTER**: $19.00 USD/mes → Otorga 150 Teacher Credits (~$0.126 USD recaudados por crédito).

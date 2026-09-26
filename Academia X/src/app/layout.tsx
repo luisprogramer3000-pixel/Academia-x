@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Virtual Language School in a Box — Academia X",
+  title: "Virtual Language School in a Box — Mentor Studio Global",
   description: "Crea tu propia academia de idiomas online, administra tus alumnos, vende tus cursos y utiliza IA para enseñar mejor.",
 };
 

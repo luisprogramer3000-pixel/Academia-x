@@ -93,8 +93,8 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     });
     const result = await AICreditEngine.processMonthlyReset(tenantAId);
     expect(result.success).toBe(true);
-    expect(result.teacherCredits.newAllowance).toBe(600);
-    expect(result.studentCredits.newAllowance).toBe(200);
+    expect(result.teacherCredits.newAllowance).toBe(800);
+    expect(result.studentCredits.newAllowance).toBe(0);
   });
 
   // 3. Reset mensual ACADEMY
@@ -110,8 +110,8 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     });
     const result = await AICreditEngine.processMonthlyReset(tenantAId);
     expect(result.success).toBe(true);
-    expect(result.teacherCredits.newAllowance).toBe(2000);
-    expect(result.studentCredits.newAllowance).toBe(800);
+    expect(result.teacherCredits.newAllowance).toBe(2800);
+    expect(result.studentCredits.newAllowance).toBe(0);
   });
 
   // 4. Cálculo de Rollover Teacher
@@ -123,7 +123,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
   });
 
   // 5. Cálculo de Rollover Student
-  it("5. Debe calcular correctamente el rollover para Student Credits en plan PRO", async () => {
+  it("5. PRO ya no otorga créditos de estudiante: no hay cuota ni rollover", async () => {
     await prisma.subscription.create({
       data: {
         tenantId: tenantAId,
@@ -136,9 +136,9 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     await AICreditEngine.syncWalletWithPlan(tenantAId, "PRO");
 
     const result = await AICreditEngine.processMonthlyReset(tenantAId);
-    expect(result.studentCredits.rolloverGranted).toBe(50);
-    expect(result.studentCredits.expiredAmount).toBe(150);
-    expect(result.studentCredits.newTotalAvailable).toBe(250);
+    expect(result.studentCredits.rolloverGranted).toBe(0);
+    expect(result.studentCredits.expiredAmount).toBe(0);
+    expect(result.studentCredits.newTotalAvailable).toBe(0);
   });
 
   // 6. Expiración de excedente
@@ -364,8 +364,8 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     await BillingService.createCheckoutSession(tenantAId, "PRO");
 
     const walletAfter = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
-    expect(walletAfter?.monthlyTeacherAllowance).toBe(600);
-    expect(walletAfter?.monthlyStudentAllowance).toBe(200);
+    expect(walletAfter?.monthlyTeacherAllowance).toBe(800);
+    expect(walletAfter?.monthlyStudentAllowance).toBe(0);
   });
 
   // 22. Downgrade de plan
@@ -391,7 +391,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
 
     const wallet = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
     expect(wallet?.purchasedTeacherCredits).toBe(150);
-    expect(wallet?.monthlyTeacherAllowance).toBe(2000);
+    expect(wallet?.monthlyTeacherAllowance).toBe(2800);
   });
 
   // 24. BillingService refleja $29 / $79 / $199
@@ -401,10 +401,10 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     expect(SAAS_PLANS.ACADEMY.price).toBe(199);
 
     expect(SAAS_PLANS.STARTER.teacherCredits).toBe(150);
-    expect(SAAS_PLANS.PRO.teacherCredits).toBe(600);
-    expect(SAAS_PLANS.PRO.studentCredits).toBe(200);
-    expect(SAAS_PLANS.ACADEMY.teacherCredits).toBe(2000);
-    expect(SAAS_PLANS.ACADEMY.studentCredits).toBe(800);
+    expect(SAAS_PLANS.PRO.teacherCredits).toBe(800);
+    expect(SAAS_PLANS.PRO.studentCredits).toBe(0);
+    expect(SAAS_PLANS.ACADEMY.teacherCredits).toBe(2800);
+    expect(SAAS_PLANS.ACADEMY.studentCredits).toBe(0);
   });
 
   // 25. No altera AI catalog

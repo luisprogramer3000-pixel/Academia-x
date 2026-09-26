@@ -13,6 +13,8 @@ import {
   Award,
   CreditCard,
   Home,
+  BarChart3,
+  LifeBuoy,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -30,8 +32,10 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
     { label: "Profesores", href: "/dashboard/teachers", icon: GraduationCap },
     { label: "Copiloto IA", href: "/dashboard/ai-copilot", icon: Sparkles },
     { label: "Certificados", href: "/dashboard/certificates", icon: Award },
+    { label: "Analíticas (Pro)", href: "/dashboard/analytics", icon: BarChart3 },
     { label: "Facturación & Planes", href: "/dashboard/billing", icon: CreditCard },
     { label: "Configuración & Branding", href: "/dashboard/settings", icon: Settings },
+    { label: "Soporte VIP", href: "/dashboard/support", icon: LifeBuoy },
   ];
 
   return (
@@ -45,7 +49,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
           <div className="overflow-hidden">
             <h2 className="font-bold text-sm text-white truncate">{academyName}</h2>
             <span className="text-[11px] text-blue-400 font-mono truncate block">
-              {tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "academiax.com"}
+              {tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}
             </span>
           </div>
         </div>
@@ -79,7 +83,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 border border-slate-800/50 hover:border-blue-500/30 transition-all group"
             >
               <Home className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" />
-              <span>Inicio Academia X</span>
+              <span>Inicio Mentor Studio Global</span>
             </Link>
           </div>
         </nav>

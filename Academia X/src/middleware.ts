@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
 
   if (!isMainHost && !isPlatformPath) {
     if (hostname.endsWith(`.${mainHost}`)) {
-      // Subdominio: mi-academia.academiax.com/ruta -> /a/mi-academia/ruta
+      // Subdominio: mi-academia.mentorstudioglobal.com/ruta -> /a/mi-academia/ruta
       const slug = hostname.slice(0, -(mainHost.length + 1));
       if (slug && !slug.includes(".")) {
         const rewriteUrl = url.clone();

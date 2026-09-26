@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateLessonContentAction } from "@/app/actions/course.actions";
+import { updateLessonContentAction, updateLessonSettingsAction } from "@/app/actions/course.actions";
 import {
   Type,
   Video,
@@ -16,7 +16,9 @@ import {
   MoveDown,
   Eye,
   Edit3,
+  UploadCloud,
 } from "lucide-react";
+import { uploadMaterialAction } from "@/app/actions/upload.actions";
 
 export interface LessonBlock {
   id: string;
@@ -34,6 +36,7 @@ interface LessonBlockEditorProps {
   courseId: string;
   lessonTitle: string;
   initialContentJson?: string | null;
+  initialLiveUrl?: string | null;
   tenantSlug: string;
 }
 
@@ -42,6 +45,7 @@ export function LessonBlockEditor({
   courseId,
   lessonTitle,
   initialContentJson,
+  initialLiveUrl,
   tenantSlug,
 }: LessonBlockEditorProps) {
   const parseInitialBlocks = (): LessonBlock[] => {
@@ -57,6 +61,7 @@ export function LessonBlockEditor({
   };
 
   const [blocks, setBlocks] = useState<LessonBlock[]>(parseInitialBlocks());
+  const [liveUrl, setLiveUrl] = useState(initialLiveUrl || "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
@@ -98,6 +103,11 @@ export function LessonBlockEditor({
     try {
       const contentJson = JSON.stringify({ blocks });
       await updateLessonContentAction(lessonId, contentJson);
+      
+      const formData = new FormData();
+      if (liveUrl) formData.set("liveUrl", liveUrl);
+      await updateLessonSettingsAction(lessonId, formData);
+
       setMessage({ type: "success", text: "¡Contenido de la lección guardado exitosamente!" });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Error al guardar el contenido." });
@@ -170,6 +180,21 @@ export function LessonBlockEditor({
 
       {activeTab === "edit" ? (
         <>
+          {/* Live Class URL */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
+            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Enlace de Clase en Vivo (Opcional)</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="url"
+                value={liveUrl}
+                onChange={(e) => setLiveUrl(e.target.value)}
+                placeholder="https://zoom.us/j/..."
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Si configuras este enlace, los alumnos verán un botón destacado para unirse a la clase en vivo al entrar a esta lección.</p>
+          </div>
+
           {/* Blocks list */}
           <div className="space-y-4">
             {blocks.length > 0 ? (
@@ -269,14 +294,44 @@ export function LessonBlockEditor({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Enlace / URL de Descarga</label>
-                        <input
-                          type="url"
-                          value={block.url || ""}
-                          onChange={(e) => updateBlock(block.id, { url: e.target.value })}
-                          placeholder="https://ejemplo.com/recurso.pdf"
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500"
-                        />
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Subir Archivo o Ingresar URL</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            value={block.url || ""}
+                            onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+                            placeholder="https://ejemplo.com/recurso.pdf o sube un archivo"
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500"
+                          />
+                          <label className="flex-shrink-0 cursor-pointer px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium flex items-center justify-center gap-2 border border-slate-700 transition-colors">
+                            <UploadCloud className="w-4 h-4" /> Subir
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const formData = new FormData();
+                                formData.append("file", file);
+                                setMessage({ type: "success", text: "Subiendo archivo..." });
+                                setSaving(true);
+                                try {
+                                  const res = await uploadMaterialAction(formData);
+                                  if (res.success && res.fileUrl) {
+                                    updateBlock(block.id, { url: res.fileUrl, title: block.title || res.fileName });
+                                    setMessage({ type: "success", text: "Archivo subido exitosamente." });
+                                  } else {
+                                    setMessage({ type: "error", text: res.error || "Error al subir el archivo." });
+                                  }
+                                } catch (err) {
+                                  setMessage({ type: "error", text: "Error de red al subir el archivo." });
+                                } finally {
+                                  setSaving(false);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
                       </div>
                     </div>
                   )}
