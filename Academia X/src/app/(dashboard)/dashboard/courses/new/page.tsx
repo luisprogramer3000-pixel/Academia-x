@@ -1,16 +1,14 @@
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, STAFF_ROLES } from "@/lib/session";
-import { createCourseAction } from "@/app/actions/course.actions";
-import { BookOpen, ArrowLeft, Plus } from "lucide-react";
+import { BookOpen, ArrowLeft, Layers, FileText } from "lucide-react";
 import Link from "next/link";
 
-export default async function NewCoursePage() {
+export default async function NewContentPage() {
   const ctx = await getDashboardContext(STAFF_ROLES);
   const { tenantId, tenant: academy } = ctx;
   const tenantSlug = academy.slug;
   const name = academy.name;
-
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -20,108 +18,69 @@ export default async function NewCoursePage() {
         <Header userName={ctx.user.name} userEmail={ctx.user.email} tenantId={tenantId} planLabel={ctx.activePlan?.name} />
 
         <main className="p-8 flex-1 overflow-y-auto max-w-3xl">
-          <div className="mb-6">
+          <div className="mb-8">
             <Link
-              href={`/dashboard/courses`}
+              href="/dashboard/courses"
               className="text-xs text-slate-400 hover:text-white transition-colors inline-flex items-center gap-1 mb-4"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Volver a cursos
+              <ArrowLeft className="w-3.5 h-3.5" /> Volver a mis recursos
             </Link>
-            <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
-              <BookOpen className="w-7 h-7 text-blue-400" /> Crear Nuevo Curso
-            </h1>
+            <h1 className="text-3xl font-extrabold text-white mb-2">¿Qué quieres crear?</h1>
             <p className="text-slate-400 text-sm">
-              Define el título, nivel MCER y precio inicial de tu programa académico.
+              Elige el tipo de contenido que mejor se adapta a lo que vas a preparar.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl">
-            <form action={createCourseAction} className="space-y-6">
-
+          <div className="grid sm:grid-cols-2 gap-6">
+            {/* Opción: Curso */}
+            <Link
+              href="/dashboard/courses/new/course"
+              className="group p-8 rounded-3xl bg-slate-900 border border-slate-800 hover:border-blue-500/60 hover:bg-slate-900/80 transition-all flex flex-col gap-5"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                <Layers className="w-7 h-7 text-blue-400" />
+              </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Título del Curso</label>
-                <input
-                  type="text"
-                  name="title"
-                  required
-                  placeholder="Ej. Español B2 - Negocios e Industria"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                />
+                <h2 className="text-xl font-bold text-white mb-2">Curso</h2>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Programa estructurado con módulos, múltiples clases, precio, landing de venta y certificado. Ideal para formaciones completas.
+                </p>
               </div>
+              <ul className="text-xs text-slate-500 space-y-1.5">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Módulos y lecciones organizadas</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Landing page de venta</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Precio e inscripciones</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Certificado al completar</li>
+              </ul>
+              <span className="mt-auto text-xs font-semibold text-blue-400 group-hover:underline">
+                Crear curso →
+              </span>
+            </Link>
 
+            {/* Opción: Lección simple */}
+            <Link
+              href="/dashboard/courses/new/lesson"
+              className="group p-8 rounded-3xl bg-slate-900 border border-slate-800 hover:border-emerald-500/60 hover:bg-slate-900/80 transition-all flex flex-col gap-5"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                <FileText className="w-7 h-7 text-emerald-400" />
+              </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Descripción General</label>
-                <textarea
-                  name="description"
-                  rows={3}
-                  placeholder="Resumen pedagógico de los objetivos del curso..."
-                  className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                />
+                <h2 className="text-xl font-bold text-white mb-2">Lección / Clase</h2>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  Clase suelta que queda como recurso interno de tu academia. Sin landing ni inscripciones. Perfecta para clases individuales o materiales de apoyo.
+                </p>
               </div>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Nivel MCER</label>
-                  <select
-                    name="level"
-                    defaultValue="B1"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  >
-                    <option value="A1">A1 - Acceso (Principiante)</option>
-                    <option value="A2">A2 - Plata (Básico)</option>
-                    <option value="B1">B1 - Umbral (Intermedio)</option>
-                    <option value="B2">B2 - Avanzado (Intermedio Alto)</option>
-                    <option value="C1">C1 - Dominio Eficaz (Avanzado)</option>
-                    <option value="C2">C2 - Maestría (Nativo/Profesional)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Precio ($ USD)</label>
-                  <input
-                    type="number"
-                    name="priceAmount"
-                    defaultValue={99}
-                    min={0}
-                    step={1}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Método de Cobro</label>
-                  <select
-                    name="paymentType"
-                    defaultValue="EXTERNAL"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  >
-                    <option value="EXTERNAL">Enlace Externo (Manual)</option>
-                    <option value="STRIPE_CONNECT">Stripe Integrado (Próximamente)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Link de Pago (Si es Externo)</label>
-                  <input
-                    type="url"
-                    name="paymentLink"
-                    placeholder="https://paypal.me/... o link de Stripe"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-800 flex justify-end">
-                <button
-                  type="submit"
-                  className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-colors flex items-center gap-2 shadow-lg shadow-blue-600/30"
-                >
-                  <Plus className="w-4 h-4" /> Crear y Abrir Constructor
-                </button>
-              </div>
-            </form>
+              <ul className="text-xs text-slate-500 space-y-1.5">
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Contenido en bloques (texto, video, quiz…)</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Plan del profesor integrado</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Recurso interno de la academia</li>
+                <li className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Sin landing ni precio</li>
+              </ul>
+              <span className="mt-auto text-xs font-semibold text-emerald-400 group-hover:underline">
+                Crear lección →
+              </span>
+            </Link>
           </div>
         </main>
       </div>

@@ -26,6 +26,11 @@ enum CourseStatus {
   ARCHIVED
 }
 
+enum ContentType {
+  COURSE
+  STANDALONE_LESSON
+}
+
 enum AICreditType {
   TEACHER
   STUDENT
@@ -52,6 +57,9 @@ enum AIOperation {
   COURSE_REGENERATION
   AI_TUTOR
   AI_FEEDBACK
+  CLASS_AGENT
+  IMAGE_GENERATION
+  IMAGE_GENERATION_HQ
 }
 
 model User {
@@ -73,6 +81,7 @@ model User {
   notifications        Notification[]
   aiCreditPurchases    AICreditPurchase[]
   passwordResetTokens  PasswordResetToken[]
+  quizAttempts         QuizAttempt[]
 }
 
 /// Tokens de un solo uso para restablecer contraseña (se guarda solo el hash SHA-256)
@@ -113,6 +122,7 @@ model Tenant {
   invitations          Invitation[]
   notifications        Notification[]
   aiCreditPurchases    AICreditPurchase[]
+  quizAttempts         QuizAttempt[]
 }
 
 model Membership {
@@ -139,11 +149,16 @@ model Course {
   description String?
   language    String       @default("es")
   level       String       @default("A1")
+  contentType ContentType  @default(COURSE)
   status      CourseStatus @default(DRAFT)
   priceAmount Decimal      @default(0.00)
   currency    String       @default("USD")
   paymentType String       @default("EXTERNAL")
   paymentLink String?
+  /// Plantilla de certificado que usará este curso: CLASSIC | MODERN | ELEGANT
+  certificateTemplate String @default("CLASSIC")
+  /// Landing de venta generada con IA: { headline, subheadline, benefits[], callToAction }
+  landing     Json?
   imageUrl    String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -176,11 +191,37 @@ model Lesson {
   order       Int      @default(0)
   content     String?  // JSON string block data
   liveUrl     String?
+  /// Plan del profesor (NO visible para el alumno): objetivo, guion de tiempos,
+  /// requisitos previos, tarea y notas didácticas que genera el Agente de Clase.
+  teacherPlan Json?
   createdAt   DateTime @default(now())
 
   module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   assignments Assignment[]
   progresses  Progress[]
+  quizAttempts QuizAttempt[]
+}
+
+/// Intento de quiz de un alumno en una lección. La corrección se hace SIEMPRE
+/// en el servidor: el navegador nunca recibe las respuestas correctas.
+model QuizAttempt {
+  id             String   @id @default(cuid())
+  tenantId       String
+  lessonId       String
+  userId         String
+  score          Int      // 0-100
+  correctCount   Int
+  totalQuestions Int
+  answers        Json     // [{ blockId, selected, correct }]
+  createdAt      DateTime @default(now())
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson         Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, lessonId])
+  @@index([userId])
+  @@index([lessonId, userId])
 }
 
 model Enrollment {
@@ -212,6 +253,8 @@ model Assignment {
   lessonId    String
   title       String
   description String
+  /// Fecha límite de entrega que fija el profesor (opcional)
+  dueDate     DateTime?
   createdAt   DateTime @default(now())
 
   lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -239,6 +282,10 @@ model Certificate {
   courseId       String
   code           String   @unique
   cryptoHash     String?
+  /// Plantilla con la que se emitió (se congela: cambiar el curso no altera los ya emitidos)
+  template       String   @default("CLASSIC")
+  /// Profesor que aprobó la emisión
+  issuedByUserId String?
   issuedAt       DateTime @default(now())
 
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)

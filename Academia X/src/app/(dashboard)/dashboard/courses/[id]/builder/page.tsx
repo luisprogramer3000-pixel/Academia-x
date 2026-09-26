@@ -3,6 +3,9 @@ import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, STAFF_ROLES } from "@/lib/session";
 import { CourseService } from "@/modules/course/course.service";
 import { createModuleAction, createLessonAction, toggleCourseStatusAction } from "@/app/actions/course.actions";
+import { CourseSettingsForm } from "@/components/dashboard/CourseSettingsForm";
+import { CourseLandingPanel } from "@/components/dashboard/CourseLandingPanel";
+import { CourseStructurePanel } from "@/components/dashboard/CourseStructurePanel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Layers, Plus, BookOpen, Edit, Eye, ArrowLeft, CheckCircle2, Globe, FileText, Sparkles, ShieldCheck, AlertCircle } from "lucide-react";
@@ -29,6 +32,7 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
   const courseData = course;
 
   const isDraft = courseData.status === "DRAFT";
+  const isLesson = courseData.contentType === "STANDALONE_LESSON";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -41,14 +45,14 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
           {/* Header */}
           <div className="mb-8">
             <Link
-              href={`/dashboard/courses`}
+              href="/dashboard/courses"
               className="text-xs text-slate-400 hover:text-white transition-colors inline-flex items-center gap-1 mb-4"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Volver al catálogo de cursos
+              <ArrowLeft className="w-3.5 h-3.5" /> {isLesson ? "Volver a mis recursos" : "Volver al catálogo de cursos"}
             </Link>
 
-            {/* AI Review Banner */}
-            {isDraft && (
+            {/* AI Review Banner — solo para cursos completos */}
+            {isDraft && !isLesson && (
               <div className="mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 flex-shrink-0">
@@ -79,40 +83,73 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-3 py-1 rounded-md text-xs font-bold uppercase font-mono ${
-                    courseData.status === "PUBLISHED"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                  }`}>
-                    {courseData.status === "PUBLISHED" ? "✓ Publicado y Aprobado" : "Borrador — Pendiente de Revisión"}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">Nivel {courseData.level}</span>
+                  {isLesson ? (
+                    <span className="px-3 py-1 rounded-md text-xs font-bold uppercase font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Lección / Clase
+                    </span>
+                  ) : (
+                    <span className={`px-3 py-1 rounded-md text-xs font-bold uppercase font-mono ${
+                      courseData.status === "PUBLISHED"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>
+                      {courseData.status === "PUBLISHED" ? "✓ Publicado y Aprobado" : "Borrador — Pendiente de Revisión"}
+                    </span>
+                  )}
+                  {courseData.level && <span className="text-xs font-mono text-slate-400">Nivel {courseData.level}</span>}
                 </div>
                 <h1 className="text-3xl font-extrabold text-white">{courseData.title}</h1>
               </div>
 
               <div className="flex items-center gap-3">
+                {/* Landing solo para cursos completos */}
+                {!isLesson && (
+                  <CourseLandingPanel
+                    courseId={courseData.id}
+                    courseTitle={courseData.title}
+                    courseSlug={courseData.slug}
+                    tenantSlug={tenantSlug}
+                    isPublished={courseData.status === "PUBLISHED"}
+                    initialLanding={(courseData.landing as never) ?? null}
+                  />
+                )}
+                <CourseSettingsForm
+                  courseId={courseData.id}
+                  initial={{
+                    title: courseData.title,
+                    description: courseData.description,
+                    level: courseData.level,
+                    language: courseData.language,
+                    priceAmount: Number(courseData.priceAmount),
+                    currency: courseData.currency,
+                    paymentType: courseData.paymentType,
+                    paymentLink: courseData.paymentLink,
+                  }}
+                />
                 <PdfExportButton />
-                <form action={toggleCourseStatusAction.bind(null, courseData.id, courseData.status)}>
-                  <button
-                    type="submit"
-                    className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg flex items-center gap-2 ${
-                      courseData.status === "PUBLISHED"
-                        ? "bg-amber-600/20 text-amber-400 border border-amber-500/30 hover:bg-amber-600/30"
-                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
-                    }`}
-                  >
-                    {courseData.status === "PUBLISHED" ? (
-                      <>
-                        <AlertCircle className="w-4 h-4" /> Volver a Borrador
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4" /> Aprobar y Publicar Curso
-                      </>
-                    )}
-                  </button>
-                </form>
+                {/* Publicar solo para cursos completos */}
+                {!isLesson && (
+                  <form action={toggleCourseStatusAction.bind(null, courseData.id, courseData.status)}>
+                    <button
+                      type="submit"
+                      className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg flex items-center gap-2 ${
+                        courseData.status === "PUBLISHED"
+                          ? "bg-amber-600/20 text-amber-400 border border-amber-500/30 hover:bg-amber-600/30"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30"
+                      }`}
+                    >
+                      {courseData.status === "PUBLISHED" ? (
+                        <>
+                          <AlertCircle className="w-4 h-4" /> Volver a Borrador
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4" /> Aprobar y Publicar Curso
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           </div>
@@ -186,6 +223,21 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
 
             {/* Sidebar Form: Agregar Módulo */}
             <div className="space-y-6">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30">
+                <h3 className="font-bold text-white text-base mb-1 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400" /> Copiloto IA
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">
+                  Deja que la IA proponga los módulos y lecciones del curso.
+                </p>
+                <CourseStructurePanel
+                  courseId={courseData.id}
+                  courseTitle={courseData.title}
+                  courseLevel={courseData.level}
+                  hasExistingModules={courseData.modules.length > 0}
+                />
+              </div>
+
               <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
                 <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
                   <Plus className="w-4 h-4 text-blue-400" /> Crear Nuevo Módulo

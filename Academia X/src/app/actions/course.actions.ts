@@ -94,6 +94,77 @@ export async function createCourseAction(formData: FormData): Promise<void> {
   }
 }
 
+const createStandaloneLessonSchema = z.object({
+  title: z.string().trim().min(2, "El título debe tener al menos 2 caracteres").max(150),
+  description: z.string().max(2000).optional(),
+  level: z.string().max(20).optional(),
+});
+
+export async function createStandaloneLessonAction(formData: FormData): Promise<void> {
+  const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+  await requireActiveSubscription(tenantId);
+
+  const validated = createStandaloneLessonSchema.parse({
+    title: formData.get("title") as string,
+    description: (formData.get("description") as string) || undefined,
+    level: (formData.get("level") as string) || undefined,
+  });
+
+  // Crea el contenedor (course) tipo STANDALONE_LESSON + módulo + lección en una transacción
+  const result = await prisma.$transaction(async (tx) => {
+    const course = await tx.course.create({
+      data: {
+        tenantId,
+        title: validated.title,
+        slug: await generateUniqueSlug(tenantId, validated.title),
+        description: validated.description || null,
+        level: validated.level || "A1",
+        language: "es",
+        priceAmount: 0,
+        currency: "USD",
+        paymentType: "EXTERNAL",
+        status: "DRAFT",
+        contentType: "STANDALONE_LESSON",
+      },
+    });
+
+    const module = await tx.module.create({
+      data: {
+        courseId: course.id,
+        title: "Clase",
+        order: 1,
+      },
+    });
+
+    const lesson = await tx.lesson.create({
+      data: {
+        moduleId: module.id,
+        title: validated.title,
+        order: 1,
+        content: JSON.stringify({ blocks: [] }),
+      },
+    });
+
+    return { course, lesson };
+  });
+
+  revalidatePath("/dashboard/courses");
+  redirect(`/dashboard/courses/${result.course.id}/lessons/${result.lesson.id}`);
+}
+
+async function generateUniqueSlug(tenantId: string, title: string): Promise<string> {
+  const { slugify } = await import("@/modules/academy/academy.service");
+  const base = slugify(title);
+  let slug = base;
+  let counter = 1;
+  while (
+    await prisma.course.findUnique({ where: { tenantId_slug: { tenantId, slug } } })
+  ) {
+    slug = `${base}-${counter++}`;
+  }
+  return slug;
+}
+
 export async function createModuleAction(formData: FormData): Promise<void> {
   const { tenantId } = await requireTenantAccess(STAFF_ROLES);
 
