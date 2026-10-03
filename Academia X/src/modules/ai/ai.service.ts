@@ -10,11 +10,19 @@ import {
   CourseRegenParams,
   AITutorParams,
   AIFeedbackParams,
+  LessonDocumentParams,
+  LessonDocumentOutput,
 } from "./ai.adapter";
 import { CourseService } from "@/modules/course/course.service";
 import { AICreditEngine } from "./ai.credit-engine";
 import { AIOperation } from "@prisma/client";
 import { getPlanAIConfig } from "./ai.config";
+import { ClassAgentParams, ClassAgentOutput } from "./class-agent.schema";
+import { ClassPlanParams, ClassPlanOutput, type ClassPlanMaterial } from "./class-plan.schema";
+import type { MaterialGenParams, MaterialGenOutput } from "./material-tools";
+import type { AiDeckParams, AiDeckOutput } from "@/modules/presentation/ai-deck.schema";
+import { generateClassImage, ImageQuality } from "./image.adapter";
+import { saveGeneratedImage } from "@/lib/uploads";
 
 export interface GenerateCourseDraftInput extends CourseGenParams {
   tenantId: string;
@@ -196,7 +204,7 @@ export class AIService {
             slug: "central",
             language: "es",
             primaryColor: "#3B82F6",
-            secondaryColor: "#1E293B",
+            secondaryColor: "#F1F5F9",
           },
         });
       }
@@ -849,5 +857,532 @@ export class AIService {
       throw error;
     }
   }
-}
 
+  /**
+   * AGENTE DE CLASE
+   *
+   * Una sola operación devuelve la clase entera siguiendo el esquema pedagógico.
+   * Las imágenes se cobran aparte y de una en una: si la quinta falla, las
+   * cuatro anteriores ya están pagadas y entregadas, y el profesor no pierde
+   * créditos por las que no recibió.
+   */
+  static async generateFullClassAI(
+    input: ClassAgentParams & {
+      tenantId: string;
+      userId?: string;
+      idempotencyKey?: string;
+      lessonId?: string;
+      /** "standard" = Flux Schnell (1 crédito) · "hq" = Nano Banana (2 créditos) */
+      imageQuality?: ImageQuality;
+    }
+  ): Promise<ClassAgentOutput & { imagesGenerated: number; imageErrors: string[] }> {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+
+    // 1. Cobrar la clase
+    const creditResult = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.CLASS_AGENT,
+      idempotencyKey: input.idempotencyKey,
+      referenceId: input.lessonId,
+    });
+
+    let aiOutput: ClassAgentOutput;
+    try {
+      aiOutput = await adapter.generateFullClass({
+        topic: input.topic,
+        level: input.level,
+        language: input.language || "es",
+        durationMinutes: input.durationMinutes,
+        audience: input.audience,
+        goal: input.goal,
+        methodology: input.methodology,
+        imageCount: input.imageCount,
+      });
+
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "CLASS_AGENT",
+            provider: adapter.providerName,
+            model: adapter.modelName || "gpt-4o-mini",
+            promptTokens: aiOutput.promptTokens,
+            completionTokens: aiOutput.completionTokens,
+            estimatedCost: aiOutput.estimatedCost,
+            creditsUsed: creditResult.creditsUsed,
+            creditTransactionId: creditResult.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for class agent:", err);
+      }
+    } catch (error) {
+      await AIService.executeAutoRefund(
+        validTenantId,
+        creditResult.transactionId,
+        validUserId,
+        AIOperation.CLASS_AGENT,
+        error,
+        input.idempotencyKey
+      );
+      throw error;
+    }
+
+    // 2. Imágenes: cada una es una operación independiente.
+    // El nivel de calidad decide proveedor Y coste en créditos.
+    const imageQuality: ImageQuality = input.imageQuality || "standard";
+    const imageOperation =
+      imageQuality === "hq" ? AIOperation.IMAGE_GENERATION_HQ : AIOperation.IMAGE_GENERATION;
+
+    const imageErrors: string[] = [];
+    let imagesGenerated = 0;
+
+    for (const [index, brief] of aiOutput.images.entries()) {
+      let imageCredit;
+      try {
+        imageCredit = await AICreditEngine.consumeCredits({
+          tenantId: validTenantId,
+          userId: validUserId,
+          operation: imageOperation,
+          idempotencyKey: input.idempotencyKey ? `${input.idempotencyKey}-img-${index}` : undefined,
+          referenceId: input.lessonId,
+        });
+      } catch {
+        imageErrors.push(`Sin créditos para la imagen ${index + 1}.`);
+        break; // si no hay saldo para una, tampoco lo habrá para las siguientes
+      }
+
+      try {
+        const image = await generateClassImage({ prompt: brief.prompt, quality: imageQuality });
+        brief.url = await saveGeneratedImage(validTenantId, image.buffer, image.mimeType);
+        imagesGenerated++;
+
+        try {
+          await prisma.aIUsage.create({
+            data: {
+              tenantId: validTenantId,
+              userId: validUserId,
+              feature: imageQuality === "hq" ? "IMAGE_GENERATION_HQ" : "IMAGE_GENERATION",
+              provider: image.provider,
+              model: image.model,
+              promptTokens: 0,
+              completionTokens: 0,
+              estimatedCost: image.estimatedCost,
+              creditsUsed: imageCredit.creditsUsed,
+              creditTransactionId: imageCredit.transactionId || null,
+            },
+          });
+        } catch (err) {
+          console.warn("Could not log AIUsage for image:", err);
+        }
+      } catch (error) {
+        // La imagen falló: se devuelven sus créditos, no los de la clase
+        await AIService.executeAutoRefund(
+          validTenantId,
+          imageCredit.transactionId,
+          validUserId,
+          imageOperation,
+          error,
+          input.idempotencyKey ? `${input.idempotencyKey}-img-${index}` : undefined
+        );
+        imageErrors.push(
+          `Imagen ${index + 1}: ${error instanceof Error ? error.message : "no se pudo generar"} (créditos devueltos).`
+        );
+      }
+    }
+
+    return { ...aiOutput, imagesGenerated, imageErrors };
+  }
+
+  /**
+   * Genera las ilustraciones que la IA sugirió en las secciones del plan
+   * (imagePrompt), hasta `count`. Cada imagen se cobra aparte y se devuelve
+   * si falla; el plan se modifica en sitio con la URL de cada imagen.
+   */
+  static async attachPlanImages(
+    plan: ClassPlanOutput,
+    input: { tenantId: string; userId?: string; count: number; quality?: ImageQuality; idempotencyKey?: string }
+  ): Promise<{ imagesGenerated: number; imageErrors: string[] }> {
+    AIService.ensureImagePrompts(plan, input.count);
+    return AIService.attachPromptImages(plan.materials.flatMap((m) => m.sections), input);
+  }
+
+  /**
+   * Si el profesor pidió N imágenes y la IA sugirió menos, se crean las
+   * descripciones que falten a partir de las secciones más visuales:
+   * diálogos, escena del reto, lectura y conceptos de la teoría.
+   */
+  static ensureImagePrompts(plan: ClassPlanOutput, count: number) {
+    const all = plan.materials.flatMap((m) => m.sections.map((s) => ({ s, kind: m.kind })));
+    let missing = count - all.filter(({ s }) => s.imagePrompt).length;
+    if (missing <= 0) return;
+    const priority = (x: (typeof all)[number]) =>
+      (x.s.dialogue?.length ? 0 : 10) + (({ reto: 1, lectura: 2, resumen: 3 } as Record<string, number>)[x.kind] ?? 9);
+    const candidates = all.filter(({ s }) => !s.imagePrompt && (s.body || s.dialogue?.length)).sort((a, b) => priority(a) - priority(b));
+    for (const { s } of candidates) {
+      if (missing <= 0) break;
+      const speakers = [...new Set((s.dialogue ?? []).map((l) => l.speaker))].slice(0, 3);
+      const scene = s.body.replace(/[#*|_>-]/g, " ").replace(/\s+/g, " ").slice(0, 220);
+      s.imagePrompt = speakers.length
+        ? `Jóvenes estudiantes (${speakers.join(", ")}) conversando con naturalidad. Situación: ${s.heading}. ${scene}`
+        : `Escena ilustrativa para una clase sobre "${plan.title}": ${s.heading}. ${scene}`;
+      missing--;
+    }
+  }
+
+  /**
+   * Genera ilustraciones para cualquier lista de elementos con `imagePrompt`
+   * (secciones de un plan, diapositivas…), hasta `count`, y rellena su `imageUrl`.
+   * Cada imagen se cobra aparte y se devuelve si falla.
+   */
+  static async attachPromptImages(
+    items: Array<{ imagePrompt?: string; imageUrl?: string }>,
+    input: {
+      tenantId: string;
+      userId?: string;
+      count: number;
+      quality?: ImageQuality;
+      idempotencyKey?: string;
+      /** Estilo añadido al prompt; por defecto, ilustración de libro de idiomas */
+      styleSuffix?: string;
+    }
+  ): Promise<{ imagesGenerated: number; imageErrors: string[] }> {
+    const targets = items
+      .filter((s) => s.imagePrompt && !s.imageUrl)
+      .slice(0, Math.max(0, Math.min(6, input.count)));
+    if (targets.length === 0) return { imagesGenerated: 0, imageErrors: [] };
+
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+    const quality: ImageQuality = input.quality || "standard";
+    const operation = quality === "hq" ? AIOperation.IMAGE_GENERATION_HQ : AIOperation.IMAGE_GENERATION;
+    const imageErrors: string[] = [];
+    let imagesGenerated = 0;
+
+    for (const [index, section] of targets.entries()) {
+      const key = input.idempotencyKey ? `${input.idempotencyKey}-img-${index}` : undefined;
+      let credit;
+      try {
+        credit = await AICreditEngine.consumeCredits({ tenantId: validTenantId, userId: validUserId, operation, idempotencyKey: key });
+      } catch {
+        imageErrors.push(`Sin créditos para la imagen ${index + 1}.`);
+        break;
+      }
+      try {
+        const image = await generateClassImage({
+          prompt: `${section.imagePrompt}. ${input.styleSuffix ?? "Ilustración colorida estilo libro de texto de idiomas, personajes jóvenes y diversos con expresiones amables, trazos limpios y fondo sencillo. Sin texto, letras ni bocadillos dentro de la imagen."}`,
+          quality,
+        });
+        section.imageUrl = await saveGeneratedImage(validTenantId, image.buffer, image.mimeType);
+        imagesGenerated++;
+        try {
+          await prisma.aIUsage.create({
+            data: {
+              tenantId: validTenantId,
+              userId: validUserId,
+              feature: quality === "hq" ? "IMAGE_GENERATION_HQ" : "IMAGE_GENERATION",
+              provider: image.provider,
+              model: image.model,
+              promptTokens: 0,
+              completionTokens: 0,
+              estimatedCost: image.estimatedCost,
+              creditsUsed: credit.creditsUsed,
+              creditTransactionId: credit.transactionId || null,
+            },
+          });
+        } catch (err) {
+          console.warn("Could not log AIUsage for plan image:", err);
+        }
+      } catch (error) {
+        await AIService.executeAutoRefund(validTenantId, credit.transactionId, validUserId, operation, error, key);
+        imageErrors.push(`Imagen ${index + 1}: ${error instanceof Error ? error.message : "no se pudo generar"} (créditos devueltos).`);
+      }
+    }
+    return { imagesGenerated, imageErrors };
+  }
+
+  /**
+   * Presentación inteligente: la IA rediseña la lección en diapositivas con
+   * estructura visual. Cuesta lo mismo que generar una lección; las
+   * ilustraciones opcionales se cobran aparte, una a una.
+   */
+  static async generatePresentationDeckAI(
+    input: AiDeckParams & { tenantId: string; userId?: string; idempotencyKey?: string; lessonId?: string }
+  ): Promise<AiDeckOutput & { imageErrors: string[] }> {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+
+    const creditResult = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.LESSON_GENERATION,
+      idempotencyKey: input.idempotencyKey,
+      referenceId: input.lessonId,
+    });
+
+    let output: AiDeckOutput;
+    try {
+      const { tenantId: _t, userId: _u, idempotencyKey: _k, lessonId: _l, ...params } = input;
+      output = await adapter.generatePresentationDeck(params);
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "LESSON_GENERATION",
+            provider: adapter.providerName,
+            model: adapter.modelName || "unknown",
+            promptTokens: output.promptTokens,
+            completionTokens: output.completionTokens,
+            estimatedCost: output.estimatedCost,
+            creditsUsed: creditResult.creditsUsed,
+            creditTransactionId: creditResult.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for presentation:", err);
+      }
+    } catch (error) {
+      await AIService.executeAutoRefund(validTenantId, creditResult.transactionId, validUserId, AIOperation.LESSON_GENERATION, error, input.idempotencyKey);
+      throw error;
+    }
+
+    const { imageErrors } = input.imageCount
+      ? await AIService.attachPromptImages(output.slides as Array<{ imagePrompt?: string; imageUrl?: string }>, {
+          tenantId: validTenantId,
+          userId: validUserId,
+          count: input.imageCount,
+          idempotencyKey: input.idempotencyKey,
+        })
+      : { imageErrors: [] as string[] };
+
+    return { ...output, imageErrors };
+  }
+
+  /**
+   * Garantiza los 6 materiales de la clase (reto, teoría, lectura, ejercicios,
+   * quiz y flashcards). Los que falten o lleguen vacíos se generan en paralelo
+   * con la herramienta equivalente, con el mismo nivel, idioma y modo bilingüe.
+   * Si alguno falla, la clase se entrega igual con lo que haya.
+   */
+  static async completeMissingMaterials(adapter: ReturnType<typeof getAIAdapter>, plan: ClassPlanOutput, p: ClassPlanParams) {
+    const REQUIRED: Array<{ kind: ClassPlanMaterial["kind"]; tool: MaterialGenParams["toolId"]; count: number }> = [
+      { kind: "reto", tool: "reto", count: 4 },
+      { kind: "resumen", tool: "apuntes", count: 5 },
+      { kind: "lectura", tool: "lectura", count: 6 },
+      { kind: "ejercicios", tool: "examen", count: 10 },
+      { kind: "quiz", tool: "quiz", count: 6 },
+      { kind: "flashcards", tool: "flashcards", count: 12 },
+    ];
+    const hasContent = (m: ClassPlanMaterial) => m.sections.length > 0 || m.questions.length > 0 || m.cards.length > 0;
+    const missing = REQUIRED.filter((r) => !plan.materials.some((m) => m.kind === r.kind && hasContent(m)));
+    if (!missing.length) return;
+
+    // Contexto para que los nuevos materiales sean coherentes con la teoría ya generada
+    const theory = plan.materials.find((m) => m.kind === "resumen" && hasContent(m));
+    const theoryText = theory
+      ? theory.sections.map((s) => `${s.heading}: ${s.body} ${s.bullets.join("; ")}`).join("\n").slice(0, 3000)
+      : "";
+    const context = [
+      p.context,
+      `Forma parte de la clase "${plan.title}" (${p.methodology}).`,
+      theoryText ? `Sé coherente con esta teoría de la clase:\n${theoryText}` : "",
+    ].filter(Boolean).join("\n");
+
+    const results = await Promise.allSettled(
+      missing.map((r) =>
+        adapter.generateMaterial({
+          toolId: r.tool,
+          topic: p.topic,
+          grade: p.grade,
+          subject: p.subject,
+          language: p.language,
+          count: r.count,
+          context,
+          nativeLanguage: p.nativeLanguage,
+        })
+      )
+    );
+
+    results.forEach((res, i) => {
+      if (res.status !== "fulfilled") {
+        console.warn(`[class-plan] No se pudo completar el material ${missing[i].kind}:`, res.reason);
+        return;
+      }
+      const kind = missing[i].kind;
+      // Sustituye el material vacío del mismo tipo, o añade uno nuevo
+      const existing = plan.materials.findIndex((m) => m.kind === kind);
+      const id = existing >= 0 ? plan.materials[existing].id : `m${plan.materials.length + 1}`;
+      const material = { ...res.value.material, id, kind };
+      if (existing >= 0) plan.materials[existing] = material;
+      else {
+        plan.materials.push(material);
+        const moment = plan.moments[kind === "reto" ? 1 : kind === "resumen" ? 2 : plan.moments.length - 1] ?? plan.moments[plan.moments.length - 1];
+        moment?.materialIds.push(id);
+      }
+      plan.promptTokens += res.value.promptTokens;
+      plan.completionTokens += res.value.completionTokens;
+      plan.estimatedCost += res.value.estimatedCost;
+    });
+  }
+
+  static async generateClassPlanAI(
+    input: ClassPlanParams & { tenantId: string; userId?: string; idempotencyKey?: string }
+  ): Promise<ClassPlanOutput> {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+
+    const creditResult = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.CLASS_AGENT,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    try {
+      const { tenantId: _t, userId: _u, idempotencyKey: _k, ...params } = input;
+      const aiOutput = await adapter.generateClassPlan(params);
+      // Los modelos pequeños a veces dejan materiales sin generar: se completan aparte (incluido en el precio de la clase)
+      await AIService.completeMissingMaterials(adapter, aiOutput, params);
+
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "CLASS_AGENT",
+            provider: adapter.providerName,
+            model: adapter.modelName || "unknown",
+            promptTokens: aiOutput.promptTokens,
+            completionTokens: aiOutput.completionTokens,
+            estimatedCost: aiOutput.estimatedCost,
+            creditsUsed: creditResult.creditsUsed,
+            creditTransactionId: creditResult.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for class plan:", err);
+      }
+
+      return aiOutput;
+    } catch (error) {
+      await AIService.executeAutoRefund(
+        validTenantId,
+        creditResult.transactionId,
+        validUserId,
+        AIOperation.CLASS_AGENT,
+        error,
+        input.idempotencyKey
+      );
+      throw error;
+    }
+  }
+
+  static async generateMaterialAI(
+    input: MaterialGenParams & { tenantId: string; userId?: string; idempotencyKey?: string }
+  ): Promise<MaterialGenOutput> {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+
+    const creditResult = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.ACTIVITY_GENERATION,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    try {
+      const { tenantId: _t, userId: _u, idempotencyKey: _k, ...params } = input;
+      const aiOutput = await adapter.generateMaterial(params);
+
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "ACTIVITY_GENERATION",
+            provider: adapter.providerName,
+            model: adapter.modelName || "unknown",
+            promptTokens: aiOutput.promptTokens,
+            completionTokens: aiOutput.completionTokens,
+            estimatedCost: aiOutput.estimatedCost,
+            creditsUsed: creditResult.creditsUsed,
+            creditTransactionId: creditResult.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for material tool:", err);
+      }
+
+      return aiOutput;
+    } catch (error) {
+      await AIService.executeAutoRefund(
+        validTenantId,
+        creditResult.transactionId,
+        validUserId,
+        AIOperation.ACTIVITY_GENERATION,
+        error,
+        input.idempotencyKey
+      );
+      throw error;
+    }
+  }
+
+  static async generateLessonDocumentAI(
+    input: LessonDocumentParams & { tenantId: string; userId?: string; idempotencyKey?: string }
+  ): Promise<LessonDocumentOutput> {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+
+    const creditResult = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.LESSON_GENERATION,
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    let aiOutput: LessonDocumentOutput;
+    try {
+      aiOutput = await adapter.generateLessonDocument({
+        topic: input.topic,
+        level: input.level,
+        audience: input.audience,
+        subject: input.subject,
+        teacherLanguage: input.teacherLanguage,
+      });
+
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "LESSON_GENERATION",
+            provider: adapter.providerName,
+            model: adapter.modelName || "claude-opus-5",
+            promptTokens: aiOutput.promptTokens,
+            completionTokens: aiOutput.completionTokens,
+            estimatedCost: aiOutput.estimatedCost,
+            creditsUsed: creditResult.creditsUsed,
+            creditTransactionId: creditResult.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for lesson document:", err);
+      }
+    } catch (error) {
+      await AIService.executeAutoRefund(
+        validTenantId,
+        creditResult.transactionId,
+        validUserId,
+        AIOperation.LESSON_GENERATION,
+        error,
+        input.idempotencyKey
+      );
+      throw error;
+    }
+
+    return aiOutput;
+  }
+}

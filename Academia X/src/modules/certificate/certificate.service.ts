@@ -6,6 +6,41 @@ export interface IssueCertificateInput {
   tenantId: string;
   userId: string;
   courseId: string;
+  /** Profesor que aprueba la emisión (queda registrado) */
+  issuedByUserId?: string;
+  /** Plantilla; si se omite, se toma la configurada en el curso */
+  template?: string;
+}
+
+/**
+ * Firma del certificado.
+ *
+ * Antes se calculaba con Date.now(), lo que la hacía IMPOSIBLE de recomprobar:
+ * el hash cambiaba en cada ejecución y no demostraba nada. Ahora es un HMAC
+ * determinista sobre los datos del certificado y la fecha real de emisión, con
+ * una clave que solo conoce el servidor. Cualquiera puede pedir la verificación
+ * y el servidor recalcula la firma: si coincide, el certificado es auténtico y
+ * sus datos no han sido alterados.
+ */
+function signCertificate(params: {
+  tenantId: string;
+  userId: string;
+  courseId: string;
+  code: string;
+  issuedAt: Date;
+}): string {
+  const secret = process.env.CERTIFICATE_SIGNING_SECRET || process.env.JWT_SECRET || "";
+  if (!secret) throw new Error("Falta CERTIFICATE_SIGNING_SECRET o JWT_SECRET para firmar certificados.");
+
+  const payload = [
+    params.tenantId,
+    params.userId,
+    params.courseId,
+    params.code,
+    params.issuedAt.toISOString(),
+  ].join("|");
+
+  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }
 
 export class CertificateService {
@@ -35,18 +70,20 @@ export class CertificateService {
       code = this.generateCertificateCode();
     }
 
-    const subscription = await prisma.subscription.findFirst({
-      where: { tenantId: input.tenantId, status: "active" },
+    const course = await prisma.course.findFirst({
+      where: { id: input.courseId, tenantId: input.tenantId },
+      select: { certificateTemplate: true },
     });
-    
-    // PRO or ACADEMY are premium plans
-    const isPremium = subscription?.planId === "PRO" || subscription?.planId === "ACADEMY";
+    if (!course) throw new Error("Curso no encontrado en esta academia.");
 
-    let cryptoHash = null;
-    if (isPremium) {
-      const payload = `${input.tenantId}-${input.userId}-${input.courseId}-${Date.now()}-${code}`;
-      cryptoHash = crypto.createHash("sha256").update(payload).digest("hex");
-    }
+    const issuedAt = new Date();
+    const cryptoHash = signCertificate({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      courseId: input.courseId,
+      code,
+      issuedAt,
+    });
 
     return prisma.certificate.create({
       data: {
@@ -55,6 +92,9 @@ export class CertificateService {
         courseId: input.courseId,
         code,
         cryptoHash,
+        issuedAt,
+        template: input.template || course.certificateTemplate || "CLASSIC",
+        issuedByUserId: input.issuedByUserId || null,
       },
       include: {
         course: true,
@@ -62,6 +102,30 @@ export class CertificateService {
         user: true,
       },
     });
+  }
+
+  /**
+   * Recalcula la firma y confirma que el certificado es auténtico.
+   * Devuelve false si alguien alteró los datos en base de datos.
+   */
+  static verifySignature(certificate: {
+    tenantId: string;
+    userId: string;
+    courseId: string;
+    code: string;
+    issuedAt: Date;
+    cryptoHash: string | null;
+  }): boolean {
+    if (!certificate.cryptoHash) return false;
+    try {
+      const expected = signCertificate(certificate);
+      // Comparación en tiempo constante
+      const a = Buffer.from(expected, "hex");
+      const b = Buffer.from(certificate.cryptoHash, "hex");
+      return a.length === b.length && crypto.timingSafeEqual(a, b);
+    } catch {
+      return false;
+    }
   }
 
   /**

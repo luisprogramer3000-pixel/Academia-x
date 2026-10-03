@@ -4,7 +4,7 @@ import { getDashboardContext } from "@/lib/session";
 import { CourseService } from "@/modules/course/course.service";
 import { selfEnrollAction, claimCertificateFormAction } from "@/app/actions/campus.actions";
 import { logoutAction } from "@/app/actions/auth.actions";
-import { safeExternalUrl } from "@/lib/utils";
+import { BrandScope } from "@/lib/brand-theme";
 import { BookOpen, Award, LogOut, PlayCircle, LayoutDashboard } from "lucide-react";
 
 interface CampusPageProps {
@@ -23,8 +23,10 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         include: { course: { select: { id: true, title: true, level: true, description: true, status: true } } },
         orderBy: { enrolledAt: "desc" },
       },
+      enrollmentRequests: { select: { courseId: true, status: true } },
     },
   });
+  const requestByCourse = new Map((membership?.enrollmentRequests || []).map((r) => [r.courseId, r.status]));
 
   const enrolled = (membership?.enrollments || []).filter((e) => e.course.status === "PUBLISHED");
   const enrolledIds = new Set(enrolled.map((e) => e.courseId));
@@ -34,7 +36,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
     prisma.certificate.findMany({ where: { tenantId, userId }, select: { courseId: true, code: true } }),
     prisma.course.findMany({
       where: { tenantId, status: "PUBLISHED" },
-      select: { id: true, title: true, level: true, priceAmount: true, currency: true, paymentType: true, paymentLink: true },
+      select: { id: true, slug: true, title: true, level: true, priceAmount: true, currency: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -43,6 +45,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
   const notEnrolled = availableCourses.filter((c) => !enrolledIds.has(c.id));
 
   return (
+    <BrandScope color={tenant.secondaryColor}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="h-16 border-b border-slate-800 bg-slate-900/80 px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -151,12 +154,18 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
                           Inscribirme
                         </button>
                       </form>
-                    ) : c.paymentType === "EXTERNAL" && safeExternalUrl(c.paymentLink) ? (
-                      <a href={safeExternalUrl(c.paymentLink) as string} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold">
-                        Comprar Curso
-                      </a>
                     ) : (
-                      <span className="text-[11px] text-slate-500 text-right">Solicita tu inscripción a la academia</span>
+                      // Curso de pago: solicitud + pago en su página de inscripción
+                      <Link
+                        href={`/a/${tenant.slug}/courses/${c.slug}/inscripcion`}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold text-center ${
+                          requestByCourse.get(c.id) === "PENDING"
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-blue-600 hover:bg-blue-500 text-white"
+                        }`}
+                      >
+                        {requestByCourse.get(c.id) === "PENDING" ? "Solicitud pendiente" : "Inscribirme"}
+                      </Link>
                     )}
                   </div>
                 );
@@ -166,5 +175,6 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
         )}
       </main>
     </div>
+    </BrandScope>
   );
 }

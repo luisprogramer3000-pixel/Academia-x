@@ -4,6 +4,7 @@ import { useState } from "react";
 import { updateBrandingAction } from "@/app/actions/academy.actions";
 import { uploadLogoAction } from "@/app/actions/upload.actions";
 import { Save, CheckCircle2, AlertCircle, Sparkles, Globe } from "lucide-react";
+import { BrandScope, DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 
 interface BrandingSettingsFormProps {
   tenantId: string;
@@ -24,7 +25,7 @@ export function BrandingSettingsForm({
 }: BrandingSettingsFormProps) {
   const [name, setName] = useState(initialName);
   const [primaryColor, setPrimaryColor] = useState(initialPrimaryColor || "#3B82F6");
-  const [secondaryColor, setSecondaryColor] = useState(initialSecondaryColor || "#1E293B");
+  const [secondaryColor, setSecondaryColor] = useState(initialSecondaryColor || DEFAULT_BRAND_BACKGROUND);
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [logoFile, setLogoFile] = useState<File | null>(null);
 
@@ -127,7 +128,7 @@ export function BrandingSettingsForm({
         <div className="grid sm:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Color Primario (Header & Botones)
+              Color principal (botones y acentos)
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -147,7 +148,7 @@ export function BrandingSettingsForm({
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-              Color Secundario (Destacados & Fondos)
+              Color de fondo (web, campus y lecciones)
             </label>
             <div className="flex items-center gap-3">
               <input
@@ -172,10 +173,7 @@ export function BrandingSettingsForm({
             Previsualización en Tiempo Real:
           </span>
 
-          <div
-            className="p-6 rounded-2xl border border-slate-800 transition-all shadow-xl"
-            style={{ backgroundColor: secondaryColor }}
-          >
+          <BrandScope color={secondaryColor} className="p-6 rounded-2xl border border-slate-800 transition-all shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 {logoUrl ? (
@@ -191,7 +189,7 @@ export function BrandingSettingsForm({
                 <div>
                   <h4 className="font-bold text-white text-base leading-tight">{name || "Tu Academia"}</h4>
                   <span className="text-xs text-blue-400 flex items-center gap-1 font-mono">
-                    <Globe className="w-3 h-3" /> {slug || "mi-escuela"}.mentorstudioglobal.com
+                    <Globe className="w-3 h-3" /> mentorstudioglobal.com/a/{slug || "mi-escuela"}
                   </span>
                 </div>
               </div>
@@ -209,7 +207,8 @@ export function BrandingSettingsForm({
               <span>Curso de Muestra: Español Profesional B2</span>
               <span className="font-bold text-white">$149 USD</span>
             </div>
-          </div>
+            <p className="mt-3 text-xs text-slate-400">Así se verán tu página pública, el campus y las lecciones de tus alumnos.</p>
+          </BrandScope>
         </div>
 
         <div className="pt-6 border-t border-slate-800 flex justify-end">

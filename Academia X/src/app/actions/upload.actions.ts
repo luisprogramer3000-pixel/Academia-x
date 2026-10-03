@@ -6,6 +6,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import { UPLOADS_ROOT, publicUploadUrl } from "@/lib/uploads";
 
 /**
  * Formatos permitidos. La extensión SIEMPRE sale de esta tabla, nunca del nombre
@@ -39,14 +40,6 @@ const MATERIAL_TYPES: Record<string, string> = {
   "video/webm": ".webm",
 };
 
-/**
- * Carpeta física donde se guardan los archivos subidos.
- * En el VPS conviene apuntarla fuera del proyecto (UPLOADS_DIR=/var/www/mentor-studio-uploads)
- * para que un redespliegue o un clon limpio no se lleve por delante los archivos de los clientes.
- * Las URLs públicas siguen siendo /uploads/... y las sirve nginx directamente.
- */
-const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(process.cwd(), "public", "uploads");
-
 const IMAGE_FORMATS_LABEL = "PNG, JPG, WEBP o GIF";
 const MATERIAL_FORMATS_LABEL = "PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP, imágenes, audio o video";
 
@@ -69,7 +62,7 @@ async function storeUploadedFile(
   await mkdir(uploadDir, { recursive: true });
   await writeFile(path.join(uploadDir, uniqueName), buffer);
 
-  return { url: `/uploads/${options.folder}/${uniqueName}`, fileName: file.name };
+  return { url: publicUploadUrl(options.folder, uniqueName), fileName: file.name };
 }
 
 export async function uploadLogoAction(formData: FormData) {

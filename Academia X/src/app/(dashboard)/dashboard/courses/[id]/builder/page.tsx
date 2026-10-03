@@ -7,9 +7,19 @@ import { CourseSettingsForm } from "@/components/dashboard/CourseSettingsForm";
 import { CourseLandingPanel } from "@/components/dashboard/CourseLandingPanel";
 import { CourseStructurePanel } from "@/components/dashboard/CourseStructurePanel";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Layers, Plus, BookOpen, Edit, Eye, ArrowLeft, CheckCircle2, Globe, FileText, Sparkles, ShieldCheck, AlertCircle } from "lucide-react";
 import { PdfExportButton } from "@/components/dashboard/PdfExportButton";
+import { GenerateLessonContentButton } from "@/components/dashboard/GenerateLessonContentButton";
+import { DeleteItemButton } from "@/components/dashboard/DeleteItemButton";
+import { AddPageButton, type PageTool } from "@/components/dashboard/AddPageButton";
+import { MATERIAL_TOOLS } from "@/modules/ai/material-tools";
+import { parseLessonBlocks } from "@/components/lesson/lesson-blocks";
+
+// Herramientas IA que se pueden añadir como página del curso (la rúbrica es solo para el profesor)
+const PAGE_TOOLS: PageTool[] = MATERIAL_TOOLS.filter((t) => t.id !== "rubrica").map(
+  ({ id, name, emoji, description, countLabel, defaultCount, maxCount }) => ({ id, name, emoji, description, countLabel, defaultCount, maxCount })
+);
 
 interface BuilderPageProps {
   params: Promise<{ id: string }>;
@@ -33,6 +43,16 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
 
   const isDraft = courseData.status === "DRAFT";
   const isLesson = courseData.contentType === "STANDALONE_LESSON";
+
+  // Lecciones sueltas no tienen builder — redirigir directamente al editor
+  if (isLesson) {
+    const firstLesson = courseData.modules[0]?.lessons[0];
+    if (firstLesson) {
+      redirect(`/dashboard/lessons/${firstLesson.id}/editar`);
+    }
+    // Si aún no tiene lección (estado raro), redirigir al listado
+    redirect("/dashboard/lessons");
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -111,6 +131,7 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                     tenantSlug={tenantSlug}
                     isPublished={courseData.status === "PUBLISHED"}
                     initialLanding={(courseData.landing as never) ?? null}
+                    accent={academy.primaryColor || "#2563eb"}
                   />
                 )}
                 <CourseSettingsForm
@@ -124,6 +145,8 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                     currency: courseData.currency,
                     paymentType: courseData.paymentType,
                     paymentLink: courseData.paymentLink,
+                    paymentInstructions: courseData.paymentInstructions,
+                    freePreview: courseData.freePreview,
                   }}
                 />
                 <PdfExportButton />
@@ -168,13 +191,21 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                       <h3 className="font-bold text-white text-base">
                         Módulo {modIdx + 1}: {mod.title}
                       </h3>
+                      <DeleteItemButton
+                        type="module"
+                        itemId={mod.id}
+                        itemTitle={mod.title}
+                      />
                     </div>
 
                     {/* Lessons list */}
                     <div className="space-y-2 mb-4">
+                      {mod.lessons.length === 0 && (
+                        <AddPageButton courseId={courseData.id} moduleId={mod.id} afterLessonId={null} tools={PAGE_TOOLS} />
+                      )}
                       {mod.lessons.map((lesson) => (
+                        <div key={lesson.id} className="space-y-2">
                         <div
-                          key={lesson.id}
                           className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/40 transition-all flex items-center justify-between group"
                         >
                           <div className="flex items-center gap-3">
@@ -183,13 +214,34 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                           </div>
 
                           <div className="flex items-center gap-2">
+                            <GenerateLessonContentButton
+                              lessonId={lesson.id}
+                              lessonTitle={lesson.title}
+                              courseTitle={courseData.title}
+                              courseLevel={courseData.level || "B1"}
+                              courseLanguage={courseData.language || "es"}
+                              hasContent={parseLessonBlocks(lesson.content).length > 0}
+                            />
                             <Link
                               href={`/dashboard/courses/${courseData.id}/lessons/${lesson.id}`}
                               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white text-xs font-medium transition-colors flex items-center gap-1"
                             >
-                              <Edit className="w-3 h-3" /> Editar Bloques
+                              <Edit className="w-3 h-3" /> Editar
                             </Link>
+                            <DeleteItemButton
+                              type="lesson"
+                              itemId={lesson.id}
+                              itemTitle={lesson.title}
+                            />
                           </div>
+                        </div>
+                        <AddPageButton
+                          courseId={courseData.id}
+                          moduleId={mod.id}
+                          afterLessonId={lesson.id}
+                          afterTitle={lesson.title}
+                          tools={PAGE_TOOLS}
+                        />
                         </div>
                       ))}
                     </div>
@@ -216,7 +268,8 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                 ))
               ) : (
                 <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center text-slate-400">
-                  Agrega tu primer módulo utilizando el panel lateral.
+                  <p className="mb-2 font-medium text-slate-300">Sin módulos todavía</p>
+                  <p className="text-sm">Usa <strong className="text-indigo-400">Generar módulos con IA</strong> en el panel derecho para crearlos automáticamente, o añádelos manualmente.</p>
                 </div>
               )}
             </div>
@@ -225,10 +278,10 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
             <div className="space-y-6">
               <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30">
                 <h3 className="font-bold text-white text-base mb-1 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400" /> Copiloto IA
+                  <Sparkles className="w-4 h-4 text-indigo-400" /> Generar módulos con IA
                 </h3>
                 <p className="text-xs text-slate-400 mb-4">
-                  Deja que la IA proponga los módulos y lecciones del curso.
+                  La IA crea los módulos y lecciones del curso automáticamente. Puedes revisar antes de aplicar.
                 </p>
                 <CourseStructurePanel
                   courseId={courseData.id}
@@ -284,4 +337,4 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
 }
 
 // Las Server Actions de IA pueden tardar (generación de cursos): ampliar el límite de la función serverless
-export const maxDuration = 60;
+export const maxDuration = 120;

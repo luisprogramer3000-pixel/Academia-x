@@ -31,10 +31,18 @@ export function validateProductionEnv(): EnvValidationResult {
     "CRON_SECRET",
   ];
 
-  // Si no se utiliza mock explícito de IA en producción, OPENAI_API_KEY es obligatoria
+  // Si no se utiliza mock explícito de IA en producción, la clave del proveedor es obligatoria
   const aiProvider = (process.env.AI_PROVIDER || (isProduction ? "openai" : "mock")).toLowerCase();
+  const AI_PROVIDER_KEYS: Record<string, string> = {
+    openai: "OPENAI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
+    nvidia: "NVIDIA_API_KEY",
+    deepseek: "NVIDIA_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    claude: "ANTHROPIC_API_KEY",
+  };
   if (aiProvider !== "mock") {
-    criticalProductionSecrets.push("OPENAI_API_KEY");
+    criticalProductionSecrets.push(AI_PROVIDER_KEYS[aiProvider] ?? "OPENAI_API_KEY");
   }
 
   // Si rate limiting no está configurado como mock en prod, Upstash es obligatorio

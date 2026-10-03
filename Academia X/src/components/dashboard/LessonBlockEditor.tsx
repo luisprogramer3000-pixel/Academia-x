@@ -19,16 +19,38 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { uploadMaterialAction } from "@/app/actions/upload.actions";
+import { LessonAIPanel } from "./LessonAIPanel";
+import { PresentationDownload } from "./PresentationDownload";
+import { ClassAgentWizard, TeacherPlan } from "./ClassAgentWizard";
+import { MindMapView } from "@/components/shared/MindMapView";
+import { AssignmentManager } from "./AssignmentManager";
+import { QuizResultsPanel } from "./QuizResultsPanel";
+import { saveTeacherPlanAction } from "@/app/actions/course.actions";
+import { LessonReader, type LessonBlock as ReaderBlock } from "@/components/lesson/LessonReader";
+import { TeacherPlanPanel } from "./TeacherPlanPanel";
+
+const fieldLabel = "block text-xs font-medium text-slate-400 mb-1";
+const fieldInput =
+  "w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500";
 
 export interface LessonBlock {
   id: string;
-  type: "text" | "video" | "resource" | "quiz";
+  type: "text" | "video" | "resource" | "quiz" | "image" | "mindmap" | "chapter" | "practice" | "flashcards" | "dialogue";
+  lines?: Array<{ speaker: string; text: string; translation?: string }>;
+  label?: string;
+  emoji?: string;
+  difficulty?: string;
+  answer?: string;
+  cards?: Array<{ front: string; back: string }>;
   title?: string;
   content?: string;
   url?: string;
   question?: string;
   options?: string[];
   correctOptionIndex?: number;
+  explanation?: string;
+  /** Solo para bloques de tipo mindmap */
+  mindMap?: { center: string; branches: Array<{ label: string; children: string[] }> };
 }
 
 interface LessonBlockEditorProps {
@@ -37,7 +59,12 @@ interface LessonBlockEditorProps {
   lessonTitle: string;
   initialContentJson?: string | null;
   initialLiveUrl?: string | null;
+  initialTeacherPlan?: TeacherPlan | null;
   tenantSlug: string;
+  /** Lección recién creada con IA: abre la vista previa y muestra un aviso */
+  isNew?: boolean;
+  previewHref?: string;
+  accentColor?: string;
 }
 
 export function LessonBlockEditor({
@@ -46,7 +73,11 @@ export function LessonBlockEditor({
   lessonTitle,
   initialContentJson,
   initialLiveUrl,
+  initialTeacherPlan,
   tenantSlug,
+  isNew = false,
+  previewHref,
+  accentColor = "#2563eb",
 }: LessonBlockEditorProps) {
   const parseInitialBlocks = (): LessonBlock[] => {
     if (!initialContentJson) return [];
@@ -64,7 +95,9 @@ export function LessonBlockEditor({
   const [liveUrl, setLiveUrl] = useState(initialLiveUrl || "");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "preview">(isNew ? "preview" : "edit");
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(parseInitialBlocks()));
+  const [teacherPlan, setTeacherPlan] = useState<TeacherPlan | null>(initialTeacherPlan ?? null);
 
   const addBlock = (type: LessonBlock["type"]) => {
     const newBlock: LessonBlock = {
@@ -93,6 +126,28 @@ export function LessonBlockEditor({
     setBlocks(updated);
   };
 
+  // Reparte las preguntas entre las secciones (tras la sección i van las que tocan hasta floor((i+1)·Q/S))
+  const interleaveActivities = () => {
+    const quizzes = blocks.filter((b) => b.type === "quiz");
+    const others = blocks.filter((b) => b.type !== "quiz");
+    if (!quizzes.length || !others.length) return;
+    const out: LessonBlock[] = [];
+    let placed = 0;
+    others.forEach((b, i) => {
+      out.push(b);
+      const target = Math.floor(((i + 1) * quizzes.length) / others.length);
+      while (placed < target && i > 0) out.push(quizzes[placed++]);
+    });
+    while (placed < quizzes.length) out.push(quizzes[placed++]);
+    setBlocks(out);
+    setMessage({ type: "success", text: `${quizzes.length} actividades repartidas entre las explicaciones. Revisa la vista previa y pulsa Guardar.` });
+  };
+
+  const quizCount = blocks.filter((b) => b.type === "quiz").length;
+  const firstQuiz = blocks.findIndex((b) => b.type === "quiz");
+  // Todas las preguntas juntas al final: sugiere intercalarlas
+  const activitiesBunched = quizCount >= 2 && firstQuiz >= 0 && blocks.slice(firstQuiz).every((b) => b.type === "quiz");
+
   const updateBlock = (id: string, updates: Partial<LessonBlock>) => {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
   };
@@ -107,6 +162,7 @@ export function LessonBlockEditor({
       const formData = new FormData();
       if (liveUrl) formData.set("liveUrl", liveUrl);
       await updateLessonSettingsAction(lessonId, formData);
+      setSavedSnapshot(JSON.stringify(blocks));
 
       setMessage({ type: "success", text: "¡Contenido de la lección guardado exitosamente!" });
     } catch (err: any) {
@@ -178,8 +234,81 @@ export function LessonBlockEditor({
         </div>
       )}
 
+      {isNew && (
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm">
+          ✓ Lección creada con IA: contenido, {blocks.filter((b) => b.type === "quiz").length} actividades intercaladas y tu guion de clase.
+          Revísala en la vista previa, ajusta lo que quieras en <strong>Editar</strong> y guarda. También quedó guardada en Mis recursos.
+        </div>
+      )}
+
+      {teacherPlan && <TeacherPlanPanel plan={teacherPlan} />}
+
+      {activitiesBunched && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-amber-200">
+            Las {quizCount} actividades están todas al final. Intercálalas entre las explicaciones para que el alumno practique mientras aprende.
+          </p>
+          <button
+            type="button"
+            onClick={interleaveActivities}
+            className="shrink-0 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold"
+          >
+            Intercalar actividades
+          </button>
+        </div>
+      )}
+
       {activeTab === "edit" ? (
         <>
+          {/* Agente de Clase: prepara la lección entera de una vez */}
+          <ClassAgentWizard
+            lessonId={lessonId}
+            lessonTitle={lessonTitle}
+            onApply={async (generated, plan) => {
+              setBlocks((prev) => [...prev, ...generated]);
+              setTeacherPlan(plan);
+              await saveTeacherPlanAction(lessonId, plan);
+              setMessage({
+                type: "success",
+                text: `Clase preparada: ${generated.length} bloques añadidos. Revísalos y pulsa Guardar.`,
+              });
+            }}
+          />
+
+          {/* Copiloto IA: genera contenido, actividades y quizzes en la lección */}
+          <LessonAIPanel
+            lessonId={lessonId}
+            lessonTitle={lessonTitle}
+            onBlocksGenerated={(generated) => {
+              setBlocks((prev) => [...prev, ...generated]);
+              setMessage({
+                type: "success",
+                text: `${generated.length} bloque(s) añadido(s). Revísalos y pulsa Guardar.`,
+              });
+            }}
+            onBlocksReplaced={(generated) => {
+              setBlocks(generated);
+              setMessage({
+                type: "success",
+                text: "Contenido regenerado. Revísalo y pulsa Guardar.",
+              });
+            }}
+          />
+
+          <AssignmentManager lessonId={lessonId} />
+
+          <QuizResultsPanel
+            lessonId={lessonId}
+            hasQuiz={blocks.some((b) => b.type === "quiz")}
+          />
+
+          <PresentationDownload
+            lessonId={lessonId}
+            hasContent={blocks.length > 0}
+            hasUnsavedChanges={JSON.stringify(blocks) !== savedSnapshot}
+            primaryColor={accentColor}
+          />
+
           {/* Live Class URL */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-sm">
             <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Enlace de Clase en Vivo (Opcional)</label>
@@ -213,6 +342,12 @@ export function LessonBlockEditor({
                         {block.type === "video" && "Video Interactivo"}
                         {block.type === "resource" && "Recursos / Enlace"}
                         {block.type === "quiz" && "Quiz / Ejercicio"}
+                        {block.type === "chapter" && "Capítulo"}
+                        {block.type === "practice" && "Ejercicio abierto"}
+                        {block.type === "flashcards" && "Flashcards"}
+                        {block.type === "dialogue" && "Diálogo"}
+                        {block.type === "image" && "Imagen"}
+                        {block.type === "mindmap" && "Mapa mental"}
                       </span>
                     </div>
 
@@ -241,13 +376,98 @@ export function LessonBlockEditor({
                   </div>
 
                   {/* Block Type Specific Fields */}
+                  {block.type === "chapter" && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className={fieldLabel}>Título del capítulo ({block.label})</label>
+                        <input value={block.title || ""} onChange={(e) => updateBlock(block.id, { title: e.target.value })} className={fieldInput} />
+                      </div>
+                      <div>
+                        <label className={fieldLabel}>Descripción</label>
+                        <textarea rows={2} value={block.content || ""} onChange={(e) => updateBlock(block.id, { content: e.target.value })} className={fieldInput} />
+                      </div>
+                    </div>
+                  )}
+
+                  {block.type === "practice" && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className={fieldLabel}>Enunciado</label>
+                        <textarea rows={2} value={block.question || ""} onChange={(e) => updateBlock(block.id, { question: e.target.value })} className={fieldInput} />
+                      </div>
+                      <div>
+                        <label className={fieldLabel}>Respuesta modelo (el alumno la ve al pulsar el botón)</label>
+                        <textarea rows={2} value={block.answer || ""} onChange={(e) => updateBlock(block.id, { answer: e.target.value })} className={fieldInput} />
+                      </div>
+                    </div>
+                  )}
+
+                  {block.type === "flashcards" && (
+                    <div className="space-y-2">
+                      {(block.cards || []).map((c, ci) => (
+                        <div key={ci} className="grid grid-cols-2 gap-2">
+                          <input
+                            value={c.front}
+                            onChange={(e) => updateBlock(block.id, { cards: (block.cards || []).map((x, xi) => (xi === ci ? { ...x, front: e.target.value } : x)) })}
+                            className={fieldInput}
+                          />
+                          <input
+                            value={c.back}
+                            onChange={(e) => updateBlock(block.id, { cards: (block.cards || []).map((x, xi) => (xi === ci ? { ...x, back: e.target.value } : x)) })}
+                            className={fieldInput}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {block.type === "dialogue" && (
+                    <div className="space-y-2">
+                      {(block.lines || []).map((l, li) => (
+                        <div key={li} className="grid grid-cols-[140px_1fr] gap-2">
+                          <input
+                            value={l.speaker}
+                            onChange={(e) => updateBlock(block.id, { lines: (block.lines || []).map((x, xi) => (xi === li ? { ...x, speaker: e.target.value } : x)) })}
+                            className={fieldInput}
+                            placeholder="Personaje"
+                          />
+                          <input
+                            value={l.text}
+                            onChange={(e) => updateBlock(block.id, { lines: (block.lines || []).map((x, xi) => (xi === li ? { ...x, text: e.target.value } : x)) })}
+                            className={fieldInput}
+                            placeholder="Lo que dice"
+                          />
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => updateBlock(block.id, { lines: [...(block.lines || []), { speaker: block.lines?.[block.lines.length - 2]?.speaker ?? "", text: "" }] })}
+                        className="text-xs font-semibold text-blue-400 hover:text-blue-300"
+                      >
+                        + Añadir intervención
+                      </button>
+                    </div>
+                  )}
+
+                  {block.type === "image" && block.url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={block.url} alt={block.title || "Imagen"} className="max-h-56 rounded-xl" />
+                  )}
+
                   {block.type === "text" && (
                     <div>
+                      <label className={fieldLabel}>Subtítulo de la sección</label>
+                      <input
+                        value={block.title || ""}
+                        onChange={(e) => updateBlock(block.id, { title: e.target.value })}
+                        placeholder="Ej. El escenario"
+                        className={`${fieldInput} mb-3`}
+                      />
                       <label className="block text-xs font-medium text-slate-400 mb-1">
                         Contenido Teórico / Gramática (Texto o Markdown)
                       </label>
                       <textarea
-                        rows={4}
+                        rows={6}
                         value={block.content || ""}
                         onChange={(e) => updateBlock(block.id, { content: e.target.value })}
                         placeholder="Escribe el texto explicativo de la lección..."
@@ -374,6 +594,10 @@ export function LessonBlockEditor({
                           </div>
                         ))}
                       </div>
+                      <div>
+                        <label className={fieldLabel}>Explicación (el alumno la ve al comprobar)</label>
+                        <textarea rows={2} value={block.explanation || ""} onChange={(e) => updateBlock(block.id, { explanation: e.target.value })} className={fieldInput} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -435,58 +659,28 @@ export function LessonBlockEditor({
           </div>
         </>
       ) : (
-        /* Preview mode */
-        <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
-          <h3 className="text-2xl font-bold text-white border-b border-slate-800 pb-4">{lessonTitle}</h3>
-          {blocks.length > 0 ? (
-            blocks.map((block) => (
-              <div key={block.id} className="space-y-4">
-                {block.type === "text" && (
-                  <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">{block.content}</p>
-                )}
-                {block.type === "video" && (
-                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                    <span className="text-xs text-indigo-400 font-mono block mb-2">{block.title}</span>
-                    <div className="aspect-video bg-slate-900 rounded-lg flex items-center justify-center text-slate-400 text-xs font-mono">
-                      [ Reproductor de Video: {block.url} ]
-                    </div>
-                  </div>
-                )}
-                {block.type === "resource" && (
-                  <a
-                    href={block.url || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/40 transition-colors flex items-center justify-between text-xs text-emerald-400 font-semibold"
-                  >
-                    <span>📄 {block.title}</span>
-                    <span>Descargar</span>
-                  </a>
-                )}
-                {block.type === "quiz" && (
-                  <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-                    <h4 className="font-bold text-sm text-white">❓ {block.question}</h4>
-                    <div className="space-y-2">
-                      {(block.options || []).map((opt, i) => (
-                        <div
-                          key={i}
-                          className={`p-3 rounded-lg text-xs font-medium border ${
-                            i === block.correctOptionIndex
-                              ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                              : "bg-slate-900 border-slate-800 text-slate-300"
-                          }`}
-                        >
-                          {opt} {i === block.correctOptionIndex && "(Respuesta Correcta)"}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="text-slate-400 text-sm text-center py-8">Esta lección no tiene bloques aún.</div>
-          )}
+        /* Vista del alumno con actividades en modo práctica (sin guardar nota) */
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+            <p className="text-slate-400">
+              Así la verá el alumno. Puedes probar las actividades: la corrección es instantánea y no se guarda nota.
+              {JSON.stringify(blocks) !== savedSnapshot && <span className="text-amber-400"> Incluye cambios sin guardar.</span>}
+            </p>
+            {previewHref && (
+              <a href={previewHref} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" /> Abrir como alumno
+              </a>
+            )}
+          </div>
+          <LessonReader
+            lessonId={lessonId}
+            title={lessonTitle}
+            eyebrow="Vista previa"
+            blocks={blocks as ReaderBlock[]}
+            mode="student"
+            practice
+            accent={accentColor}
+          />
         </div>
       )}
     </div>

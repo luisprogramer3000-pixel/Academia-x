@@ -103,6 +103,50 @@ export const EmailTemplates = {
     };
   },
 
+  enrollmentRequested(params: { studentName: string; studentEmail: string; courseTitle: string; hasProof: boolean; url: string }) {
+    const title = `Nueva solicitud de inscripción: ${params.courseTitle}`;
+    return {
+      subject: title,
+      html: layout(
+        title,
+        `<p><strong>${escapeHtml(params.studentName)}</strong> (${escapeHtml(params.studentEmail)}) quiere inscribirse en
+         <strong>${escapeHtml(params.courseTitle)}</strong>.</p>
+         <p>${params.hasProof ? "Adjuntó un comprobante de pago." : "Todavía no adjuntó comprobante de pago."}
+         Revisa el pago y aprueba la solicitud para darle acceso al curso.</p>`,
+        { label: "Revisar solicitud", url: params.url }
+      ),
+      text: `${title}. ${params.studentName} (${params.studentEmail}). Revisa la solicitud: ${params.url}`,
+    };
+  },
+
+  enrollmentApproved(params: { courseTitle: string; academyName: string; url: string }) {
+    const title = `¡Ya tienes acceso a ${params.courseTitle}!`;
+    return {
+      subject: title,
+      html: layout(
+        title,
+        `<p><strong>${escapeHtml(params.academyName)}</strong> confirmó tu inscripción. Ya puedes ver todas las lecciones del curso.</p>`,
+        { label: "Empezar el curso", url: params.url }
+      ),
+      text: `${title} Entra aquí: ${params.url}`,
+    };
+  },
+
+  enrollmentRejected(params: { courseTitle: string; academyName: string; note?: string | null; url: string }) {
+    const title = `Tu solicitud para ${params.courseTitle} necesita revisión`;
+    return {
+      subject: title,
+      html: layout(
+        title,
+        `<p><strong>${escapeHtml(params.academyName)}</strong> no pudo confirmar tu inscripción todavía.</p>
+         ${params.note ? `<p><strong>Motivo:</strong> ${escapeHtml(params.note)}</p>` : ""}
+         <p>Puedes corregirlo y enviar la solicitud de nuevo.</p>`,
+        { label: "Ver mi solicitud", url: params.url }
+      ),
+      text: `${title}.${params.note ? ` Motivo: ${params.note}.` : ""} Revisa tu solicitud: ${params.url}`,
+    };
+  },
+
   passwordReset(params: { url: string }) {
     const title = "Restablece tu contraseña";
     return {

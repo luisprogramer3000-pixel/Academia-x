@@ -7,6 +7,10 @@ import { AI_OPERATION_CATALOG } from "@/modules/ai/ai.catalog";
 import { revalidatePath } from "next/cache";
 import { requireActiveSubscription, PlanLimitError } from "@/modules/billing/entitlements";
 import { requireTenantAccess, STAFF_ROLES, AuthError, assertLessonInTenant, assertCourseInTenant } from "@/lib/session";
+import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import { ResourceService } from "@/modules/resources/resource.service";
+import type { ClassPlanOutput } from "@/modules/ai/class-plan.schema";
 
 const generateCourseAISchema = z.object({
   tenantId: z.string().min(1, "Tenant ID requerido"),
@@ -360,6 +364,51 @@ export async function getAIFeedbackAIAction(formData: FormData) {
   }
 }
 
+/**
+ * AGENTE DE CLASE: prepara una clase completa a partir de un tema.
+ * Cobra 6 créditos, más 2 por cada imagen solicitada.
+ */
+export async function generateFullClassAIAction(formData: FormData) {
+  try {
+    const auth = await requireTenantAccess(STAFF_ROLES);
+    const rawIdempotencyKey =
+      (formData.get("idempotencyKey") as string) || (formData.get("clientRequestId") as string);
+
+    const lessonId = (formData.get("lessonId") as string) || undefined;
+    if (lessonId) {
+      await assertLessonInTenant(lessonId, auth.tenantId);
+    }
+
+    const imageCount = Math.max(0, Math.min(3, Number(formData.get("imageCount") || 0)));
+    const durationMinutes = Math.max(15, Math.min(180, Number(formData.get("durationMinutes") || 60)));
+    const topic = ((formData.get("topic") as string) || "").trim();
+
+    if (topic.length < 3) {
+      return { success: false, error: "Indica el tema de la clase." };
+    }
+
+    const result = await AIService.generateFullClassAI({
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      idempotencyKey: rawIdempotencyKey || undefined,
+      lessonId,
+      topic,
+      level: ((formData.get("level") as string) || "B1").trim(),
+      language: ((formData.get("language") as string) || "es").trim(),
+      durationMinutes,
+      audience: ((formData.get("audience") as string) || "").trim() || undefined,
+      goal: ((formData.get("goal") as string) || "").trim() || undefined,
+      methodology: ((formData.get("methodology") as string) || "").trim() || undefined,
+      imageCount,
+      imageQuality: (formData.get("imageQuality") as string) === "hq" ? "hq" : "standard",
+    });
+
+    return { success: true, result };
+  } catch (error: any) {
+    return { success: false, error: formatAIError(error) };
+  }
+}
+
 export async function getAIUsageStatsAction(_clientTenantId?: string) {
   try {
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
@@ -431,6 +480,194 @@ export async function triggerMonthlyResetAction(formData: FormData) {
     };
   } catch (error: any) {
     return { success: false, error: formatAIError(error) };
+  }
+}
+
+const generateClassPlanSchema = z.object({
+  topic: z.string().trim().min(3, "Escribe el tema de la clase"),
+  grade: z.string().trim().min(1, "Selecciona el grado"),
+  subject: z.string().trim().min(2, "Selecciona la disciplina"),
+  durationMinutes: z.coerce.number().int().min(15).max(240),
+  methodology: z.string().trim().min(2),
+  language: z.string().trim().min(2).default("Español"),
+  context: z.string().trim().max(2000).optional(),
+  competencies: z
+    .array(z.object({ code: z.string().trim().max(40), description: z.string().trim().max(400) }))
+    .max(8),
+  nativeLanguage: z.string().trim().min(2).max(40).optional(),
+  methodologyId: z.enum(["activo", "socioemocional", "practico", "5e", "invertida", "gamificacion", "comunicativo", "tradicional"]).optional(),
+});
+
+function parseClassPlanForm(formData: FormData) {
+  const codes = formData.getAll("competencyCode").map(String);
+  const descriptions = formData.getAll("competencyDescription").map(String);
+  const competencies = descriptions
+    .map((description, i) => ({ code: codes[i] ?? "", description }))
+    .filter((c) => c.description.trim());
+
+  return generateClassPlanSchema.parse({
+    topic: formData.get("topic"),
+    grade: formData.get("grade"),
+    subject: formData.get("subject"),
+    durationMinutes: formData.get("durationMinutes"),
+    methodology: formData.get("methodology"),
+    language: formData.get("language") || "Español",
+    context: (formData.get("context") as string) || undefined,
+    competencies,
+    // Solo si el profesor activó "Clase bilingüe"
+    nativeLanguage: formData.get("bilingual") === "1" ? (formData.get("nativeLanguage") as string) || undefined : undefined,
+    methodologyId: (formData.get("methodologyId") as string) || undefined,
+  });
+}
+
+/** Imágenes opcionales del plan: se cobran aparte, una a una, y no bloquean la clase si fallan. */
+async function addPlanImages(
+  plan: ClassPlanOutput,
+  formData: FormData,
+  auth: { tenantId: string; userId: string },
+  idempotencyKey: string
+) {
+  const count = Math.max(0, Math.min(6, Number(formData.get("imageCount") || 0)));
+  if (!count) return { requested: 0, generated: 0, errors: [] as string[] };
+  try {
+    const { imagesGenerated, imageErrors } = await AIService.attachPlanImages(plan, {
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      count,
+      quality: formData.get("imageQuality") === "hq" ? "hq" : "standard",
+      idempotencyKey,
+    });
+    if (imageErrors.length) console.warn("[class-plan] Imágenes:", imageErrors);
+    return { requested: count, generated: imagesGenerated, errors: imageErrors };
+  } catch (error) {
+    // Las imágenes nunca impiden entregar la clase (ya pagada)
+    console.error("[class-plan] Error generando imágenes", error);
+    return { requested: count, generated: 0, errors: [error instanceof Error ? error.message : "Error de imágenes"] };
+  }
+}
+
+export async function generateClassPlanAction(formData: FormData) {
+  try {
+    const auth = await requireTenantAccess(STAFF_ROLES);
+    await requireActiveSubscription(auth.tenantId);
+    const validated = parseClassPlanForm(formData);
+    const idempotencyKey = (formData.get("idempotencyKey") as string) || crypto.randomUUID();
+
+    const plan = await AIService.generateClassPlanAI({
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      idempotencyKey,
+      ...validated,
+    });
+    await addPlanImages(plan, formData, auth, idempotencyKey);
+
+    // Se guarda en "Mis recursos"; si falla el guardado, el profesor no pierde el plan ya pagado
+    let resourceId: string | null = null;
+    try {
+      const saved = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
+      resourceId = saved.id;
+      revalidatePath("/dashboard/resources");
+    } catch (err) {
+      console.warn("Could not save class plan to resources:", err);
+    }
+
+    return { success: true as const, plan, resourceId };
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return { success: false as const, error: error.issues[0]?.message ?? "Datos inválidos" };
+    }
+    return { success: false as const, error: formatAIError(error) };
+  }
+}
+
+/**
+ * Nueva lección con IA: genera el plan (mismo formulario y créditos que el Plan
+ * de clase), lo guarda en "Mis recursos" y lo convierte en una lección suelta
+ * con actividades intercaladas y el guion del profesor.
+ */
+export async function createLessonWithAIAction(formData: FormData) {
+  try {
+    const auth = await requireTenantAccess(STAFF_ROLES);
+    await requireActiveSubscription(auth.tenantId);
+    const validated = parseClassPlanForm(formData);
+    const idempotencyKey = (formData.get("idempotencyKey") as string) || crypto.randomUUID();
+
+    const plan = await AIService.generateClassPlanAI({
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      idempotencyKey,
+      ...validated,
+    });
+    const images = await addPlanImages(plan, formData, auth, idempotencyKey);
+
+    const resource = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
+    const { courseId, lessonId } = await ResourceService.convertToLesson(resource, auth.tenantId, { mode: "standalone" });
+
+    revalidatePath("/dashboard/resources");
+    revalidatePath("/dashboard/lessons");
+    return { success: true as const, courseId, lessonId, images: { requested: images.requested, generated: images.generated } };
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return { success: false as const, error: error.issues[0]?.message ?? "Datos inválidos" };
+    }
+    return { success: false as const, error: formatAIError(error) };
+  }
+}
+
+const generateMaterialSchema = z.object({
+  toolId: z.enum(["quiz", "examen", "flashcards", "rubrica", "lectura", "apuntes", "reto", "conversacion"]),
+  topic: z.string().trim().min(3, "Escribe el tema").max(300),
+  grade: z.string().trim().min(1).max(80),
+  subject: z.string().trim().min(2, "Indica la disciplina").max(120),
+  language: z.string().trim().min(2).max(40).default("Español"),
+  count: z.coerce.number().int().min(1).max(40),
+  context: z.string().trim().max(2000).optional(),
+});
+
+export async function generateMaterialAction(formData: FormData) {
+  try {
+    const auth = await requireTenantAccess(STAFF_ROLES);
+    await requireActiveSubscription(auth.tenantId);
+    const { getMaterialTool } = await import("@/modules/ai/material-tools");
+
+    const validated = generateMaterialSchema.parse({
+      toolId: formData.get("toolId"),
+      topic: formData.get("topic"),
+      grade: formData.get("grade"),
+      subject: formData.get("subject"),
+      language: formData.get("language") || "Español",
+      count: formData.get("count"),
+      context: (formData.get("context") as string) || undefined,
+    });
+    const tool = getMaterialTool(validated.toolId)!;
+    validated.count = Math.min(validated.count, tool.maxCount);
+
+    const { material } = await AIService.generateMaterialAI({
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      idempotencyKey: (formData.get("idempotencyKey") as string) || crypto.randomUUID(),
+      ...validated,
+    });
+
+    const saved = await prisma.teachingResource.create({
+      data: {
+        tenantId: auth.tenantId,
+        userId: auth.userId,
+        kind: "MATERIAL",
+        title: material.title.slice(0, 200),
+        subject: validated.subject,
+        grade: validated.grade,
+        topic: validated.topic,
+        data: { tool: validated.toolId, material } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    revalidatePath("/dashboard/resources");
+    return { success: true as const, resourceId: saved.id };
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return { success: false as const, error: error.issues[0]?.message ?? "Datos inválidos" };
+    }
+    return { success: false as const, error: formatAIError(error) };
   }
 }
 

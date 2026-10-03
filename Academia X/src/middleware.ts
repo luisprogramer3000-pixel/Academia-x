@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/campus"];
+const PROTECTED_PREFIXES = ["/dashboard", "/campus", "/vista-previa"];
 const PLATFORM_PREFIXES = [
-  "/dashboard", "/campus", "/login", "/register", "/forgot-password", "/reset-password", "/create-academy", "/api",
-  "/a", "/d", "/invite", "/verify", "/inactive", "/privacy", "/terms", "/_next", "/images",
+  "/dashboard", "/campus", "/vista-previa", "/login", "/register", "/forgot-password", "/reset-password", "/create-academy", "/api",
+  "/a", "/d", "/invite", "/verify", "/inactive", "/privacy", "/terms", "/_next", "/images", "/live",
 ];
 
 export async function middleware(request: NextRequest) {

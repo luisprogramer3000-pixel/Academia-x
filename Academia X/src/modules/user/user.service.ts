@@ -22,34 +22,38 @@ export class UserService {
    * Crea una invitación con token único para un estudiante o profesor.
    */
   static async inviteUser(input: InviteUserInput) {
-    const token = cryptoNativeToken();
+    const email = input.email.toLowerCase();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 días
 
-    // Eliminar invitaciones expiradas previas para este email/tenant
+    // Reenviar a quien ya tiene una invitación vigente conserva el MISMO enlace:
+    // si se generara uno nuevo, el correo anterior dejaría de funcionar.
+    const current = await prisma.invitation.findFirst({
+      where: { tenantId: input.tenantId, email, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
     await prisma.invitation.deleteMany({
-      where: {
-        tenantId: input.tenantId,
-        email: input.email.toLowerCase(),
-      },
+      where: { tenantId: input.tenantId, email, ...(current ? { id: { not: current.id } } : {}) },
     });
 
-    const invitation = await prisma.invitation.create({
-      data: {
-        tenantId: input.tenantId,
-        email: input.email.toLowerCase(),
-        role: input.role,
-        token,
-        expiresAt,
-      },
-      include: { tenant: { select: { name: true } } },
-    });
+    const invitation = current
+      ? await prisma.invitation.update({
+          where: { id: current.id },
+          data: { role: input.role, expiresAt },
+          include: { tenant: { select: { name: true } } },
+        })
+      : await prisma.invitation.create({
+          data: { tenantId: input.tenantId, email, role: input.role, token: cryptoNativeToken(), expiresAt },
+          include: { tenant: { select: { name: true } } },
+        });
+    const token = invitation.token;
 
-    const email = EmailTemplates.invitation({
+    const message = EmailTemplates.invitation({
       academyName: invitation.tenant.name,
       role: input.role,
       url: `${getAppUrl()}/invite/${token}`,
     });
-    const delivery = await sendEmail({ to: invitation.email, ...email });
+    const delivery = await sendEmail({ to: invitation.email, ...message });
 
     return { ...invitation, emailSent: delivery.sent };
   }
@@ -65,8 +69,13 @@ export class UserService {
       include: { tenant: true },
     });
 
-    if (!invitation || invitation.expiresAt < new Date()) {
-      throw new Error("La invitación es inválida o ha expirado.");
+    if (!invitation) {
+      throw new Error(
+        "Este enlace de invitación ya no es válido: puede que ya se haya usado o que exista una invitación más reciente. Usa el enlace del último correo o pide a la academia que te invite de nuevo."
+      );
+    }
+    if (invitation.expiresAt < new Date()) {
+      throw new Error("La invitación caducó (dura 7 días). Pide a la academia que te invite de nuevo.");
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email: invitation.email }, select: { id: true } });

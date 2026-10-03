@@ -5,6 +5,7 @@ import { CertificateService } from "@/modules/certificate/certificate.service";
 import { UserService } from "@/modules/user/user.service";
 import { CourseService } from "@/modules/course/course.service";
 import { issueCertificateAction } from "@/app/actions/certificate.actions";
+import { CertificateIssuer } from "@/components/dashboard/CertificateIssuer";
 import Link from "next/link";
 import { Award, Plus, Globe, CheckCircle2, ShieldCheck, Search } from "lucide-react";
 
@@ -43,6 +44,14 @@ export default async function CertificatesDashboardPage() {
                 Emite y gestiona certificados digitales con códigos únicos de verificación pública.
               </p>
             </div>
+          </div>
+
+          {/* Emisión por curso: plantilla + aprobación alumno a alumno */}
+          <div className="mb-10">
+            <CertificateIssuer
+              academyName={name}
+              courses={courses.map((c) => ({ id: c.id, title: c.title }))}
+            />
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">

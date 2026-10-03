@@ -149,7 +149,7 @@ export async function createStandaloneLessonAction(formData: FormData): Promise<
   });
 
   revalidatePath("/dashboard/courses");
-  redirect(`/dashboard/courses/${result.course.id}/lessons/${result.lesson.id}`);
+  redirect(`/dashboard/lessons/${result.lesson.id}/editar`);
 }
 
 async function generateUniqueSlug(tenantId: string, title: string): Promise<string> {
@@ -208,8 +208,9 @@ export async function updateLessonContentAction(lessonId: string, contentJsonStr
   }
 
   // Los bloques de video/recurso se renderizan como enlaces para el alumno: solo http(s) o rutas internas.
-  if (Array.isArray(blocks)) {
-    for (const block of blocks) {
+  const blockList = Array.isArray(blocks) ? blocks : (blocks as { blocks?: unknown })?.blocks;
+  if (Array.isArray(blockList)) {
+    for (const block of blockList) {
       const url = (block as { url?: unknown })?.url;
       if (url && safeExternalUrl(url) === null) {
         throw new Error("Los enlaces de los bloques deben empezar por http:// o https://");
@@ -220,6 +221,7 @@ export async function updateLessonContentAction(lessonId: string, contentJsonStr
   const lesson = await assertLessonInTenant(lessonId, tenantId);
   await CourseService.updateLessonContent(lessonId, contentJsonString);
   revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+  revalidatePath(`/dashboard/lessons/${lessonId}`, "layout");
 }
 
 export async function updateLessonSettingsAction(lessonId: string, formData: FormData): Promise<void> {
@@ -232,6 +234,7 @@ export async function updateLessonSettingsAction(lessonId: string, formData: For
     data: { liveUrl },
   });
   revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+  revalidatePath(`/dashboard/lessons/${lessonId}`, "layout");
 }
 
 const updateCourseSchema = z.object({
@@ -242,6 +245,8 @@ const updateCourseSchema = z.object({
   priceAmount: z.coerce.number().min(0).default(0),
   paymentType: z.enum(["EXTERNAL", "STRIPE_CONNECT"]).default("EXTERNAL"),
   paymentLink: externalUrlSchema.optional(),
+  paymentInstructions: z.string().trim().max(2000, "Las instrucciones de pago no pueden superar los 2000 caracteres.").optional(),
+  freePreview: z.boolean().default(true),
 });
 
 /**
@@ -261,9 +266,13 @@ export async function updateCourseAction(courseId: string, formData: FormData) {
       priceAmount: formData.get("priceAmount") as string,
       paymentType: (formData.get("paymentType") as string) || "EXTERNAL",
       paymentLink: (formData.get("paymentLink") as string) || undefined,
+      paymentInstructions: (formData.get("paymentInstructions") as string) || undefined,
+      freePreview: formData.get("freePreview") === "on",
     });
 
     await CourseService.updateCourse(tenantId, courseId, {
+      paymentInstructions: validated.paymentInstructions || null,
+      freePreview: validated.freePreview,
       title: validated.title,
       description: validated.description ?? null,
       level: validated.level,
@@ -343,10 +352,20 @@ export async function applyCourseStructureAction(courseId: string, proposal: unk
 }
 
 const landingSchema = z.object({
+  template: z.enum(["marca", "impacto", "portada", "minimal", "elegante", "horizonte"]).optional().default("marca"),
   headline: z.string().trim().min(3).max(200),
   subheadline: z.string().trim().max(500).optional().default(""),
   benefits: z.array(z.string().trim().max(300)).max(10).optional().default([]),
   callToAction: z.string().trim().max(120).optional().default("Inscríbete ahora"),
+  audience: z.string().trim().max(1000).optional().default(""),
+  // Imagen de portada: generada con IA (/api/uploads/...) o un enlace https
+  heroImageUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((v) => v === "" || /^\/api\/uploads\/[\w-]+\/[\w.-]+$/.test(v) || safeExternalUrl(v)?.startsWith("https://"), "La imagen debe ser un enlace https")
+    .optional()
+    .default(""),
 });
 
 /**
@@ -370,6 +389,35 @@ export async function saveCourseLandingAction(courseId: string, landing: unknown
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo guardar la landing." };
+  }
+}
+
+/**
+ * Imagen de portada de la landing generada con IA (1 crédito; se devuelve si falla).
+ * Devuelve la URL para que el profesor la vea en la vista previa antes de publicar.
+ */
+export async function generateLandingHeroImageAction(courseId: string, prompt: string) {
+  try {
+    const { tenantId, userId } = await requireTenantAccess(STAFF_ROLES);
+    await requireActiveSubscription(tenantId);
+    await assertCourseInTenant(courseId, tenantId);
+    const description = z.string().trim().min(5, "Describe la imagen (al menos 5 caracteres)").max(500).parse(prompt);
+
+    const { AIService } = await import("@/modules/ai/ai.service");
+    const item: { imagePrompt?: string; imageUrl?: string } = { imagePrompt: description };
+    const { imagesGenerated, imageErrors } = await AIService.attachPromptImages([item], {
+      tenantId,
+      userId,
+      count: 1,
+      styleSuffix:
+        "Fotografía realista y luminosa para la portada de una web de cursos, formato apaisado, composición amplia con espacio limpio en el centro para un titular. Sin texto, letras ni logotipos.",
+    });
+    if (!imagesGenerated || !item.imageUrl) {
+      return { success: false as const, error: imageErrors[0] || "No se pudo generar la imagen." };
+    }
+    return { success: true as const, url: item.imageUrl };
+  } catch (error: any) {
+    return { success: false as const, error: error?.errors?.[0]?.message || error.message || "No se pudo generar la imagen." };
   }
 }
 
@@ -397,6 +445,7 @@ export async function deleteCourseAction(courseId: string) {
     await assertCourseInTenant(courseId, tenantId);
     await CourseService.deleteCourse(tenantId, courseId);
     revalidatePath("/dashboard/courses");
+    revalidatePath("/dashboard/lessons");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "No se pudo eliminar el curso." };
@@ -444,6 +493,7 @@ export async function saveTeacherPlanAction(lessonId: string, plan: unknown) {
 
     await prisma.lesson.update({ where: { id: lessonId }, data: { teacherPlan: validated } });
     revalidatePath(`/dashboard/courses/${lesson.module.courseId}/lessons/${lessonId}`);
+  revalidatePath(`/dashboard/lessons/${lessonId}`, "layout");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.errors?.[0]?.message || error.message || "No se pudo guardar el plan." };

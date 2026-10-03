@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { AcademyService } from "@/modules/academy/academy.service";
 import { prisma } from "@/lib/db";
+import { BrandScope } from "@/lib/brand-theme";
 import { BookOpen, Award, CheckCircle, Sparkles, Globe, User } from "lucide-react";
 
 interface TenantPageProps {
@@ -60,6 +61,7 @@ export default async function TenantPublicPage({ params }: TenantPageProps) {
   const appHost = process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com";
 
   return (
+    <BrandScope color={dbAcademy.secondaryColor}>
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header público de la Academia */}
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
@@ -74,7 +76,7 @@ export default async function TenantPublicPage({ params }: TenantPageProps) {
             <div>
               <h1 className="font-bold text-lg text-white leading-tight">{academy.name}</h1>
               <span className="text-xs text-blue-400 flex items-center gap-1 font-mono">
-                <Globe className="w-3 h-3" /> {slug}.{appHost}
+                <Globe className="w-3 h-3" /> {appHost}/a/{slug}
               </span>
             </div>
           </div>
@@ -145,5 +147,6 @@ export default async function TenantPublicPage({ params }: TenantPageProps) {
         )}
       </section>
     </div>
+    </BrandScope>
   );
 }

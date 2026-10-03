@@ -56,7 +56,7 @@ export default async function SupportPage() {
               <LifeBuoy className="w-8 h-8 text-blue-400" /> Centro de Soporte VIP
             </h1>
             <p className="text-slate-400 mt-2">
-              Como miembro Executive, tienes acceso directo a nuestro equipo técnico 24/7.
+              Como miembro Executive, tu consulta entra por la vía prioritaria y se atiende antes que el resto.
             </p>
           </div>
 

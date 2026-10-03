@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  BookOpen,
   Users,
   GraduationCap,
   Sparkles,
@@ -15,6 +14,13 @@ import {
   Home,
   BarChart3,
   LifeBuoy,
+  FileText,
+  Layers,
+  CalendarClock,
+  CalendarDays,
+  FolderOpen,
+  Wand2,
+  Inbox,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -27,12 +33,18 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
 
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Cursos & Lecciones", href: "/dashboard/courses", icon: BookOpen },
+    { label: "Plan de clase IA", href: "/dashboard/class-plan", icon: CalendarClock },
+    { label: "Herramientas IA", href: "/dashboard/ai-tools", icon: Wand2 },
+    { label: "Mis recursos", href: "/dashboard/resources", icon: FolderOpen },
+    { label: "Planificador", href: "/dashboard/planner", icon: CalendarDays },
+    { label: "Cursos", href: "/dashboard/courses", icon: Layers },
+    { label: "Lecciones", href: "/dashboard/lessons", icon: FileText },
     { label: "Estudiantes", href: "/dashboard/students", icon: Users },
+    { label: "Solicitudes", href: "/dashboard/enrollment-requests", icon: Inbox },
     { label: "Profesores", href: "/dashboard/teachers", icon: GraduationCap },
     { label: "Copiloto IA", href: "/dashboard/ai-copilot", icon: Sparkles },
     { label: "Certificados", href: "/dashboard/certificates", icon: Award },
-    { label: "Analíticas (Pro)", href: "/dashboard/analytics", icon: BarChart3 },
+    { label: "Analíticas (Academy)", href: "/dashboard/analytics", icon: BarChart3 },
     { label: "Facturación & Planes", href: "/dashboard/billing", icon: CreditCard },
     { label: "Configuración & Branding", href: "/dashboard/settings", icon: Settings },
     { label: "Soporte VIP", href: "/dashboard/support", icon: LifeBuoy },
@@ -49,7 +61,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
           <div className="overflow-hidden">
             <h2 className="font-bold text-sm text-white truncate">{academyName}</h2>
             <span className="text-[11px] text-blue-400 font-mono truncate block">
-              {tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}
+              {process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}/a/{tenantSlug}
             </span>
           </div>
         </div>
@@ -58,7 +70,8 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
 
             return (
               <Link

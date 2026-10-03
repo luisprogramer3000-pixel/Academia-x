@@ -2,17 +2,27 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { BillingService } from "@/modules/billing/billing.service";
+import { SAAS_PLANS } from "@/modules/billing/plans";
 import { openBillingPortalAction } from "@/app/actions/billing.actions";
 import { PricingPlans } from "./pricing-plans";
 import { AICreditEngine } from "@/modules/ai/ai.credit-engine";
 import { CreditCard, CheckCircle2, Users, Sparkles, ArrowUpRight } from "lucide-react";
 
 interface BillingPageProps {
-  searchParams: Promise<{ checkout?: string; welcome?: string; inactive?: string }>;
+  searchParams: Promise<{ checkout?: string; welcome?: string; inactive?: string; plan?: string; interval?: string; billingInterval?: string }>;
 }
 
 export default async function BillingDashboardPage({ searchParams }: BillingPageProps) {
-  const { checkout, welcome, inactive } = await searchParams;
+  const { checkout, welcome, inactive, plan, interval, billingInterval: intervalParam } = await searchParams;
+
+  // El plan elegido en la landing viaja en la URL: se preselecciona aquí para
+  // que el cliente no tenga que volver a decidir lo que ya decidió.
+  const requestedPlanId = plan && plan.toUpperCase() in SAAS_PLANS ? plan.toUpperCase() : undefined;
+  const requestedIntervalRaw = (interval || intervalParam || "").toUpperCase();
+  const requestedInterval =
+    requestedIntervalRaw === "YEARLY" || requestedIntervalRaw === "MONTHLY"
+      ? (requestedIntervalRaw as "MONTHLY" | "YEARLY")
+      : undefined;
   const ctx = await getDashboardContext(OWNER_ONLY, { requirePlan: false });
   const { tenantId, tenant: academy } = ctx;
   const tenantSlug = academy.slug;
@@ -165,8 +175,9 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
           {/* SaaS Plans Selector with Monthly / Yearly Toggle */}
           <PricingPlans
             currentPlanId={active?.planId ?? null}
-            currentInterval={billingInfo.billingInterval}
+            currentInterval={requestedInterval ?? billingInfo.billingInterval}
             hasActiveSubscription={Boolean(active)}
+            preselectedPlanId={requestedPlanId}
           />
         </main>
       </div>

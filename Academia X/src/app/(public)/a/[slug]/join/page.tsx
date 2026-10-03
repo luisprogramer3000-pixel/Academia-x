@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { GraduationCap, UserPlus } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { BrandScope } from "@/lib/brand-theme";
 
 interface JoinPageProps {
   params: Promise<{ slug: string }>;
@@ -30,6 +31,7 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
   }
 
   return (
+    <BrandScope color={academy.secondaryColor}>
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6">
       {/* Top Navbar */}
       <header className="max-w-5xl mx-auto w-full flex items-center justify-between py-4">
@@ -153,5 +155,6 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
         Powered by <span className="font-bold text-slate-400">Mentor Studio Global</span>
       </footer>
     </div>
+    </BrandScope>
   );
 }

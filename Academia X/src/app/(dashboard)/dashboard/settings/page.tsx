@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { BrandingSettingsForm } from "@/components/dashboard/BrandingSettingsForm";
+import { StudentAIToggle } from "@/components/dashboard/StudentAIToggle";
 import { Palette, Globe } from "lucide-react";
 import { SAAS_PLANS } from "@/modules/billing/plans";
 import { prisma } from "@/lib/db";
@@ -21,6 +22,10 @@ export default async function SettingsPage() {
   const planId = ctx.activePlan?.id as keyof typeof SAAS_PLANS | undefined;
   const capabilities = planId ? SAAS_PLANS[planId].capabilities : null;
   const tenantRecord = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { customDomain: true } });
+  const wallet = await prisma.aICreditWallet.findUnique({
+    where: { tenantId },
+    select: { allowTeacherCreditsForStudents: true, teacherCredits: true },
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -37,6 +42,13 @@ export default async function SettingsPage() {
             <p className="text-slate-400 text-sm">
               Personaliza el nombre, logo e identidad visual de tu escuela de idiomas.
             </p>
+          </div>
+
+          <div className="mb-6">
+            <StudentAIToggle
+              initialEnabled={wallet?.allowTeacherCreditsForStudents ?? false}
+              teacherCreditsAvailable={wallet?.teacherCredits ?? 0}
+            />
           </div>
 
           <BrandingSettingsForm
@@ -60,7 +72,7 @@ export default async function SettingsPage() {
                 <Globe className="w-5 h-5 text-blue-400" /> Dominio personalizado
               </h2>
               <p className="text-xs text-slate-400 mt-1">
-                Tu academia siempre está disponible en <span className="font-mono">{tenantSlug}.{process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}</span>.
+                Tu academia siempre está disponible en <span className="font-mono">{process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com"}/a/{tenantSlug}</span>.
               </p>
             </div>
             {capabilities?.customDomain ? (

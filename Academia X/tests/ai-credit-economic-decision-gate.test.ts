@@ -33,7 +33,7 @@ describe("AI Credit Economic Decision Gate — PASO 4.4.3.1", () => {
     ];
 
     const catalogKeys = Object.keys(AI_OPERATION_CATALOG) as AIOperation[];
-    expect(catalogKeys.length).toBe(9);
+    expect(catalogKeys.length).toBe(12); // 9 originales + CLASS_AGENT + 2 de imagen
 
     for (const op of expectedOperations) {
       expect(catalogKeys).includes(op);

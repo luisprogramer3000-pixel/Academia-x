@@ -42,6 +42,18 @@ const OPERATION_LABELS: Record<AIOperation, { title: string; description: string
     title: "Feedback Automático",
     description: "Evaluación y retroalimentación de entregas de estudiantes.",
   },
+  CLASS_AGENT: {
+    title: "Agente de Clase",
+    description: "Prepara la clase completa: objetivo, conceptos, mapa mental, ejercicios con solución, quiz, guion de tiempos y notas para el profesor.",
+  },
+  IMAGE_GENERATION: {
+    title: "Imagen Estándar",
+    description: "Ilustración didáctica rápida (Flux Schnell). Calidad media a coste mínimo: ideal para ilustrar varias lecciones.",
+  },
+  IMAGE_GENERATION_HQ: {
+    title: "Imagen Alta Calidad",
+    description: "Ilustración de máxima calidad (Nano Banana). Para portadas, infografías y material impreso.",
+  }
 };
 
 export interface AIOperationCatalogModalProps {

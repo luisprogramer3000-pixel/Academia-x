@@ -82,6 +82,9 @@ model User {
   aiCreditPurchases    AICreditPurchase[]
   passwordResetTokens  PasswordResetToken[]
   quizAttempts         QuizAttempt[]
+  teachingResources    TeachingResource[]
+  scheduledClasses     ScheduledClass[]
+  liveSessions         LiveSession[]
 }
 
 /// Tokens de un solo uso para restablecer contraseña (se guarda solo el hash SHA-256)
@@ -106,7 +109,7 @@ model Tenant {
   stripeCustomerId     String?               @unique
   logoUrl              String?
   primaryColor         String                @default("#3B82F6")
-  secondaryColor       String                @default("#1E293B")
+  secondaryColor       String                @default("#F1F5F9")
   language             String                @default("es")
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -123,6 +126,10 @@ model Tenant {
   notifications        Notification[]
   aiCreditPurchases    AICreditPurchase[]
   quizAttempts         QuizAttempt[]
+  teachingResources    TeachingResource[]
+  scheduledClasses     ScheduledClass[]
+  liveSessions         LiveSession[]
+  enrollmentRequests   EnrollmentRequest[]
 }
 
 model Membership {
@@ -136,6 +143,7 @@ model Membership {
   tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   enrollments Enrollment[]
+  enrollmentRequests EnrollmentRequest[]
 
   @@unique([userId, tenantId])
   @@index([tenantId])
@@ -155,6 +163,10 @@ model Course {
   currency    String       @default("USD")
   paymentType String       @default("EXTERNAL")
   paymentLink String?
+  /// Instrucciones de pago para el alumno (datos de transferencia, PayPal...), en cursos de pago
+  paymentInstructions String?
+  /// La primera lección se muestra gratis en la página pública del curso, como muestra
+  freePreview Boolean      @default(true)
   /// Plantilla de certificado que usará este curso: CLASSIC | MODERN | ELEGANT
   certificateTemplate String @default("CLASSIC")
   /// Landing de venta generada con IA: { headline, subheadline, benefits[], callToAction }
@@ -166,6 +178,7 @@ model Course {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   modules     Module[]
   enrollments Enrollment[]
+  enrollmentRequests EnrollmentRequest[]
   certificates Certificate[]
 
   @@unique([tenantId, slug])
@@ -224,6 +237,111 @@ model QuizAttempt {
   @@index([lessonId, userId])
 }
 
+/// Biblioteca "Mis recursos": planes de clase y materiales generados por el
+/// profesorado. Se comparte con todo el staff de la academia.
+model TeachingResource {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  /// CLASS_PLAN
+  kind      String   @default("CLASS_PLAN")
+  title     String
+  subject   String?
+  grade     String?
+  topic     String?
+  /// Contenido completo (ClassPlanOutput para CLASS_PLAN)
+  data      Json
+  /// Lección del campus creada a partir de este recurso, si se convirtió
+  lessonId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules  ScheduledClass[]
+
+  @@index([tenantId, createdAt])
+}
+
+/// Clase programada en el calendario del profesor.
+model ScheduledClass {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  resourceId      String?
+  title           String
+  startsAt        DateTime
+  durationMinutes Int      @default(50)
+  groupName       String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource TeachingResource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, startsAt])
+}
+
+/// Quiz en vivo: el profesor proyecta, los alumnos responden desde el móvil
+/// con un código (sin cuenta). Las respuestas correctas viven solo en servidor.
+model LiveSession {
+  id                String    @id @default(cuid())
+  tenantId          String
+  hostUserId        String
+  resourceId        String?
+  code              String    @unique
+  title             String
+  /// [{ prompt, options[], correctIndex, explanation }]
+  questions         Json
+  /// LOBBY | QUESTION | REVEAL | ENDED
+  status            String    @default("LOBBY")
+  currentIndex      Int       @default(-1)
+  questionStartedAt DateTime?
+  timeLimitSec      Int       @default(20)
+  createdAt         DateTime  @default(now())
+  endedAt           DateTime?
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  host         User              @relation(fields: [hostUserId], references: [id], onDelete: Cascade)
+  participants LiveParticipant[]
+  answers      LiveAnswer[]
+
+  @@index([tenantId, createdAt])
+}
+
+model LiveParticipant {
+  id        String   @id @default(cuid())
+  sessionId String
+  nickname  String
+  /// SHA-256 del token que guarda el navegador del alumno
+  tokenHash String
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  session LiveSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers LiveAnswer[]
+
+  @@unique([sessionId, nickname])
+}
+
+model LiveAnswer {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  questionIndex Int
+  selected      Int
+  correct       Boolean
+  points        Int
+  createdAt     DateTime @default(now())
+
+  session     LiveSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant LiveParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, questionIndex])
+  @@index([sessionId, questionIndex])
+}
+
 model Enrollment {
   id           String     @id @default(cuid())
   membershipId String
@@ -234,6 +352,38 @@ model Enrollment {
   course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([membershipId, courseId])
+}
+
+enum EnrollmentRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Solicitud de un alumno para entrar en un curso de pago: el profesor la aprueba al confirmar el pago
+model EnrollmentRequest {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  courseId         String
+  membershipId     String
+  status           EnrollmentRequestStatus @default(PENDING)
+  /// Comprobante de pago subido por el alumno (/api/uploads/payment-proofs/...)
+  proofUrl         String?
+  /// Mensaje del alumno al profesor (p. ej. número de transferencia)
+  message          String?
+  /// Motivo del rechazo, visible para el alumno
+  reviewNote       String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  course           Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  membership       Membership              @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, courseId])
+  @@index([tenantId, status])
 }
 
 model Progress {
@@ -423,6 +573,7 @@ enum NotificationType {
   CREDIT_TOPUP_PURCHASED
   CREDIT_TOPUP_FAILED
   CREDIT_TOPUP_REFUNDED
+  ENROLLMENT_REQUEST
 }
 
 model Notification {

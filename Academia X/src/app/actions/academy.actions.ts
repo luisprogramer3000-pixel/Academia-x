@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { AcademyService } from "@/modules/academy/academy.service";
+import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { setSession, requireTenantAccess, OWNER_ONLY, AuthError } from "@/lib/session";
@@ -9,6 +10,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 import { sendEmail, EmailTemplates } from "@/lib/email";
 import { getAppUrl } from "@/lib/stripe";
+import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 import { assertPlanCapability, requireActiveSubscription, PlanLimitError } from "@/modules/billing/entitlements";
 
 const hexColor = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Color hexadecimal no válido");
@@ -41,7 +43,7 @@ export async function createAcademyAction(formData: FormData) {
       userName: (formData.get("userName") as string) || undefined,
       password: (formData.get("password") as string) || "",
       primaryColor: (formData.get("primaryColor") as string) || "#3B82F6",
-      secondaryColor: (formData.get("secondaryColor") as string) || "#1E293B",
+      secondaryColor: (formData.get("secondaryColor") as string) || DEFAULT_BRAND_BACKGROUND,
     });
 
     const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -112,7 +114,8 @@ export async function updateBrandingAction(formData: FormData) {
 
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard");
-    revalidatePath(`/a/${updated.slug}`);
+    revalidatePath(`/a/${updated.slug}`, "layout");
+    revalidatePath("/campus", "layout");
 
     return { success: true, data: updated };
   } catch (error: any) {
@@ -123,6 +126,35 @@ export async function updateBrandingAction(formData: FormData) {
       return { success: false, error: error.message };
     }
     return { success: false, error: error.message || "Error al actualizar la marca de la academia" };
+  }
+}
+
+/**
+ * Activa o desactiva el Tutor IA para los alumnos de la academia.
+ *
+ * Los alumnos no tienen cuota propia de créditos: cuando esto se activa, sus
+ * consultas se descuentan de la bolsa del profesor. Por eso lo decide el
+ * propietario y no un profesor cualquiera.
+ */
+export async function setStudentAIAccessAction(enabled: boolean) {
+  try {
+    const { tenantId } = await requireTenantAccess(OWNER_ONLY);
+    await requireActiveSubscription(tenantId);
+
+    await prisma.aICreditWallet.upsert({
+      where: { tenantId },
+      update: { allowTeacherCreditsForStudents: enabled },
+      create: {
+        tenantId,
+        allowTeacherCreditsForStudents: enabled,
+        resetAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    revalidatePath("/dashboard/settings");
+    return { success: true, enabled };
+  } catch (error: any) {
+    return { success: false, error: error.message || "No se pudo actualizar el acceso de los alumnos a la IA." };
   }
 }
 

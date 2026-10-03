@@ -8,6 +8,7 @@ import { Sparkles, ArrowRight, ArrowLeft, CheckCircle2, School, Palette, AlertCi
 import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
+import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 
 function CreateAcademyContent() {
   const router = useRouter();
@@ -24,7 +25,7 @@ function CreateAcademyContent() {
     userName: "",
     password: "",
     primaryColor: "#3B82F6",
-    secondaryColor: "#1E293B",
+    secondaryColor: DEFAULT_BRAND_BACKGROUND,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

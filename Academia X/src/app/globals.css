@@ -182,3 +182,60 @@ body.dark .glass-gold-card,
 .blur-reveal {
   animation: blurIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ─── Tema de marca de la academia (ver src/lib/brand-theme.tsx) ───────────
+   Dentro de .brand-scope, los grises fijos de Tailwind pasan a usar el color
+   de fondo elegido por la academia. */
+.brand-scope {
+  background-color: var(--brand-bg);
+  color: var(--brand-text);
+}
+.brand-scope .bg-slate-950 { background-color: var(--brand-bg); }
+.brand-scope .bg-slate-950\/50,
+.brand-scope .bg-slate-950\/60,
+.brand-scope .bg-slate-950\/80,
+.brand-scope .bg-slate-950\/90 { background-color: color-mix(in srgb, var(--brand-bg) 85%, transparent); }
+.brand-scope .bg-slate-900 { background-color: var(--brand-surface); }
+.brand-scope .bg-slate-900\/50,
+.brand-scope .bg-slate-900\/60,
+.brand-scope .bg-slate-900\/80,
+.brand-scope .bg-slate-900\/90 { background-color: color-mix(in srgb, var(--brand-surface) 88%, transparent); }
+.brand-scope .bg-slate-800,
+.brand-scope .bg-slate-700,
+.brand-scope .hover\:bg-slate-800:hover,
+.brand-scope .hover\:bg-slate-700:hover,
+.brand-scope .hover\:bg-slate-800\/60:hover { background-color: var(--brand-surface-2); }
+.brand-scope .border-slate-800,
+.brand-scope .border-slate-700,
+.brand-scope .border-slate-800\/50,
+.brand-scope .border-slate-800\/80,
+.brand-scope .hover\:border-slate-700:hover { border-color: var(--brand-border); }
+.brand-scope .bg-slate-800.rounded-full,
+.brand-scope .h-4.w-px.bg-slate-800 { background-color: var(--brand-border); }
+
+/* Fondo claro: el texto claro pasa a oscuro. Se excluyen los elementos con
+   fondo propio (botones con el color primario o de color) para no perder el
+   texto blanco sobre ellos. */
+.brand-scope[data-tone="light"] .text-white:not([style*="background"]):not([class*="bg-blue-"]):not([class*="bg-emerald-"]):not([class*="bg-purple-"]):not([class*="bg-red-"]):not([class*="bg-indigo-"]):not(th),
+.brand-scope[data-tone="light"] .text-slate-100,
+.brand-scope[data-tone="light"] .text-slate-200,
+.brand-scope[data-tone="light"] .hover\:text-white:hover { color: var(--brand-text); }
+.brand-scope[data-tone="light"] .text-slate-300,
+.brand-scope[data-tone="light"] .text-slate-400 { color: var(--brand-muted); }
+.brand-scope[data-tone="light"] .text-slate-500,
+.brand-scope[data-tone="light"] .text-slate-600 { color: var(--brand-subtle); }
+
+/* Acentos pensados para fondo oscuro (tonos 300/400): en fondo claro se
+   oscurecen para que se lean. */
+.brand-scope[data-tone="light"] .text-blue-300,
+.brand-scope[data-tone="light"] .text-blue-400 { color: #1d4ed8; }
+.brand-scope[data-tone="light"] .text-indigo-300,
+.brand-scope[data-tone="light"] .text-indigo-400 { color: #4338ca; }
+.brand-scope[data-tone="light"] .text-purple-300,
+.brand-scope[data-tone="light"] .text-purple-400 { color: #7e22ce; }
+.brand-scope[data-tone="light"] .text-emerald-300,
+.brand-scope[data-tone="light"] .text-emerald-400 { color: #047857; }
+.brand-scope[data-tone="light"] .text-amber-300,
+.brand-scope[data-tone="light"] .text-amber-400 { color: #b45309; }
+.brand-scope[data-tone="light"] .text-red-300,
+.brand-scope[data-tone="light"] .text-red-400 { color: #b91c1c; }

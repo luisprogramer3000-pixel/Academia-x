@@ -15,6 +15,18 @@ export interface CreateCourseInput {
   imageUrl?: string;
 }
 
+export interface UpdateCourseInput {
+  title: string;
+  description?: string | null;
+  language: string;
+  level: string;
+  priceAmount: number;
+  paymentType: string;
+  paymentLink?: string | null;
+  paymentInstructions?: string | null;
+  freePreview?: boolean;
+}
+
 export interface CreateModuleInput {
   courseId: string;
   title: string;
@@ -180,6 +192,55 @@ export class CourseService {
       throw new Error("Curso no encontrado en esta academia.");
     }
     return prisma.course.findFirst({ where: { id: courseId, tenantId } });
+  }
+
+  /**
+   * Actualiza los datos editables de un curso.
+   *
+   * El slug NO cambia aunque cambie el título: ya puede estar publicado y
+   * compartido, y modificarlo rompería los enlaces que los alumnos tengan.
+   */
+  static async updateCourse(tenantId: string, courseId: string, input: UpdateCourseInput) {
+    const result = await prisma.course.updateMany({
+      where: { id: courseId, tenantId },
+      data: {
+        title: input.title,
+        description: input.description ?? null,
+        level: input.level,
+        language: input.language,
+        priceAmount: input.priceAmount,
+        paymentType: input.paymentType,
+        paymentLink: input.paymentLink ?? null,
+        paymentInstructions: input.paymentInstructions ?? null,
+        ...(input.freePreview !== undefined ? { freePreview: input.freePreview } : {}),
+      },
+    });
+    if (result.count === 0) {
+      throw new Error("Curso no encontrado en esta academia.");
+    }
+    return prisma.course.findFirst({ where: { id: courseId, tenantId } });
+  }
+
+  /**
+   * Elimina un curso completo con sus módulos, lecciones e inscripciones.
+   *
+   * Los certificados ya emitidos se borran en cascada, así que un curso con
+   * certificados emitidos no se elimina: se archiva desde la propia acción.
+   */
+  static async deleteCourse(tenantId: string, courseId: string) {
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, tenantId },
+      select: { id: true, _count: { select: { certificates: true, enrollments: true } } },
+    });
+    if (!course) {
+      throw new Error("Curso no encontrado en esta academia.");
+    }
+    if (course._count.certificates > 0) {
+      throw new Error(
+        `Este curso tiene ${course._count.certificates} certificado(s) emitido(s) y no puede eliminarse. Archívalo para retirarlo del catálogo sin invalidar los certificados de tus alumnos.`
+      );
+    }
+    return prisma.course.delete({ where: { id: courseId } });
   }
 
   /**

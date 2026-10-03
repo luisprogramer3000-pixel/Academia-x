@@ -10,9 +10,16 @@ interface PricingPlansProps {
   currentPlanId: string | null;
   currentInterval?: BillingInterval;
   hasActiveSubscription?: boolean;
+  /** Plan que el cliente eligió en la landing y llega por la URL */
+  preselectedPlanId?: string;
 }
 
-export function PricingPlans({ currentPlanId, currentInterval = "MONTHLY", hasActiveSubscription = false }: PricingPlansProps) {
+export function PricingPlans({
+  currentPlanId,
+  currentInterval = "MONTHLY",
+  hasActiveSubscription = false,
+  preselectedPlanId,
+}: PricingPlansProps) {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(currentInterval);
   const isYearly = billingInterval === "YEARLY";
 
@@ -65,6 +72,7 @@ export function PricingPlans({ currentPlanId, currentInterval = "MONTHLY", hasAc
       <div className="grid md:grid-cols-3 gap-8">
         {Object.values(SAAS_PLANS).map((p) => {
           const isCurrent = currentPlanId === p.id && currentInterval === billingInterval;
+          const isPreselected = !isCurrent && preselectedPlanId === p.id;
           const pricing = p.pricing[billingInterval];
 
           // Formatear montos
@@ -85,12 +93,20 @@ export function PricingPlans({ currentPlanId, currentInterval = "MONTHLY", hasAc
               className={`p-8 rounded-3xl bg-slate-900 border flex flex-col justify-between transition-all relative ${
                 isCurrent
                   ? "border-2 border-blue-500 shadow-xl shadow-blue-500/10"
+                  : isPreselected
+                  ? "border-2 border-emerald-500 shadow-xl shadow-emerald-500/10"
                   : p.id === "PRO"
                   ? "border-amber-500/50 shadow-xl shadow-amber-500/5"
                   : "border-slate-800 hover:border-slate-700"
               }`}
             >
-              {p.id === "PRO" && (
+              {isPreselected && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-500/40 shadow-sm">
+                  El plan que elegiste
+                </div>
+              )}
+
+              {p.id === "PRO" && !isPreselected && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider border border-amber-500/40 shadow-sm flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" /> Más Popular VIP
                 </div>

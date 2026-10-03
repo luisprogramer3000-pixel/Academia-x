@@ -4,37 +4,37 @@ import { getDashboardContext, STAFF_ROLES } from "@/lib/session";
 import { LessonBlockEditor } from "@/components/dashboard/LessonBlockEditor";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 interface LessonPageProps {
   params: Promise<{ id: string; lessonId: string }>;
+  searchParams: Promise<{ nueva?: string }>;
 }
 
-export default async function LessonEditorPage({ params }: LessonPageProps) {
+export default async function LessonEditorPage({ params, searchParams }: LessonPageProps) {
   const { id: courseId, lessonId } = await params;
+  const { nueva } = await searchParams;
   const ctx = await getDashboardContext(STAFF_ROLES);
   const { tenantId, tenant: academy } = ctx;
-  const tenantSlug = academy.slug;
-  const name = academy.name;
-
 
   // La lección debe pertenecer al curso indicado y a la academia de la sesión
   const lesson = await prisma.lesson.findFirst({
     where: { id: lessonId, module: { courseId, course: { tenantId } } },
+    include: { module: { select: { course: { select: { contentType: true } } } } },
   });
 
   if (!lesson) {
     notFound();
   }
 
-  const lessonTitle = lesson.title;
-  const activeLessonId = lesson.id;
-  const initialContentJson = lesson.content;
+  const isStandalone = lesson.module.course.contentType === "STANDALONE_LESSON";
+  // Las lecciones sueltas viven en la sección Lecciones, no en Cursos
+  if (isStandalone) redirect(nueva === "1" ? `/dashboard/lessons/${lessonId}?nueva=1` : `/dashboard/lessons/${lessonId}/editar`);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
-      <Sidebar tenantSlug={tenantSlug} academyName={name} />
+      <Sidebar tenantSlug={academy.slug} academyName={academy.name} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header userName={ctx.user.name} userEmail={ctx.user.email} tenantId={tenantId} planLabel={ctx.activePlan?.name} />
@@ -42,21 +42,24 @@ export default async function LessonEditorPage({ params }: LessonPageProps) {
         <main className="p-8 flex-1 overflow-y-auto">
           <div className="mb-6">
             <Link
-              href={`/dashboard/courses/${courseId}/builder`}
+              href={isStandalone ? "/dashboard/lessons" : `/dashboard/courses/${courseId}/builder`}
               className="text-xs text-slate-400 hover:text-white transition-colors inline-flex items-center gap-1 font-semibold"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Volver al constructor de currículo
+              <ArrowLeft className="w-3.5 h-3.5" /> {isStandalone ? "Volver a mis lecciones" : "Volver al constructor de currículo"}
             </Link>
           </div>
 
           <LessonBlockEditor
-            lessonId={activeLessonId}
+            lessonId={lesson.id}
             courseId={courseId}
-            lessonTitle={lessonTitle}
-            initialContentJson={initialContentJson}
+            lessonTitle={lesson.title}
+            initialContentJson={lesson.content}
             initialLiveUrl={lesson.liveUrl}
             initialTeacherPlan={(lesson.teacherPlan as never) ?? null}
-            tenantSlug={tenantSlug}
+            tenantSlug={academy.slug}
+            isNew={nueva === "1"}
+            previewHref={`/campus/courses/${courseId}`}
+            accentColor={academy.primaryColor || "#2563eb"}
           />
         </main>
       </div>

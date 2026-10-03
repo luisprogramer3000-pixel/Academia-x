@@ -195,6 +195,9 @@ describe("AI Credit Economic Architecture Audit — PASO 4.4.3", () => {
       COURSE_REGENERATION: 3,
       AI_TUTOR: 1,
       AI_FEEDBACK: 1,
+      CLASS_AGENT: 6,
+      IMAGE_GENERATION: 1,
+      IMAGE_GENERATION_HQ: 2,
     };
 
     // Verificar que el catálogo REAL de producción NO ha cambiado

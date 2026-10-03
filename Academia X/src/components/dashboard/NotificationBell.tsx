@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, CheckCheck, Sparkles, AlertTriangle, AlertCircle, RefreshCw, XCircle } from "lucide-react";
+import { Bell, CheckCheck, Sparkles, AlertTriangle, AlertCircle, RefreshCw, XCircle, UserPlus } from "lucide-react";
 import {
   getTenantNotificationsAction,
   markNotificationReadAction,
@@ -88,6 +88,11 @@ export function NotificationBell({ tenantId }: NotificationBellProps) {
         return {
           icon: <AlertCircle className="w-4 h-4 text-orange-400" />,
           badgeBg: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+        };
+      case "ENROLLMENT_REQUEST":
+        return {
+          icon: <UserPlus className="w-4 h-4 text-emerald-400" />,
+          badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
         };
       case "CREDIT_LOW":
       case "CREDIT_WARNING":

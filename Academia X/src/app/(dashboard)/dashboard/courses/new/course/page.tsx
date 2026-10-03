@@ -21,10 +21,10 @@ export default async function NewCoursePage() {
         <main className="p-8 flex-1 overflow-y-auto max-w-3xl">
           <div className="mb-6">
             <Link
-              href="/dashboard/courses/new"
+              href="/dashboard/courses"
               className="text-xs text-slate-400 hover:text-white transition-colors inline-flex items-center gap-1 mb-4"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Volver a elegir tipo
+              <ArrowLeft className="w-3.5 h-3.5" /> Volver a mis cursos
             </Link>
             <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-3">
               <Layers className="w-7 h-7 text-blue-400" /> Crear Nuevo Curso

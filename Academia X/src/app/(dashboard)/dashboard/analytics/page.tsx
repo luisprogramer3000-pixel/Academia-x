@@ -4,6 +4,8 @@ import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { SAAS_PLANS } from "@/modules/billing/plans";
 import { BarChart3, Users, BookOpen, GraduationCap, ArrowUpRight } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { AnalyticsService } from "@/modules/academy/analytics.service";
+import { MonthlyBarChart } from "@/components/dashboard/MonthlyBarChart";
 import Link from "next/link";
 
 export default async function AnalyticsPage() {
@@ -49,6 +51,8 @@ export default async function AnalyticsPage() {
   const certificatesCount = await prisma.certificate.count({
     where: { tenantId }
   });
+
+  const analytics = await AnalyticsService.getMonthlyAnalytics(tenantId, 6);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -100,19 +104,56 @@ export default async function AnalyticsPage() {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
             <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-6">Actividad Reciente</h3>
-              <div className="h-64 flex items-center justify-center border border-dashed border-slate-700 rounded-xl">
-                <span className="text-slate-500 text-sm">Gráfico de actividad en desarrollo...</span>
+              <div className="flex items-baseline justify-between mb-5">
+                <h3 className="text-lg font-bold text-white">Alumnos inscritos por mes</h3>
+                <span className="text-xs text-slate-400">
+                  {analytics.totals.students} en los últimos 6 meses
+                </span>
               </div>
+              <MonthlyBarChart
+                data={analytics.newStudents}
+                color="#3987e5"
+                ariaLabel="Alumnos inscritos por mes en los últimos seis meses"
+              />
             </div>
 
             <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-              <h3 className="text-lg font-bold text-white mb-6">Uso de IA por Cursos</h3>
-              <div className="h-64 flex items-center justify-center border border-dashed border-slate-700 rounded-xl">
-                <span className="text-slate-500 text-sm">Gráfico de distribución en desarrollo...</span>
+              <div className="flex items-baseline justify-between mb-5">
+                <h3 className="text-lg font-bold text-white">Alumnos que completaron un curso</h3>
+                <span className="text-xs text-slate-400">
+                  {analytics.totals.completions} certificados emitidos
+                </span>
               </div>
+              <MonthlyBarChart
+                data={analytics.completions}
+                color="#199e70"
+                ariaLabel="Alumnos que completaron un curso por mes"
+              />
+              <p className="text-[11px] text-slate-500 mt-4">
+                Se cuenta un alumno como completado cuando le apruebas el certificado del curso.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+              <div className="flex items-baseline justify-between mb-5">
+                <h3 className="text-lg font-bold text-white">Valor de las inscripciones por mes</h3>
+                <span className="text-xs text-slate-400">
+                  {analytics.totals.revenue.toLocaleString("es")} {analytics.currency} en total
+                </span>
+              </div>
+              <MonthlyBarChart
+                data={analytics.revenue}
+                color="#c98500"
+                format={(v) => `${v.toLocaleString("es")}`}
+                ariaLabel="Valor de las inscripciones por mes"
+              />
+              <p className="text-[11px] text-amber-400/80 mt-4">
+                Suma el precio de los cursos en los que se inscribieron tus alumnos. Como los cobros se hacen
+                por enlace externo, la plataforma no puede confirmar qué pagos se completaron: es el valor
+                generado, no el dinero cobrado.
+              </p>
             </div>
           </div>
         </main>

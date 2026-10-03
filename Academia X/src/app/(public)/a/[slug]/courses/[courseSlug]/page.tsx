@@ -1,7 +1,8 @@
 import { CourseService } from "@/modules/course/course.service";
-import { PublicLMSViewer } from "@/components/public/PublicLMSViewer";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import { CourseLandingView, type CourseLandingContent } from "@/components/landing/course-landing/CourseLandingView";
+import { courseLandingProps } from "@/components/landing/course-landing/landing-props";
 
 interface PublicCourseViewProps {
   params: Promise<{ slug: string; courseSlug: string }>;
@@ -18,11 +19,11 @@ export async function generateMetadata({ params }: PublicCourseViewProps): Promi
 }
 
 /**
- * Vista pública (previsualización) de un curso publicado.
- * Solo la primera lección muestra su contenido; el resto requiere inscripción
- * y se consume desde el campus del alumno (/campus).
+ * Landing pública de un curso: SOLO promoción, con el modelo que eligió el
+ * profesor. El contenido no se muestra aquí: la lección de muestra tiene su
+ * propia página (/muestra) y el curso completo se ve en el campus tras inscribirse.
  */
-export default async function PublicCourseViewerPage({ params }: PublicCourseViewProps) {
+export default async function PublicCourseLandingPage({ params }: PublicCourseViewProps) {
   const { slug, courseSlug } = await params;
 
   const dbCourse = await CourseService.getPublicCourseBySlug(slug, courseSlug);
@@ -30,30 +31,6 @@ export default async function PublicCourseViewerPage({ params }: PublicCourseVie
     notFound();
   }
 
-  let isFirstLesson = true;
-  const modules = dbCourse.modules.map((m) => ({
-    id: m.id,
-    title: m.title,
-    lessons: m.lessons.map((l) => {
-      const content = isFirstLesson ? l.content : JSON.stringify({
-        blocks: [{ id: "locked", type: "text", content: "🔒 Esta lección está disponible para alumnos inscritos." }],
-      });
-      isFirstLesson = false;
-      return { id: l.id, title: l.title, content, liveUrl: l.liveUrl };
-    }),
-  }));
-
-  return (
-    <PublicLMSViewer
-      id={dbCourse.id}
-      title={dbCourse.title}
-      tenantSlug={slug}
-      courseSlug={courseSlug}
-      academyName={dbCourse.tenant.name}
-      primaryColor={dbCourse.tenant.primaryColor || "#2563eb"}
-      modules={modules}
-      mode="preview"
-      joinHref={`/a/${slug}/join`}
-    />
-  );
+  const props = courseLandingProps(dbCourse, slug);
+  return <CourseLandingView {...props} landing={(dbCourse.landing as CourseLandingContent | null) ?? null} />;
 }

@@ -12,7 +12,7 @@ async function main() {
       name: 'Mentor Studio Global Central',
       slug: 'central',
       primaryColor: '#3B82F6',
-      secondaryColor: '#1E293B',
+      secondaryColor: '#F1F5F9',
       language: 'es'
     }
   });
@@ -147,7 +147,7 @@ async function seedDemoAcademy() {
       name: 'JL Global Institute',
       slug: 'jl-institute',
       primaryColor: '#2563eb',
-      secondaryColor: '#1e293b',
+      secondaryColor: '#F1F5F9',
       language: 'es'
     }
   });

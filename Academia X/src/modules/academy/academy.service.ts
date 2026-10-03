@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 
 export function slugify(text: string): string {
   return text
@@ -78,7 +79,7 @@ export class AcademyService {
           slug: finalSlug,
           language: input.language || "es",
           primaryColor: input.primaryColor || "#3B82F6",
-          secondaryColor: input.secondaryColor || "#1E293B",
+          secondaryColor: input.secondaryColor || DEFAULT_BRAND_BACKGROUND,
           memberships: {
             create: {
               userId: user.id,

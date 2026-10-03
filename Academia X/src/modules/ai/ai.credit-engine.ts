@@ -72,7 +72,10 @@ export class AICreditEngine {
     }
 
     const opConfig = getAIOperationConfig(input.operation);
-    const creditType = opConfig.creditType;
+    // El tipo definitivo se decide más abajo: si la academia lo permite, las
+    // operaciones de alumno (tutor, retroalimentación) se cobran de la bolsa
+    // del profesor. Los alumnos no tienen cuota propia en ningún plan.
+    let creditType = opConfig.creditType;
     const creditCost = opConfig.creditCost;
 
     // 2. Validar existencia del Tenant
@@ -132,6 +135,13 @@ export class AICreditEngine {
     });
     if (!wallet) {
       throw new Error(AICreditError.AI_CREDIT_WALLET_NOT_FOUND);
+    }
+
+    // 5b. Operaciones de alumno financiadas por el profesor.
+    // El propietario de la academia lo activa en Configuración; mientras esté
+    // desactivado, el alumno no puede gastar (su bolsa está a 0 en todos los planes).
+    if (opConfig.creditType === AICreditType.STUDENT && wallet.allowTeacherCreditsForStudents) {
+      creditType = AICreditType.TEACHER;
     }
 
     // 6. Manejo de Operaciones FREE (0 créditos)

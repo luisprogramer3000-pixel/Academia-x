@@ -19,7 +19,7 @@ export class BetaLaunchService {
         slug,
         language: "es",
         primaryColor: "#2563eb",
-        secondaryColor: "#1e293b",
+        secondaryColor: "#F1F5F9",
         userEmail: "jorge@jlinstitute.com",
         userName: "Prof. Jorge López",
       });
