@@ -3,6 +3,7 @@ import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { AuditService } from "@/modules/security/audit.service";
 import { ShieldAlert, Terminal, Lock, User, Clock, Globe } from "lucide-react";
+import { formatInTimezone } from "@/lib/timezone";
 
 interface AuditLogItem {
   id: string;
@@ -91,7 +92,7 @@ export default async function AuditLogsDashboardPage() {
                       <Globe className="w-3 h-3 text-slate-500" /> {log.ipAddress}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-500" /> {new Date(log.createdAt).toLocaleString("es-ES")}
+                      <Clock className="w-3 h-3 text-slate-500" /> {formatInTimezone(log.createdAt, academy.timezone, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                     </span>
                   </div>
                 </div>

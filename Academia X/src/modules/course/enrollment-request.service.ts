@@ -83,7 +83,8 @@ export class EnrollmentRequestService {
   /** Aprueba la solicitud: crea la inscripción y avisa al alumno. */
   static async approve(tenantId: string, requestId: string, reviewerUserId: string) {
     const request = await prisma.enrollmentRequest.findFirst({
-      where: { id: requestId, tenantId },
+      // No se aprueban inscripciones a cursos que están en la papelera
+      where: { id: requestId, tenantId, course: { deletedAt: null } },
       include: {
         course: { select: { id: true, title: true, tenant: { select: { name: true } } } },
         membership: { include: { user: { select: { email: true } } } },
@@ -143,7 +144,8 @@ export class EnrollmentRequestService {
 
   static async listForTenant(tenantId: string) {
     return prisma.enrollmentRequest.findMany({
-      where: { tenantId },
+      // Las solicitudes de cursos en la papelera no se muestran (vuelven si se restaura el curso)
+      where: { tenantId, course: { deletedAt: null } },
       orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
       take: 200,
       include: {
@@ -154,6 +156,6 @@ export class EnrollmentRequestService {
   }
 
   static async countPending(tenantId: string) {
-    return prisma.enrollmentRequest.count({ where: { tenantId, status: "PENDING" } });
+    return prisma.enrollmentRequest.count({ where: { tenantId, status: "PENDING", course: { deletedAt: null } } });
   }
 }

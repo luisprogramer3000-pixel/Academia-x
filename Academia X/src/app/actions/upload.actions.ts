@@ -2,46 +2,20 @@
 
 import { requireTenantAccess, STAFF_ROLES } from "@/lib/session";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
-import { UPLOADS_ROOT, publicUploadUrl } from "@/lib/uploads";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { createSignedUpload, putUpload, storageDriver, type UploadFolder } from "@/lib/storage";
+import {
+  IMAGE_TYPES,
+  MATERIAL_TYPES,
+  IMAGE_FORMATS_LABEL,
+  MATERIAL_FORMATS_LABEL,
+  MAX_MATERIAL_BYTES,
+  MAX_SERVER_UPLOAD_BYTES,
+} from "@/lib/upload-types";
 
-/**
- * Formatos permitidos. La extensión SIEMPRE sale de esta tabla, nunca del nombre
- * que envía el navegador: así no se puede guardar un .html o .svg (XSS almacenado
- * servido desde nuestro propio dominio) ni colar separadores de ruta.
- */
-const IMAGE_TYPES: Record<string, string> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-};
-
-const MATERIAL_TYPES: Record<string, string> = {
-  ...IMAGE_TYPES,
-  "application/pdf": ".pdf",
-  "application/msword": ".doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-  "application/vnd.ms-excel": ".xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-  "application/vnd.ms-powerpoint": ".ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-  "text/plain": ".txt",
-  "text/csv": ".csv",
-  "application/zip": ".zip",
-  "audio/mpeg": ".mp3",
-  "audio/mp4": ".m4a",
-  "audio/wav": ".wav",
-  "audio/x-wav": ".wav",
-  "video/mp4": ".mp4",
-  "video/webm": ".webm",
-};
-
-const IMAGE_FORMATS_LABEL = "PNG, JPG, WEBP o GIF";
-const MATERIAL_FORMATS_LABEL = "PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP, imágenes, audio o video";
+const mb = (bytes: number) => Math.round(bytes / (1024 * 1024));
 
 interface StoredFile {
   url: string;
@@ -50,19 +24,14 @@ interface StoredFile {
 
 async function storeUploadedFile(
   file: File,
-  options: { folder: string; prefix: string; tenantId: string; extension: string }
+  options: { folder: UploadFolder; prefix: string; tenantId: string; extension: string }
 ): Promise<StoredFile> {
-  const buffer = Buffer.from(await file.arrayBuffer());
-
   const uniqueName = `${options.prefix}-${options.tenantId}-${crypto
     .randomBytes(8)
     .toString("hex")}${options.extension}`;
 
-  const uploadDir = path.join(UPLOADS_ROOT, options.folder);
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, uniqueName), buffer);
-
-  return { url: publicUploadUrl(options.folder, uniqueName), fileName: file.name };
+  const url = await putUpload(options.folder, uniqueName, new Uint8Array(await file.arrayBuffer()), file.type);
+  return { url, fileName: file.name };
 }
 
 export async function uploadLogoAction(formData: FormData) {
@@ -109,26 +78,28 @@ export async function uploadLogoAction(formData: FormData) {
 export async function uploadMaterialAction(formData: FormData) {
   try {
     // Both students and teachers can upload files (teachers to lessons, students to submissions)
-    const { tenantId } = await requireTenantAccess();
+    const lessonImage = formData.get("purpose") === "lesson-image";
+    const { tenantId } = await requireTenantAccess(lessonImage ? STAFF_ROLES : undefined);
 
     const file = formData.get("file") as File;
     if (!file || file.size === 0) {
       return { success: false, error: "No se proporcionó ningún archivo." };
     }
 
-    const extension = MATERIAL_TYPES[file.type];
+    const extension = (lessonImage ? IMAGE_TYPES : MATERIAL_TYPES)[file.type];
     if (!extension) {
-      return { success: false, error: `Formato no permitido. Usa ${MATERIAL_FORMATS_LABEL}.` };
+      return { success: false, error: `Formato no permitido. Usa ${lessonImage ? IMAGE_FORMATS_LABEL : MATERIAL_FORMATS_LABEL}.` };
     }
 
-    // Validate size (max 20MB)
-    if (file.size > 20 * 1024 * 1024) {
-      return { success: false, error: "El archivo no debe superar los 20MB." };
+    // Por esta vía el archivo pasa por el servidor (límite de 6 MB por petición).
+    // Los grandes van directos a Storage con prepareMaterialUploadAction.
+    if (file.size > MAX_SERVER_UPLOAD_BYTES) {
+      return { success: false, error: `El archivo no debe superar los ${mb(MAX_SERVER_UPLOAD_BYTES)} MB.` };
     }
 
     const stored = await storeUploadedFile(file, {
-      folder: "materials",
-      prefix: "mat",
+      folder: lessonImage ? "class-images" : "materials",
+      prefix: lessonImage ? "img" : "mat",
       tenantId,
       extension,
     });
@@ -137,5 +108,56 @@ export async function uploadMaterialAction(formData: FormData) {
   } catch (error: any) {
     console.error("Upload error:", error);
     return { success: false, error: error.message || "Error al subir el archivo" };
+  }
+}
+
+/**
+ * Subida directa de materiales a Supabase Storage (sin pasar por el servidor).
+ *
+ * El navegador pide permiso indicando tipo y tamaño; el servidor comprueba la
+ * sesión, el formato y el límite, genera el nombre (con el tenant de la sesión)
+ * y devuelve un enlace firmado que solo sirve para subir ESE archivo a ESA ruta.
+ * Sin Storage configurado responde mode "server" y el navegador usa
+ * uploadMaterialAction (archivos pequeños).
+ */
+export async function prepareMaterialUploadAction(input: { type: string; size: number; purpose?: "lesson-image" }) {
+  try {
+    // Alumnos (entregas) y profesores (lecciones) pueden subir materiales.
+    // Las imágenes de lección (solo profesores) van a la carpeta pública "class-images",
+    // como las generadas por IA: así se ven también en la lección de muestra.
+    const lessonImage = input?.purpose === "lesson-image";
+    const { tenantId, userId } = await requireTenantAccess(lessonImage ? STAFF_ROLES : undefined);
+
+    const extension = (lessonImage ? IMAGE_TYPES : MATERIAL_TYPES)[input?.type];
+    if (!extension) {
+      return { success: false as const, error: `Formato no permitido. Usa ${lessonImage ? IMAGE_FORMATS_LABEL : MATERIAL_FORMATS_LABEL}.` };
+    }
+    const size = Number(input?.size);
+    if (!Number.isFinite(size) || size <= 0) {
+      return { success: false as const, error: "El archivo está vacío." };
+    }
+
+    if (storageDriver() !== "supabase") {
+      if (size > MAX_SERVER_UPLOAD_BYTES) {
+        return { success: false as const, error: `El archivo no debe superar los ${mb(MAX_SERVER_UPLOAD_BYTES)} MB.` };
+      }
+      return { success: true as const, mode: "server" as const };
+    }
+
+    if (size > MAX_MATERIAL_BYTES) {
+      return { success: false as const, error: `El archivo no debe superar los ${mb(MAX_MATERIAL_BYTES)} MB.` };
+    }
+
+    const limit = await checkRateLimit({ key: `material_upload:${userId}`, limit: 30, windowMs: 10 * 60_000 });
+    if (!limit.success) {
+      return { success: false as const, error: "Has subido demasiados archivos seguidos. Espera unos minutos." };
+    }
+
+    const fileName = `${lessonImage ? "img" : "mat"}-${tenantId}-${crypto.randomBytes(8).toString("hex")}${extension}`;
+    const { uploadUrl, fileUrl } = await createSignedUpload(lessonImage ? "class-images" : "materials", fileName);
+    return { success: true as const, mode: "direct" as const, uploadUrl, fileUrl };
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    return { success: false as const, error: error.message || "No se pudo preparar la subida." };
   }
 }

@@ -56,7 +56,8 @@ export class CourseService {
     let finalSlug = baseSlug;
     let counter = 1;
 
-    // Verificar unicidad de slug dentro del mismo tenant
+    // Verificar unicidad de slug dentro del mismo tenant (incluidos los cursos en la papelera:
+    // el slug sigue ocupado en la base de datos hasta que se eliminan definitivamente)
     while (
       await prisma.course.findUnique({
         where: {
@@ -64,6 +65,7 @@ export class CourseService {
             tenantId: validTenantId,
             slug: finalSlug,
           },
+          deletedAt: undefined,
         },
       })
     ) {
@@ -93,15 +95,38 @@ export class CourseService {
    * Obtiene todos los cursos pertenecientes a un tenant.
    */
   static async getCoursesByTenant(tenantId: string) {
+    // Solo lo que pintan las tarjetas: NUNCA el contenido de las lecciones (puede pesar cientos de KB cada una)
     return prisma.course.findMany({
       where: { tenantId },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        level: true,
+        status: true,
+        contentType: true,
+        priceAmount: true,
+        currency: true,
         modules: {
-          include: {
-            lessons: true,
+          orderBy: { order: "asc" },
+          select: {
+            id: true,
+            _count: { select: { lessons: true } },
+            // Primera lección (para abrir las lecciones sueltas)
+            lessons: { orderBy: { order: "asc" }, take: 1, select: { id: true } },
           },
         },
       },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /** Cursos para desplegables (inscribir alumnos, emitir certificados): solo id y título. */
+  static async getCourseOptions(tenantId: string) {
+    return prisma.course.findMany({
+      where: { tenantId },
+      select: { id: true, title: true },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -221,27 +246,7 @@ export class CourseService {
     return prisma.course.findFirst({ where: { id: courseId, tenantId } });
   }
 
-  /**
-   * Elimina un curso completo con sus módulos, lecciones e inscripciones.
-   *
-   * Los certificados ya emitidos se borran en cascada, así que un curso con
-   * certificados emitidos no se elimina: se archiva desde la propia acción.
-   */
-  static async deleteCourse(tenantId: string, courseId: string) {
-    const course = await prisma.course.findFirst({
-      where: { id: courseId, tenantId },
-      select: { id: true, _count: { select: { certificates: true, enrollments: true } } },
-    });
-    if (!course) {
-      throw new Error("Curso no encontrado en esta academia.");
-    }
-    if (course._count.certificates > 0) {
-      throw new Error(
-        `Este curso tiene ${course._count.certificates} certificado(s) emitido(s) y no puede eliminarse. Archívalo para retirarlo del catálogo sin invalidar los certificados de tus alumnos.`
-      );
-    }
-    return prisma.course.delete({ where: { id: courseId } });
-  }
+  // Borrar un curso: ver TrashService (papelera de 30 días). No hay borrado directo.
 
   /**
    * Elimina un módulo de un curso.

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { BillingService, ActiveSubscription } from "./billing.service";
+import type { ActiveSubscription } from "./billing.service";
 import type { PlanConfig } from "./plans";
+import { getActiveSubscriptionCached } from "./subscription-cache";
 
 export class PlanLimitError extends Error {
   constructor(message: string) {
@@ -16,7 +17,7 @@ export const NO_ACTIVE_PLAN_MESSAGE =
  * Exige una suscripción vigente. Devuelve la suscripción activa.
  */
 export async function requireActiveSubscription(tenantId: string): Promise<ActiveSubscription> {
-  const active = await BillingService.getActiveSubscription(tenantId);
+  const active = await getActiveSubscriptionCached(tenantId);
   if (!active) throw new PlanLimitError(NO_ACTIVE_PLAN_MESSAGE);
   return active;
 }

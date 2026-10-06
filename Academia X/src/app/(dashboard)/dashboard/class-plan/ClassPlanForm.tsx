@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { DURATIONS, METHODOLOGIES } from "@/modules/ai/class-plan.schema";
-import { NATIVE_LANGUAGES } from "@/modules/ai/reading-guidance";
+import { CLASS_LANGUAGES, OTHER_LANGUAGE } from "@/modules/ai/reading-guidance";
 import { Check, ChevronDown, ListPlus, Loader2, Plus, Sparkles, Trash2, WandSparkles } from "lucide-react";
 
 const GRADES = [
@@ -13,7 +13,6 @@ const SUBJECTS = [
   "Español", "Español como lengua extranjera (ELE)", "Inglés", "Lengua y Literatura", "Matemáticas",
   "Ciencias Naturales", "Historia", "Geografía", "Física", "Química", "Biología", "Arte", "Tecnología",
 ];
-const LANGUAGES = ["Español", "English", "Português", "Français", "Deutsch", "Italiano"];
 
 type Competency = { code: string; description: string };
 
@@ -61,6 +60,11 @@ export function ClassPlanForm({
   const [bilingual, setBilingual] = useState(false);
   const [bilingualTouched, setBilingualTouched] = useState(false);
   const [nativeLanguage, setNativeLanguage] = useState("English");
+  // El idioma nativo nunca coincide con el de la clase (clase de inglés → alumnos hispanohablantes, etc.)
+  const chooseLanguage = (l: string) => {
+    setLanguage(l);
+    if (l === nativeLanguage) setNativeLanguage(l === "Español" ? "English" : "Español");
+  };
   // Recomendado en A1 y en primaria: se enciende solo al elegir esos niveles
   const isA1 = /\bA1\b/i.test(grade) || /primaria/i.test(grade);
   const bilingualOn = bilingualTouched ? bilingual : isA1;
@@ -128,7 +132,7 @@ export function ClassPlanForm({
             </select>
           </div>
           <div>
-            <label className={labelCls}>Disciplina</label>
+            <label className={labelCls}>Asignatura</label>
             <input
               name="subject"
               list="class-plan-subjects"
@@ -297,9 +301,7 @@ export function ClassPlanForm({
           <label className={labelCls}>
             Idioma de la clase <span className="text-slate-500 font-normal">(opcional)</span>
           </label>
-          <select name="language" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls}>
-            {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
-          </select>
+          <LanguagePicker name="language" value={language} onChange={chooseLanguage} className={inputCls} />
         </div>
 
         <div className={`rounded-2xl border p-4 transition-colors ${bilingualOn ? "border-emerald-500/50 bg-emerald-500/5" : "border-slate-700"}`}>
@@ -330,9 +332,7 @@ export function ClassPlanForm({
           {bilingualOn && (
             <div className="mt-3 flex items-center gap-3">
               <label className="text-xs text-slate-300 shrink-0">Idioma nativo de los alumnos</label>
-              <select value={nativeLanguage} onChange={(e) => setNativeLanguage(e.target.value)} className={`${inputCls} py-2`}>
-                {NATIVE_LANGUAGES.map((l) => <option key={l}>{l}</option>)}
-              </select>
+              <LanguagePicker value={nativeLanguage} onChange={setNativeLanguage} className={`${inputCls} py-2`} exclude={language} />
             </div>
           )}
           {bilingualOn && !isA1 && /\b(B1|B2|C1|C2)\b/i.test(grade) && (
@@ -374,5 +374,22 @@ export function ClassPlanForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/** Selector de idioma con la lista común y la opción "Otro…" para escribir cualquier idioma. */
+function LanguagePicker({ value, onChange, className, name, exclude }: { value: string; onChange: (v: string) => void; className: string; name?: string; exclude?: string }) {
+  const custom = !CLASS_LANGUAGES.includes(value);
+  return (
+    <div className="flex-1 flex flex-col gap-2">
+      {name && <input type="hidden" name={name} value={value} />}
+      <select value={custom ? OTHER_LANGUAGE : value} onChange={(e) => onChange(e.target.value === OTHER_LANGUAGE ? "" : e.target.value)} className={className}>
+        {CLASS_LANGUAGES.filter((l) => l !== exclude).map((l) => <option key={l}>{l}</option>)}
+        <option>{OTHER_LANGUAGE}</option>
+      </select>
+      {custom && (
+        <input value={value} onChange={(e) => onChange(e.target.value)} maxLength={40} placeholder="Escribe el idioma (p. ej. Quechua, Catalán…)" className={className} autoFocus />
+      )}
+    </div>
   );
 }

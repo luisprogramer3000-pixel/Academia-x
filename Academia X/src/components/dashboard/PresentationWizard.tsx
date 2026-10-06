@@ -3,10 +3,21 @@
 import { useEffect, useState } from "react";
 import { DialogShell } from "./DialogShell";
 import { PRESET_THEMES, brandTheme, SLIDE_H, SLIDE_W, type DeckTheme, type TextDensity } from "@/modules/presentation/presentation.themes";
-import { Check, FileText, Globe, Loader2, Paperclip, Presentation, Sparkles, Upload } from "lucide-react";
+import { Check, CheckCircle2, FileText, Globe, Loader2, Paperclip, Presentation, Sparkles, Upload, Wand2 } from "lucide-react";
 
 type DesignMode = "preset" | "upload" | "web";
 const PREFS_KEY = "academiax:presentation-prefs";
+
+/** Etapas del motor (se muestran mientras se genera; la petición es una sola). */
+const STAGES = ["Analizando la clase…", "Diseñando la secuencia de diapositivas…", "Aplicando el diseño…", "Preparando imágenes e iconos…", "Creando diapositivas…", "Validando legibilidad y calidad…"];
+
+interface GenerationSummary {
+  slides: number;
+  quality: number;
+  planner: string;
+  warnings: string[];
+  fileName: string;
+}
 
 const DENSITIES: Array<{ id: TextDensity; label: string; lines: number; cols: number }> = [
   { id: "minimo", label: "Mínimo", lines: 2, cols: 1 },
@@ -30,7 +41,11 @@ export function PresentationWizard({
   const themes = [brandTheme(primaryColor.replace("#", "").toUpperCase()), ...PRESET_THEMES];
   const [format, setFormat] = useState<"pptx" | "pdf">(initialFormat);
   const [density, setDensity] = useState<TextDensity>("estandar");
-  const [slideCount, setSlideCount] = useState(10);
+  const [slideCount, setSlideCount] = useState(14);
+  const [autoSlides, setAutoSlides] = useState(true);
+  const [templateMode, setTemplateMode] = useState<"inspired" | "adapt">("inspired");
+  const [stage, setStage] = useState(0);
+  const [summary, setSummary] = useState<GenerationSummary | null>(null);
   const [quality, setQuality] = useState<"basic" | "ai">("basic");
   const [aiImages, setAiImages] = useState(0);
   const [mode, setMode] = useState<DesignMode>("preset");
@@ -43,11 +58,13 @@ export function PresentationWizard({
 
   // Recuerda la última densidad y modelo elegidos por este profesor
   useEffect(() => {
-    let saved: { density?: TextDensity; preset?: string; slides?: number } = {};
+    let saved: { density?: TextDensity; preset?: string; slides?: number; auto?: boolean; templateMode?: "inspired" | "adapt" } = {};
     try {
       saved = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
       if (saved.density) setDensity(saved.density);
       if (saved.slides && saved.slides >= 5 && saved.slides <= 20) setSlideCount(saved.slides);
+      if (typeof saved.auto === "boolean") setAutoSlides(saved.auto);
+      if (saved.templateMode) setTemplateMode(saved.templateMode);
       if (saved.preset) setPreset(saved.preset);
     } catch {}
     fetch("/api/presentation-models")
@@ -63,17 +80,27 @@ export function PresentationWizard({
 
   const ready = mode === "preset" || (mode === "upload" && file) || (mode === "web" && /^https:\/\/\S+$/.test(url.trim()));
 
+  // Etapas mientras se genera (la presentación con IA puede tardar 1-2 min)
+  useEffect(() => {
+    if (!busy) return;
+    setStage(0);
+    const t = setInterval(() => setStage((s) => Math.min(STAGES.length - 1, s + 1)), quality === "ai" ? 9000 : 1500);
+    return () => clearInterval(t);
+  }, [busy, quality]);
+
   async function generate() {
     setBusy(true);
     setError(null);
+    setSummary(null);
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ density, preset, slides: slideCount }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ density, preset, slides: slideCount, auto: autoSlides, templateMode }));
     } catch {}
 
     const fd = new FormData();
     fd.set("format", format);
     fd.set("density", density);
-    fd.set("slides", String(slideCount));
+    fd.set("slides", format === "pptx" && autoSlides ? "auto" : String(slideCount));
+    fd.set("templateMode", templateMode);
     fd.set("quality", format === "pptx" ? quality : "basic");
     if (quality === "ai" && format === "pptx") {
       fd.set("imageCount", String(aiImages));
@@ -99,7 +126,20 @@ export function PresentationWizard({
       a.download = name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(href), 5000);
-      onClose();
+      const qualityScore = Number(res.headers.get("X-Presentation-Quality"));
+      if (format === "pptx" && qualityScore) {
+        // Motor v2: se muestra el resumen de la generación en lugar de cerrar
+        const warnings = res.headers.get("X-Presentation-Warnings");
+        setSummary({
+          slides: Number(res.headers.get("X-Presentation-Slides")) || 0,
+          quality: qualityScore,
+          planner: res.headers.get("X-Presentation-Planner") || "heuristic",
+          warnings: warnings ? decodeURIComponent(warnings).split(" | ").filter(Boolean) : [],
+          fileName: name,
+        });
+      } else {
+        onClose();
+      }
     } catch {
       setError("No se pudo conectar con el servidor.");
     } finally {
@@ -171,8 +211,8 @@ export function PresentationWizard({
           </div>
           {quality === "ai" && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-400 mr-1">Ilustraciones generadas:</span>
-              {[0, 2, 4].map((n) => (
+              <span className="text-xs text-slate-400 mr-1">Fotos realistas (vocabulario, ejemplos, lectura):</span>
+              {[0, 6, 12, 20].map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -184,9 +224,10 @@ export function PresentationWizard({
               ))}
             </div>
           )}
-          {quality === "ai" && mode === "preset" && isLibraryModel && format === "pptx" && (
-            <p className="text-xs text-amber-300/90 mt-2">
-              Con un modelo de la academia, el contenido diseñado por la IA se coloca en las diapositivas del modelo. Para ver las tarjetas, tablas y columnas, elige un diseño básico.
+          {quality === "ai" && (
+            <p className="text-xs text-slate-500 mt-2">
+              La IA planifica la clase como un diseñador instruccional: activación, objetivos, vocabulario visual, comparaciones,
+              mapa, actividades y cierre. Si no puede, se usa el planificador interno y se devuelven los créditos.
             </p>
           )}
         </div>
@@ -196,7 +237,11 @@ export function PresentationWizard({
           <p className={label}>
             Número de diapositivas <span className="text-red-400">*</span>
           </p>
-          <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm text-slate-300 mb-3 cursor-pointer">
+            <input type="checkbox" checked={autoSlides} onChange={(e) => setAutoSlides(e.target.checked)} className="accent-blue-500 w-4 h-4" />
+            Automático (recomendado): según la cantidad de contenido de la clase
+          </label>
+          <div className={`flex items-center gap-4 ${autoSlides ? "opacity-40 pointer-events-none" : ""}`}>
             <button
               type="button"
               onClick={() => setSlideCount((n) => Math.max(5, n - 1))}
@@ -229,7 +274,9 @@ export function PresentationWizard({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Entre 5 y 20, incluida la portada. Si la lección tiene más contenido se prioriza lo esencial; si tiene menos, se reparte en más diapositivas.
+            {autoSlides
+              ? "El motor decide entre 8 y 25 diapositivas según los conceptos, el vocabulario y las actividades de la clase."
+              : "Entre 5 y 20, incluida la portada. Si la lección tiene más contenido, se agrupan conceptos sin perder ninguno."}
           </p>
         </div>
 
@@ -292,6 +339,15 @@ export function PresentationWizard({
                   <p className="text-sm text-slate-500">No hay modelos cargados.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <button type="button" onClick={() => setPreset("smart")} className="text-left group">
+                      <div className={`relative aspect-video rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-violet-600/30 via-blue-600/20 to-emerald-500/20 transition-colors ${preset === "smart" ? "border-blue-500" : "border-slate-700 group-hover:border-slate-500"}`}>
+                        <Wand2 className="w-6 h-6 text-violet-200" />
+                        <span className="text-[11px] text-slate-200 px-3 text-center">Elige el estilo según tu alumnado</span>
+                      </div>
+                      <p className={`mt-2 text-sm font-semibold flex items-center gap-1.5 ${preset === "smart" ? "text-blue-300" : "text-slate-200"}`}>
+                        {preset === "smart" && <Check className="w-4 h-4" />} ✨ Diseño inteligente
+                      </p>
+                    </button>
                     {library.map((m) => {
                       const id = `lib:${m.id}`;
                       return (
@@ -308,6 +364,28 @@ export function PresentationWizard({
                   </div>
                 )}
               </div>
+
+              {isLibraryModel && format === "pptx" && (
+                <div className="rounded-xl border border-slate-700 bg-slate-950 p-3 flex flex-wrap gap-2">
+                  {([
+                    ["inspired", "Inspirado en este diseño", "Su estilo (colores, fuentes, fondo, personajes) con diapositivas nuevas y variadas"],
+                    ["adapt", "Adaptar diseño original", "Más cerca de la composición original del modelo, empezando por su portada"],
+                  ] as const).map(([id, name, hint]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setTemplateMode(id)}
+                      className={`flex-1 min-w-[220px] text-left rounded-lg border px-3 py-2 transition-colors ${templateMode === id ? "border-blue-500 bg-blue-600/15" : "border-slate-700 hover:border-slate-500"}`}
+                    >
+                      <span className="text-sm font-semibold text-white flex items-center gap-1.5">
+                        {templateMode === id && <Check className="w-3.5 h-3.5 text-blue-300" />} {name}
+                        {id === "inspired" && <span className="text-[10px] font-bold text-emerald-300">RECOMENDADO</span>}
+                      </span>
+                      <span className="block text-[11px] text-slate-400 mt-0.5">{hint}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Diseños básicos</p>
@@ -330,9 +408,9 @@ export function PresentationWizard({
             <div className="rounded-2xl border border-dashed border-slate-700 p-5">
               <p className="text-sm text-slate-300 mb-1 font-semibold">Adjunta tu modelo</p>
               <p className="text-xs text-slate-500 mb-4">
-                Una presentación <strong>.pptx</strong> (por ejemplo, exportada de Canva): usamos sus propias diapositivas y reemplazamos el texto
-                por el de tu lección, conservando todo el diseño. Máx. 36 MB. También vale una <strong>imagen PNG/JPG</strong> de una diapositiva,
-                que se usará como fondo (máx. 12 MB).
+                Una presentación <strong>.pptx</strong> (por ejemplo, exportada de Canva): analizamos su estilo — colores, tipografías, fondo,
+                personajes e ilustraciones — y diseñamos tu clase con esa identidad visual (no se copian sus diapositivas). Máx. 36 MB.
+                También vale una <strong>imagen PNG/JPG</strong> de una diapositiva, que se usará como fondo (máx. 12 MB).
               </p>
               <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-600 text-sm font-semibold cursor-pointer hover:bg-slate-800">
                 <Paperclip className="w-4 h-4" /> {file ? "Cambiar archivo" : "Adjuntar archivo"}
@@ -366,13 +444,35 @@ export function PresentationWizard({
         </>
         )}
 
+        {summary && (
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
+            <p className="font-semibold text-emerald-200 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5" /> Presentación descargada: {summary.fileName}
+            </p>
+            <p className="text-sm text-slate-300">
+              {summary.slides} diapositivas · calidad {summary.quality}/100 ·{" "}
+              {summary.planner === "llm" ? "planificada con IA" : "planificador pedagógico interno"}
+            </p>
+            {summary.warnings.map((w) => (
+              <p key={w} className="text-xs text-amber-300">• {w}</p>
+            ))}
+            <p className="text-xs text-slate-400">Las explicaciones completas para ti van en las notas del orador de cada diapositiva.</p>
+          </div>
+        )}
+
+        {busy && format === "pptx" && (
+          <p className="text-sm text-blue-200 flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> {STAGES[stage]}
+          </p>
+        )}
+
         {hasUnsavedChanges && (
           <p className="text-xs text-amber-400">Tienes cambios sin guardar: la presentación usa la última versión guardada.</p>
         )}
         {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>}
 
         <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Cancelar</button>
+          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">{summary ? "Cerrar" : "Cancelar"}</button>
           <button
             type="button"
             onClick={generate}

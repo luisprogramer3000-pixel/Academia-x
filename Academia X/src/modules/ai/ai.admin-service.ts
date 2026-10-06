@@ -147,21 +147,20 @@ export class AICreditAdminService {
     const totalRefundedCredits = Math.abs(refunds._sum.amount || 0);
 
     // Top-Up purchases metrics
-    const totalPurchases = await prisma.aICreditPurchase.count({ where: purchaseWhere });
-    const pendingCount = await prisma.aICreditPurchase.count({ where: { ...purchaseWhere, status: "PENDING" } });
-    const completedCount = await prisma.aICreditPurchase.count({ where: { ...purchaseWhere, status: "COMPLETED" } });
-    const failedCount = await prisma.aICreditPurchase.count({ where: { ...purchaseWhere, status: "FAILED" } });
-    const refundedCount = await prisma.aICreditPurchase.count({ where: { ...purchaseWhere, status: "REFUNDED" } });
-
-    const completedPurchases = await prisma.aICreditPurchase.findMany({
-      where: { ...purchaseWhere, status: "COMPLETED" },
-      select: { priceAmount: true },
+    // Una sola consulta agrupada por estado (antes: 5 conteos + traer todas las compras completadas)
+    const byStatus = await prisma.aICreditPurchase.groupBy({
+      by: ["status"],
+      where: purchaseWhere,
+      _count: { _all: true },
+      _sum: { priceAmount: true },
     });
-
-    let totalRevenueUSD = 0;
-    for (const p of completedPurchases) {
-      totalRevenueUSD += Number(p.priceAmount || 0);
-    }
+    const countOf = (status: string) => byStatus.find((g) => g.status === status)?._count._all ?? 0;
+    const totalPurchases = byStatus.reduce((acc, g) => acc + g._count._all, 0);
+    const pendingCount = countOf("PENDING");
+    const completedCount = countOf("COMPLETED");
+    const failedCount = countOf("FAILED");
+    const refundedCount = countOf("REFUNDED");
+    const totalRevenueUSD = Number(byStatus.find((g) => g.status === "COMPLETED")?._sum.priceAmount ?? 0);
 
     return {
       totalTeacherAvailable,
@@ -384,21 +383,14 @@ export class AICreditAdminService {
       };
     }
 
-    const txs = await prisma.aICreditTransaction.findMany({
+    // Saldo esperado = suma del ledger por tipo de crédito, calculada en la base de datos
+    const ledger = await prisma.aICreditTransaction.groupBy({
+      by: ["creditType"],
       where: { tenantId },
-      orderBy: { createdAt: "asc" },
+      _sum: { amount: true },
     });
-
-    let teacherExpected = 0;
-    let studentExpected = 0;
-
-    for (const tx of txs) {
-      if (tx.creditType === AICreditType.TEACHER) {
-        teacherExpected += tx.amount;
-      } else if (tx.creditType === AICreditType.STUDENT) {
-        studentExpected += tx.amount;
-      }
-    }
+    const teacherExpected = ledger.find((g) => g.creditType === AICreditType.TEACHER)?._sum.amount ?? 0;
+    const studentExpected = ledger.find((g) => g.creditType === AICreditType.STUDENT)?._sum.amount ?? 0;
 
     const teacherActual = wallet.teacherCredits;
     const studentActual = wallet.studentCredits;
@@ -525,28 +517,8 @@ export class AICreditAdminService {
       }
     }
 
-    // 6. ProviderPaymentId duplicado en compras
-    const purchaseWhere = tenantIdFilter ? { tenantId: tenantIdFilter } : {};
-    const purchasesWithProviderId = await prisma.aICreditPurchase.findMany({
-      where: { ...purchaseWhere, providerPaymentId: { not: null } },
-      select: { providerPaymentId: true },
-    });
-
-    const seenProviderIds = new Set<string>();
-    for (const p of purchasesWithProviderId) {
-      if (p.providerPaymentId) {
-        if (seenProviderIds.has(p.providerPaymentId)) {
-          anomalies.push({
-            id: `duplicate_payment_${p.providerPaymentId}`,
-            severity: "CRITICAL",
-            type: "DUPLICATE_PAYMENT_PROVIDER_ID",
-            description: `Se detectó providerPaymentId duplicado en compras Top-Up: ${p.providerPaymentId}.`,
-            metadata: { providerPaymentId: p.providerPaymentId },
-          });
-        }
-        seenProviderIds.add(p.providerPaymentId);
-      }
-    }
+    // 6. ProviderPaymentId duplicado en compras: imposible, la columna es UNIQUE en la base
+    //    de datos (AICreditPurchase.providerPaymentId). No hace falta recorrer las compras.
 
     return anomalies;
   }

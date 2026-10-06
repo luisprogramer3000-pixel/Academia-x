@@ -66,8 +66,8 @@ export function DeleteCourseButton({ courseId, courseTitle, lessonCount }: Props
 
             <h3 className="font-bold text-white text-base mb-1">¿Eliminar curso?</h3>
             <p className="text-sm text-white font-medium mb-3">"{courseTitle}"</p>
-            <p className="text-xs text-amber-400 mb-4">
-              ⚠ Se eliminarán sus módulos{lessonCount ? ` y sus ${lessonCount} lecciones` : ""}, y las inscripciones de los alumnos. Esta acción no se puede deshacer.
+            <p className="text-xs text-slate-300 mb-4">
+              Irá a la <strong>Papelera</strong> con sus módulos{lessonCount ? `, sus ${lessonCount} lecciones` : ""} y sus alumnos inscritos. Dejará de verse en la plataforma, pero podrás <strong>restaurarlo durante 30 días</strong>.
             </p>
 
             {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
@@ -89,7 +89,7 @@ export function DeleteCourseButton({ courseId, courseTitle, lessonCount }: Props
                   disabled={busy}
                   className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold text-sm transition-colors"
                 >
-                  {busy ? "Eliminando..." : "Sí, eliminar"}
+                  {busy ? "Moviendo..." : "Mover a la papelera"}
                 </button>
               )}
               <button

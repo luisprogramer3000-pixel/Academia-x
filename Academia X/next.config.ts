@@ -44,6 +44,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // El driver de MongoDB (Biblioteca de la plataforma) se carga tal cual en el servidor, sin empaquetarlo
+  serverExternalPackages: ["mongodb"],
   // Los comprobantes de pago (hasta 5 MB) se envían por una acción del servidor; el límite por defecto es 1 MB
   experimental: {
     serverActions: { bodySizeLimit: "6mb" },

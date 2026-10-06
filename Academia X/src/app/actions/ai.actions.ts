@@ -379,7 +379,7 @@ export async function generateFullClassAIAction(formData: FormData) {
       await assertLessonInTenant(lessonId, auth.tenantId);
     }
 
-    const imageCount = Math.max(0, Math.min(3, Number(formData.get("imageCount") || 0)));
+    const imageCount = Math.max(0, Math.min(6, Number(formData.get("imageCount") || 0)));
     const durationMinutes = Math.max(15, Math.min(180, Number(formData.get("durationMinutes") || 60)));
     const topic = ((formData.get("topic") as string) || "").trim();
 
@@ -486,7 +486,7 @@ export async function triggerMonthlyResetAction(formData: FormData) {
 const generateClassPlanSchema = z.object({
   topic: z.string().trim().min(3, "Escribe el tema de la clase"),
   grade: z.string().trim().min(1, "Selecciona el grado"),
-  subject: z.string().trim().min(2, "Selecciona la disciplina"),
+  subject: z.string().trim().min(2, "Selecciona la asignatura"),
   durationMinutes: z.coerce.number().int().min(15).max(240),
   methodology: z.string().trim().min(2),
   language: z.string().trim().min(2).default("Español"),
@@ -618,7 +618,7 @@ const generateMaterialSchema = z.object({
   toolId: z.enum(["quiz", "examen", "flashcards", "rubrica", "lectura", "apuntes", "reto", "conversacion"]),
   topic: z.string().trim().min(3, "Escribe el tema").max(300),
   grade: z.string().trim().min(1).max(80),
-  subject: z.string().trim().min(2, "Indica la disciplina").max(120),
+  subject: z.string().trim().min(2, "Indica la asignatura").max(120),
   language: z.string().trim().min(2).max(40).default("Español"),
   count: z.coerce.number().int().min(1).max(40),
   context: z.string().trim().max(2000).optional(),

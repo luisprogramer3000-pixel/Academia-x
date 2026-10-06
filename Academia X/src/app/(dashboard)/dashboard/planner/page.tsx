@@ -7,10 +7,14 @@ import { CalendarDays } from "lucide-react";
 
 const eventSelect = {
   id: true, title: true, startsAt: true, durationMinutes: true, groupName: true, notes: true, resourceId: true,
+  status: true, meetingUrl: true,
   resource: { select: { title: true } },
 } as const;
 
-type Row = { id: string; title: string; startsAt: Date; durationMinutes: number; groupName: string | null; notes: string | null; resourceId: string | null; resource: { title: string } | null };
+type Row = {
+  id: string; title: string; startsAt: Date; durationMinutes: number; groupName: string | null; notes: string | null;
+  resourceId: string | null; status: PlannerEvent["status"]; meetingUrl: string | null; resource: { title: string } | null;
+};
 
 const toEvent = (e: Row): PlannerEvent => ({
   id: e.id,
@@ -21,6 +25,8 @@ const toEvent = (e: Row): PlannerEvent => ({
   notes: e.notes,
   resourceId: e.resourceId,
   resourceTitle: e.resource?.title ?? null,
+  status: e.status,
+  meetingUrl: e.meetingUrl,
 });
 
 export default async function PlannerPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
@@ -40,7 +46,8 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
 
   const [events, upcoming, resources] = await Promise.all([
     prisma.scheduledClass.findMany({ where: { tenantId, startsAt: { gte: from, lt: to } }, orderBy: { startsAt: "asc" }, select: eventSelect }),
-    prisma.scheduledClass.findMany({ where: { tenantId, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 8, select: eventSelect }),
+    // Próximas: solo las que siguen programadas (no las dadas ni las canceladas)
+    prisma.scheduledClass.findMany({ where: { tenantId, status: "SCHEDULED", startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 8, select: eventSelect }),
     prisma.teachingResource.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, title: true } }),
   ]);
 

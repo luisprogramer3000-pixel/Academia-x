@@ -29,7 +29,7 @@ const placeSchema = z.object({
 async function resolvePlace(tenantId: string, input: unknown) {
   const { moduleId, afterLessonId } = placeSchema.parse(input);
   const mod = await prisma.module.findFirst({
-    where: { id: moduleId, course: { tenantId } },
+    where: { id: moduleId, course: { tenantId, deletedAt: null } },
     select: {
       id: true,
       courseId: true,

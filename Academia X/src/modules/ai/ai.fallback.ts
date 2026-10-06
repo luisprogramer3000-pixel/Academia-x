@@ -15,6 +15,7 @@ import type { ClassAgentParams, ClassAgentOutput } from "./class-agent.schema";
 import type { ClassPlanParams, ClassPlanOutput } from "./class-plan.schema";
 import type { MaterialGenParams, MaterialGenOutput } from "./material-tools";
 import type { AiDeckParams, AiDeckOutput } from "@/modules/presentation/ai-deck.schema";
+import type { PresentationPlanCall, PresentationPlanRaw } from "./ai.adapter";
 
 /**
  * Adaptador con proveedor de respaldo.
@@ -88,6 +89,9 @@ export class FallbackAIAdapter implements AIProviderAdapter {
   }
   generatePresentationDeck(p: AiDeckParams): Promise<AiDeckOutput> {
     return this.withFallback("generatePresentationDeck", (a) => a.generatePresentationDeck(p));
+  }
+  generatePresentationPlan(p: PresentationPlanCall): Promise<PresentationPlanRaw> {
+    return this.withFallback("generatePresentationPlan", (a) => a.generatePresentationPlan(p));
   }
   generateMaterial(p: MaterialGenParams): Promise<MaterialGenOutput> {
     return this.withFallback("generateMaterial", (a) => a.generateMaterial(p));

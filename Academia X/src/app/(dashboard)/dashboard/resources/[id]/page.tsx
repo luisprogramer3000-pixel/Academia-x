@@ -24,7 +24,7 @@ export default async function ResourceDetailPage({
   // Si la lección vinculada se borró, se permite volver a convertir
   const lesson = resource.lessonId
     ? await prisma.lesson.findFirst({
-        where: { id: resource.lessonId, module: { course: { tenantId } } },
+        where: { id: resource.lessonId, module: { course: { tenantId, deletedAt: null } } },
         select: { id: true, module: { select: { courseId: true, course: { select: { contentType: true } } } } },
       })
     : null;

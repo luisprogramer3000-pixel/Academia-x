@@ -4,10 +4,12 @@ import { getDashboardContext, STAFF_ROLES } from "@/lib/session";
 import { EnrollmentRequestService } from "@/modules/course/enrollment-request.service";
 import { Inbox, FileText, MessageSquare, CheckCircle2, XCircle } from "lucide-react";
 import { RequestActions } from "./RequestActions";
+import { formatInTimezone } from "@/lib/timezone";
 
 export const metadata = { title: "Solicitudes de inscripción" };
 
-const fmt = (d: Date) => d.toLocaleDateString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+// En la zona horaria de la academia (el servidor de producción está en UTC)
+const fmt = (d: Date, tz: string) => formatInTimezone(d, tz, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export default async function EnrollmentRequestsPage() {
   const ctx = await getDashboardContext(STAFF_ROLES);
@@ -59,7 +61,7 @@ export default async function EnrollmentRequestsPage() {
                         ) : (
                           <span className="text-amber-400">Sin comprobante</span>
                         )}
-                        <span className="text-slate-500">{fmt(r.updatedAt)}</span>
+                        <span className="text-slate-500">{fmt(r.updatedAt, ctx.tenant.timezone)}</span>
                       </div>
                     </div>
                     <RequestActions requestId={r.id} studentName={student.name || student.email} />

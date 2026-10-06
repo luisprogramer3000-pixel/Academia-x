@@ -17,8 +17,9 @@ import {
   Eye,
   Edit3,
   UploadCloud,
+  ImageIcon,
 } from "lucide-react";
-import { uploadMaterialAction } from "@/app/actions/upload.actions";
+import { uploadMaterialFile } from "@/lib/upload-material";
 import { LessonAIPanel } from "./LessonAIPanel";
 import { PresentationDownload } from "./PresentationDownload";
 import { ClassAgentWizard, TeacherPlan } from "./ClassAgentWizard";
@@ -28,6 +29,7 @@ import { QuizResultsPanel } from "./QuizResultsPanel";
 import { saveTeacherPlanAction } from "@/app/actions/course.actions";
 import { LessonReader, type LessonBlock as ReaderBlock } from "@/components/lesson/LessonReader";
 import { TeacherPlanPanel } from "./TeacherPlanPanel";
+import { LessonImagePicker } from "./LessonImagePicker";
 
 const fieldLabel = "block text-xs font-medium text-slate-400 mb-1";
 const fieldInput =
@@ -449,9 +451,25 @@ export function LessonBlockEditor({
                     </div>
                   )}
 
-                  {block.type === "image" && block.url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={block.url} alt={block.title || "Imagen"} className="max-h-56 rounded-xl" />
+                  {block.type === "image" && (
+                    <div className="space-y-3">
+                      {block.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={block.url} alt={block.title || "Imagen"} className="max-h-56 rounded-xl" />
+                      ) : (
+                        <p className="text-xs text-slate-400">Elige la imagen de este bloque.</p>
+                      )}
+                      <LessonImagePicker onPick={(img) => updateBlock(block.id, { url: img.url, title: block.title || img.title })} />
+                      <div>
+                        <label className={fieldLabel}>Pie de imagen (opcional)</label>
+                        <input
+                          value={block.title || ""}
+                          onChange={(e) => updateBlock(block.id, { title: e.target.value })}
+                          placeholder="Ej. Una bicicleta en el parque"
+                          className={fieldInput}
+                        />
+                      </div>
+                    </div>
                   )}
 
                   {block.type === "text" && (
@@ -473,6 +491,19 @@ export function LessonBlockEditor({
                         placeholder="Escribe el texto explicativo de la lección..."
                         className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-sans leading-relaxed"
                       />
+                      <div className="mt-3">
+                        <label className={fieldLabel}>Imagen de la sección (se muestra al lado del texto)</label>
+                        {block.url && (
+                          <div className="mb-2 flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={block.url} alt={block.title || "Ilustración"} className="h-20 rounded-lg object-cover" />
+                            <button type="button" onClick={() => updateBlock(block.id, { url: undefined })} className="text-xs text-slate-400 hover:text-red-400">
+                              Quitar imagen
+                            </button>
+                          </div>
+                        )}
+                        <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
+                      </div>
                     </div>
                   )}
 
@@ -531,17 +562,15 @@ export function LessonBlockEditor({
                               onChange={async (e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                const formData = new FormData();
-                                formData.append("file", file);
                                 setMessage({ type: "success", text: "Subiendo archivo..." });
                                 setSaving(true);
                                 try {
-                                  const res = await uploadMaterialAction(formData);
-                                  if (res.success && res.fileUrl) {
+                                  const res = await uploadMaterialFile(file);
+                                  if (res.success) {
                                     updateBlock(block.id, { url: res.fileUrl, title: block.title || res.fileName });
                                     setMessage({ type: "success", text: "Archivo subido exitosamente." });
                                   } else {
-                                    setMessage({ type: "error", text: res.error || "Error al subir el archivo." });
+                                    setMessage({ type: "error", text: res.error });
                                   }
                                 } catch (err) {
                                   setMessage({ type: "error", text: "Error de red al subir el archivo." });
@@ -615,7 +644,7 @@ export function LessonBlockEditor({
               Añadir Nuevo Bloque a la Lección:
             </span>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <button
                 type="button"
                 onClick={() => addBlock("text")}
@@ -624,6 +653,16 @@ export function LessonBlockEditor({
                 <Type className="w-5 h-5 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
                 <div className="font-semibold text-xs text-white">Texto / Teoría</div>
                 <div className="text-[10px] text-slate-400">Explicaciones</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addBlock("image")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all text-left group"
+              >
+                <ImageIcon className="w-5 h-5 text-pink-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Imagen</div>
+                <div className="text-[10px] text-slate-400">Subir o biblioteca</div>
               </button>
 
               <button

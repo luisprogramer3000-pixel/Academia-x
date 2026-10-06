@@ -30,7 +30,7 @@ const gradeSchema = z.object({
 /** Comprueba que la tarea pertenece a la academia de la sesión. */
 async function assertAssignmentInTenant(assignmentId: string, tenantId: string) {
   const assignment = await prisma.assignment.findFirst({
-    where: { id: assignmentId, lesson: { module: { course: { tenantId } } } },
+    where: { id: assignmentId, lesson: { module: { course: { tenantId, deletedAt: null } } } },
     select: { id: true, lessonId: true, lesson: { select: { module: { select: { courseId: true } } } } },
   });
   if (!assignment) throw new Error("Tarea no encontrada en tu academia.");
@@ -197,7 +197,7 @@ export async function gradeSubmissionAction(submissionId: string, formData: Form
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
 
     const submission = await prisma.submission.findFirst({
-      where: { id: submissionId, assignment: { lesson: { module: { course: { tenantId } } } } },
+      where: { id: submissionId, assignment: { lesson: { module: { course: { tenantId, deletedAt: null } } } } },
       select: { id: true, assignment: { select: { lessonId: true, lesson: { select: { module: { select: { courseId: true } } } } } } },
     });
     if (!submission) return { success: false, error: "Entrega no encontrada en tu academia." };

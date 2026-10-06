@@ -149,6 +149,18 @@ permite cabeceras personalizadas; en ese caso también sirve `x-cron-secret`.
 El endpoint es idempotente: solo procesa las academias cuyo ciclo ya venció, así
 que ejecutarlo de más no duplica créditos.
 
+### Cron de la papelera (una vez al día)
+
+Elimina definitivamente los cursos, lecciones y recursos que llevan más de 30
+días en la papelera. Mismo secreto, por ejemplo a las 04:30:
+
+```
+curl -fsS -m 120 -H "Authorization: Bearer TU_CRON_SECRET" "https://mentorstudioglobal.com/api/cron/purge-trash"
+```
+
+Si falta, no se pierde nada: la papelera de cada academia también se purga sola
+al abrirla; el cron solo cubre a las academias que nunca la abren.
+
 ---
 
 ## 7. Webhook de Stripe

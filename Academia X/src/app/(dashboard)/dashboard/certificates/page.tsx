@@ -8,6 +8,7 @@ import { issueCertificateAction } from "@/app/actions/certificate.actions";
 import { CertificateIssuer } from "@/components/dashboard/CertificateIssuer";
 import Link from "next/link";
 import { Award, Plus, Globe, CheckCircle2, ShieldCheck, Search } from "lucide-react";
+import { formatInTimezone } from "@/lib/timezone";
 
 export default async function CertificatesDashboardPage() {
   const ctx = await getDashboardContext(STAFF_ROLES);
@@ -22,8 +23,8 @@ export default async function CertificatesDashboardPage() {
   const students: Awaited<ReturnType<typeof UserService.getStudentsByTenant>> = academy
     ? await UserService.getStudentsByTenant(tenantId)
     : [];
-  const courses: Awaited<ReturnType<typeof CourseService.getCoursesByTenant>> = academy
-    ? await CourseService.getCoursesByTenant(tenantId)
+  const courses: Awaited<ReturnType<typeof CourseService.getCourseOptions>> = academy
+    ? await CourseService.getCourseOptions(tenantId)
     : [];
 
   return (
@@ -70,7 +71,7 @@ export default async function CertificatesDashboardPage() {
                           {cert.code}
                         </span>
                         <span className="text-xs text-slate-400">
-                          Emitido: {new Date(cert.issuedAt).toLocaleDateString("es-ES")}
+                          Emitido: {formatInTimezone(cert.issuedAt, academy.timezone, { day: "numeric", month: "long", year: "numeric" })}
                         </span>
                       </div>
                       <h3 className="font-bold text-white text-base mb-1">{cert.user.name || cert.user.email}</h3>
@@ -82,7 +83,7 @@ export default async function CertificatesDashboardPage() {
                       target="_blank"
                       className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0"
                     >
-                      <Globe className="w-3.5 h-3.5" /> Verificación Pública ↗
+                      <Globe className="w-3.5 h-3.5" /> Ver certificado / PDF ↗
                     </Link>
                   </div>
                 ))

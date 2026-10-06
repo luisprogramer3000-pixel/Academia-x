@@ -170,6 +170,42 @@ const customDomainSchema = z
  * Configura el dominio personalizado de la academia (solo planes con customDomain).
  * El dominio debe apuntar (CNAME) a la plataforma y añadirse al proyecto en el hosting.
  */
+/**
+ * Zona horaria de la academia: las fechas que se muestran desde el servidor
+ * (facturación, solicitudes, certificados, analíticas por mes) se convierten a ella.
+ * Disponible en todos los planes.
+ */
+export async function setTimezoneAction(timezone: string) {
+  try {
+    const { tenantId } = await requireTenantAccess(OWNER_ONLY);
+    const { isValidTimezone } = await import("@/lib/timezone");
+    const tz = z.string().trim().min(1).max(64).parse(timezone);
+    if (!isValidTimezone(tz)) return { success: false as const, error: "Zona horaria no válida." };
+    await prisma.tenant.update({ where: { id: tenantId }, data: { timezone: tz } });
+    revalidatePath("/dashboard", "layout");
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "No se pudo guardar la zona horaria." };
+  }
+}
+
+/**
+ * Color de fondo del panel del profesor. null = oscuro (el de siempre).
+ * Es una preferencia de uso, no de marca: disponible en todos los planes.
+ */
+export async function setPanelColorAction(color: string | null) {
+  try {
+    const { tenantId } = await requireTenantAccess(OWNER_ONLY);
+    const value = color === null ? null : hexColor.parse(color.trim());
+    await prisma.tenant.update({ where: { id: tenantId }, data: { panelColor: value } });
+    revalidatePath("/dashboard", "layout");
+    return { success: true as const };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false as const, error: "Color no válido." };
+    return { success: false as const, error: error instanceof Error ? error.message : "No se pudo guardar el color." };
+  }
+}
+
 export async function setCustomDomainAction(formData: FormData): Promise<void> {
   const { tenantId } = await requireTenantAccess(OWNER_ONLY);
   await assertPlanCapability(tenantId, "customDomain");
@@ -182,4 +218,19 @@ export async function setCustomDomainAction(formData: FormData): Promise<void> {
 
   await AcademyService.setCustomDomain(tenantId, domain || null);
   revalidatePath("/dashboard/settings");
+}
+
+/** Página pública de la academia: modelo de diseño y textos (Configuración & Branding). */
+export async function saveAcademyLandingAction(input: unknown) {
+  try {
+    const { tenantId, tenant } = await requireTenantAccess(OWNER_ONLY);
+    const { saveAcademyLanding } = await import("@/modules/academy/academy-landing");
+    const landing = await saveAcademyLanding(tenantId, input);
+    revalidatePath(`/a/${tenant.slug}`);
+    revalidatePath("/dashboard/settings");
+    return { success: true as const, landing };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Datos no válidos." };
+    return { success: false as const, error: error instanceof Error ? error.message : "No se pudo guardar la página." };
+  }
 }

@@ -42,6 +42,7 @@ export function ScheduleClassDialog({
   const [duration, setDuration] = useState(defaultDuration);
   const [groupName, setGroupName] = useState("");
   const [notes, setNotes] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
   const [linked, setLinked] = useState(resourceId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export function ScheduleClassDialog({
       groupName: groupName || undefined,
       notes: notes || undefined,
       resourceId: linked || undefined,
+      meetingUrl: meetingUrl.trim() || undefined,
     });
     setBusy(false);
     if (!res.success) {
@@ -88,6 +90,16 @@ export function ScheduleClassDialog({
         <div>
           <label className={labelCls}>Grupo <span className="normal-case font-normal text-slate-500">(opcional)</span></label>
           <input value={groupName} onChange={(e) => setGroupName(e.target.value)} className={fieldCls} placeholder="Ej. Adultos martes y jueves" />
+        </div>
+        <div>
+          <label className={labelCls}>Enlace de la reunión <span className="normal-case font-normal text-slate-500">(opcional)</span></label>
+          <input
+            type="url"
+            value={meetingUrl}
+            onChange={(e) => setMeetingUrl(e.target.value)}
+            className={fieldCls}
+            placeholder="https://meet.google.com/... o https://zoom.us/j/..."
+          />
         </div>
         {resources && !resourceId && (
           <div>

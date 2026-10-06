@@ -20,7 +20,7 @@ export default async function LessonEditorPage({ params, searchParams }: LessonP
 
   // La lección debe pertenecer al curso indicado y a la academia de la sesión
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { courseId, course: { tenantId } } },
+    where: { id: lessonId, module: { courseId, course: { tenantId, deletedAt: null } } },
     include: { module: { select: { course: { select: { contentType: true } } } } },
   });
 

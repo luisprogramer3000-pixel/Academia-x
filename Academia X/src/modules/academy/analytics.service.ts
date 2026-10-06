@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { partsInTimezone, safeTimezone, zonedTimeToUtc } from "@/lib/timezone";
 
 /**
  * Analíticas del plan Academy Executive.
@@ -19,19 +20,23 @@ const MONTH_LONG = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 
-/** Los últimos `count` meses, del más antiguo al actual. */
-function lastMonths(count: number) {
-  const now = new Date();
-  const months: Array<{ start: Date; end: Date; label: string; fullLabel: string }> = [];
+/**
+ * Los últimos `count` meses de la academia, del más antiguo al actual. Cada mes
+ * empieza el día 1 a las 00:00 en la zona horaria de la academia.
+ */
+function lastMonths(count: number, tz: string) {
+  const today = partsInTimezone(new Date(), tz);
+  const months: Array<{ start: Date; key: string; label: string; fullLabel: string }> = [];
 
   for (let i = count - 1; i >= 0; i--) {
-    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    const index = today.year * 12 + today.month - i;
+    const year = Math.floor(index / 12);
+    const month = index % 12;
     months.push({
-      start,
-      end,
-      label: MONTH_SHORT[start.getMonth()],
-      fullLabel: `${MONTH_LONG[start.getMonth()]} ${start.getFullYear()}`,
+      start: zonedTimeToUtc(year, month, 1, 0, 0, tz),
+      key: `${year}-${String(month + 1).padStart(2, "0")}`,
+      label: MONTH_SHORT[month],
+      fullLabel: `${MONTH_LONG[month]} ${year}`,
     });
   }
   return months;
@@ -41,49 +46,60 @@ export class AnalyticsService {
   /**
    * Los tres gráficos del panel, calculados sobre los últimos 6 meses.
    */
-  static async getMonthlyAnalytics(tenantId: string, monthCount = 6) {
-    const months = lastMonths(monthCount);
+  static async getMonthlyAnalytics(tenantId: string, monthCount = 6, timezone?: string | null) {
+    // Los meses se cortan en la zona horaria de la academia (no la del servidor, que en producción es UTC)
+    const tz = safeTimezone(timezone);
+    const months = lastMonths(monthCount, tz);
     const from = months[0].start;
 
-    const [enrollments, certificates, courses] = await Promise.all([
-      // Inscripciones del periodo, con el precio del curso para valorarlas
-      prisma.enrollment.findMany({
-        where: { enrolledAt: { gte: from }, course: { tenantId } },
-        select: { enrolledAt: true, course: { select: { priceAmount: true, currency: true } } },
-      }),
+    // La base de datos agrupa y suma por mes: viajan como mucho `monthCount` filas
+    // por consulta, no todas las inscripciones y certificados del periodo.
+    const [enrollmentRows, certificateRows, currencyRow, courses] = await Promise.all([
+      prisma.$queryRaw<Array<{ month: string; n: bigint; revenue: string | null }>>`
+        SELECT to_char(e."enrolledAt" AT TIME ZONE ${tz}, 'YYYY-MM') AS month,
+               count(*)::bigint AS n,
+               sum(c."priceAmount")::text AS revenue
+        FROM "Enrollment" e JOIN "Course" c ON c."id" = e."courseId"
+        WHERE c."tenantId" = ${tenantId} AND c."deletedAt" IS NULL AND e."enrolledAt" >= ${from}
+        GROUP BY 1`,
       // Un certificado emitido = el profesor dio por completado el curso
-      prisma.certificate.findMany({
-        where: { tenantId, issuedAt: { gte: from } },
-        select: { issuedAt: true },
-      }),
+      prisma.$queryRaw<Array<{ month: string; n: bigint }>>`
+        SELECT to_char("issuedAt" AT TIME ZONE ${tz}, 'YYYY-MM') AS month,
+               count(*)::bigint AS n
+        FROM "Certificate"
+        WHERE "tenantId" = ${tenantId} AND "issuedAt" >= ${from}
+        GROUP BY 1`,
+      prisma.$queryRaw<Array<{ currency: string }>>`
+        SELECT c."currency" FROM "Enrollment" e JOIN "Course" c ON c."id" = e."courseId"
+        WHERE c."tenantId" = ${tenantId} AND c."deletedAt" IS NULL AND e."enrolledAt" >= ${from} AND c."priceAmount" > 0
+        LIMIT 1`,
       prisma.course.count({ where: { tenantId } }),
     ]);
 
-    const inRange = (date: Date, i: number) => date >= months[i].start && date < months[i].end;
+    // Columnas timestamptz: "col AT TIME ZONE tz" da la hora de reloj en la academia
+    const byMonth = <T extends { month: string }>(rows: T[]) => new Map(rows.map((r) => [r.month, r]));
+    const enrollmentsByMonth = byMonth(enrollmentRows);
+    const certificatesByMonth = byMonth(certificateRows);
 
-    const newStudents: MonthlyPoint[] = months.map((m, i) => ({
+    const newStudents: MonthlyPoint[] = months.map((m) => ({
       label: m.label,
       fullLabel: m.fullLabel,
-      value: enrollments.filter((e) => inRange(e.enrolledAt, i)).length,
+      value: Number(enrollmentsByMonth.get(m.key)?.n ?? 0),
     }));
 
-    const completions: MonthlyPoint[] = months.map((m, i) => ({
+    const completions: MonthlyPoint[] = months.map((m) => ({
       label: m.label,
       fullLabel: m.fullLabel,
-      value: certificates.filter((c) => inRange(c.issuedAt, i)).length,
+      value: Number(certificatesByMonth.get(m.key)?.n ?? 0),
     }));
 
-    const revenue: MonthlyPoint[] = months.map((m, i) => ({
+    const revenue: MonthlyPoint[] = months.map((m) => ({
       label: m.label,
       fullLabel: m.fullLabel,
-      value: Math.round(
-        enrollments
-          .filter((e) => inRange(e.enrolledAt, i))
-          .reduce((sum, e) => sum + Number(e.course.priceAmount), 0)
-      ),
+      value: Math.round(Number(enrollmentsByMonth.get(m.key)?.revenue ?? 0)),
     }));
 
-    const currency = enrollments.find((e) => Number(e.course.priceAmount) > 0)?.course.currency || "USD";
+    const currency = currencyRow[0]?.currency || "USD";
 
     return {
       newStudents,

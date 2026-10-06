@@ -30,13 +30,14 @@ interface AgentResult {
   keyConcepts: Array<{ term: string; definition: string; example: string }>;
   explanation: string;
   mindMap: { center: string; branches: Array<{ label: string; children: string[] }> };
+  reading?: { title: string; text: string; questions: Array<{ question: string; options: string[]; correctAnswerIndex: number }> };
   examples: string[];
   exercises: Array<{ instruction: string; type: string; solution: string }>;
   quiz: Array<{ question: string; options: string[]; correctAnswerIndex: number; explanation: string }>;
   classFlow: Array<{ minute: number; durationMinutes: number; activity: string }>;
   homework: string;
   teacherNotes: string[];
-  images: Array<{ purpose: string; prompt: string; altText: string; url?: string }>;
+  images: Array<{ purpose: string; prompt: string; altText: string; concept?: string; url?: string }>;
   imagesGenerated: number;
   imageErrors: string[];
 }
@@ -102,23 +103,35 @@ export function ClassAgentWizard({ lessonId, lessonTitle, onApply }: ClassAgentW
       blocks.push({ id: newId(), type: "text", title: "Explicación", content: result.explanation });
     }
 
-    if (result.keyConcepts.length) {
+    // Cada concepto clave es su propia sección, con su ilustración dentro (si se pidió)
+    const conceptImage = (term: string) => result.images.find((i) => i.url && i.concept === term)?.url;
+    for (const c of result.keyConcepts) {
+      const url = conceptImage(c.term);
       blocks.push({
         id: newId(),
         type: "text",
-        title: "Conceptos clave",
-        content: result.keyConcepts
-          .map((c) => `• ${c.term}: ${c.definition}\n   Ejemplo: ${c.example}`)
-          .join("\n\n"),
+        title: c.term,
+        content: [c.definition, c.example && `**Ejemplo:** ${c.example}`].filter(Boolean).join("\n\n"),
+        ...(url ? { url } : {}),
       });
     }
 
     if (result.mindMap?.branches?.length) {
-      blocks.push({ id: newId(), type: "mindmap", title: "Mapa mental", mindMap: result.mindMap });
+      blocks.push({ id: newId(), type: "mindmap", title: `Clasificación: ${result.mindMap.center}`, mindMap: result.mindMap });
     }
 
+    // Lectura de comprensión: capítulo propio con el texto y sus preguntas
+    if (result.reading?.text) {
+      blocks.push({ id: newId(), type: "chapter", title: result.reading.title, label: "Lectura de comprensión", emoji: "📖", content: "Lee el texto y responde." });
+      blocks.push({ id: newId(), type: "text", title: result.reading.title, content: result.reading.text });
+      for (const q of result.reading.questions) {
+        blocks.push({ id: newId(), type: "quiz", question: q.question, options: q.options, correctOptionIndex: q.correctAnswerIndex });
+      }
+    }
+
+    // Imágenes que no quedaron ligadas a ningún concepto: como bloque aparte
     for (const image of result.images) {
-      if (image.url) {
+      if (image.url && !result.keyConcepts.some((c) => c.term === image.concept)) {
         blocks.push({ id: newId(), type: "image", title: image.purpose, url: image.url, content: image.altText });
       }
     }
@@ -304,13 +317,13 @@ export function ClassAgentWizard({ lessonId, lessonTitle, onApply }: ClassAgentW
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1.5">Cuántas</label>
+                  <label className="block text-[11px] text-slate-400 mb-1.5">Cuántas (una por concepto clave)</label>
                   <select
                     value={imageCount}
                     onChange={(e) => setImageCount(Number(e.target.value))}
                     className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500"
                   >
-                    {[0, 1, 2, 3].map((n) => (
+                    {[0, 1, 2, 3, 4, 5, 6].map((n) => (
                       <option key={n} value={n}>{n === 0 ? "Ninguna" : `${n} imagen${n > 1 ? "es" : ""}`}</option>
                     ))}
                   </select>

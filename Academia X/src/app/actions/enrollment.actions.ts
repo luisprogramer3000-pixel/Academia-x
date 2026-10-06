@@ -2,14 +2,12 @@
 
 import { z } from "zod";
 import crypto from "crypto";
-import path from "path";
-import { mkdir, writeFile } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSession, setSession, requireTenantAccess, STAFF_ROLES } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { UPLOADS_ROOT, publicUploadUrl } from "@/lib/uploads";
+import { putUpload } from "@/lib/storage";
 import { requireActiveSubscription } from "@/modules/billing/entitlements";
 import { EnrollmentRequestService } from "@/modules/course/enrollment-request.service";
 
@@ -66,12 +64,8 @@ async function storeProof(file: File, tenantId: string): Promise<string> {
   if (!extension) throw new EnrollmentError("El comprobante debe ser una imagen (JPG, PNG, WEBP) o un PDF.");
   if (file.size > MAX_PROOF_BYTES) throw new EnrollmentError("El comprobante no debe superar los 5 MB.");
 
-  const folder = "payment-proofs";
   const fileName = `proof-${tenantId}-${crypto.randomBytes(12).toString("hex")}${extension}`;
-  const dir = path.join(UPLOADS_ROOT, folder);
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, fileName), Buffer.from(await file.arrayBuffer()));
-  return publicUploadUrl(folder, fileName);
+  return putUpload("payment-proofs", fileName, new Uint8Array(await file.arrayBuffer()), file.type);
 }
 
 /** Curso gratuito: inscripción inmediata. */

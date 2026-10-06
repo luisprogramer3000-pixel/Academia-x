@@ -30,6 +30,61 @@ const SPEED_POINTS = 500;
 
 const hashToken = (t: string) => createHash("sha256").update(t).digest("hex");
 
+/**
+ * Parte común del estado (pregunta, estado, participantes, ranking): es la misma
+ * para todos los alumnos de una partida, así que se calcula como mucho una vez
+ * por SHARED_TTL_MS y se reutiliza. Con 30 alumnos sondeando cada 1,5 s son ~20
+ * peticiones por segundo que antes repetían 4 consultas cada una.
+ * Caché en memoria del proceso: si hay varias instancias, cada una tiene la suya
+ * (solo baja el ahorro). El retraso máximo (≈1 s) es menor que el intervalo de sondeo.
+ */
+const SHARED_TTL_MS = 900;
+const MAX_CACHED_SESSIONS = 500;
+type SharedState = Awaited<ReturnType<typeof loadSharedState>>;
+const sharedCache = new Map<string, { at: number; value: Promise<SharedState> }>();
+
+async function loadSharedState(code: string) {
+  const s = await prisma.liveSession.findUnique({
+    where: { code },
+    select: { id: true, title: true, status: true, currentIndex: true, questionStartedAt: true, timeLimitSec: true, questions: true },
+  });
+  if (!s) return null;
+  const revealed = s.status === "REVEAL" || s.status === "ENDED";
+  const [participants, leaderboard] = await Promise.all([
+    prisma.liveParticipant.count({ where: { sessionId: s.id } }),
+    revealed
+      ? prisma.liveParticipant.findMany({
+          where: { sessionId: s.id },
+          orderBy: [{ score: "desc" }, { createdAt: "asc" }],
+          take: 5,
+          select: { id: true, nickname: true, score: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  return { session: s, questions: questionsOf(s), revealed, participants, leaderboard };
+}
+
+function sharedState(code: string): Promise<SharedState> {
+  const now = Date.now();
+  const hit = sharedCache.get(code);
+  if (hit && now - hit.at < SHARED_TTL_MS) return hit.value;
+
+  if (sharedCache.size >= MAX_CACHED_SESSIONS) {
+    for (const [key, entry] of sharedCache) if (now - entry.at >= SHARED_TTL_MS) sharedCache.delete(key);
+    if (sharedCache.size >= MAX_CACHED_SESSIONS) sharedCache.clear();
+  }
+  // Se guarda la promesa: las peticiones simultáneas comparten la misma consulta
+  const value = loadSharedState(code);
+  sharedCache.set(code, { at: now, value });
+  value.catch(() => sharedCache.delete(code));
+  return value;
+}
+
+/** Al cambiar el estado (siguiente, revelar, fin) los alumnos lo ven en el siguiente sondeo. */
+function invalidateShared(code: string) {
+  sharedCache.delete(code);
+}
+
 export function normalizeCode(code: string) {
   return code.replace(/\D/g, "").slice(0, 6);
 }
@@ -85,6 +140,7 @@ export class LiveService {
   static async control(sessionId: string, tenantId: string, action: "next" | "reveal" | "end") {
     const s = await prisma.liveSession.findFirst({ where: { id: sessionId, tenantId } });
     if (!s) throw new LiveError("Sesión no encontrada.");
+    invalidateShared(s.code);
     const total = questionsOf(s).length;
 
     if (action === "end" || (action === "next" && s.status === "REVEAL" && s.currentIndex >= total - 1)) {
@@ -158,42 +214,46 @@ export class LiveService {
     return { ok: true };
   }
 
-  private static async leaderboard(sessionId: string, take: number) {
-    return prisma.liveParticipant.findMany({
-      where: { sessionId },
-      orderBy: [{ score: "desc" }, { createdAt: "asc" }],
-      take,
-      select: { id: true, nickname: true, score: true },
-    });
+  /**
+   * Datos del alumno en UNA consulta: su fila, su posición y su respuesta a la
+   * pregunta actual (antes eran tres consultas encadenadas).
+   */
+  private static async playerRow(sessionId: string, participantId: string, questionIndex: number) {
+    const rows = await prisma.$queryRaw<
+      Array<{ nickname: string; score: number; tokenHash: string; rank: bigint; selected: number | null; correct: boolean | null; points: number | null; answered: boolean }>
+    >`
+      SELECT p."nickname", p."score", p."tokenHash",
+             (SELECT count(*) FROM "LiveParticipant" o WHERE o."sessionId" = p."sessionId" AND o."score" > p."score") AS "rank",
+             a."selected", a."correct", a."points", (a."id" IS NOT NULL) AS "answered"
+      FROM "LiveParticipant" p
+      LEFT JOIN "LiveAnswer" a ON a."participantId" = p."id" AND a."questionIndex" = ${questionIndex}
+      WHERE p."id" = ${participantId} AND p."sessionId" = ${sessionId}
+      LIMIT 1`;
+    return rows[0] ?? null;
   }
 
   /** Vista del alumno: nunca incluye la respuesta correcta antes de revelarla. */
   static async playerState(rawCode: string, participantId?: string | null, token?: string | null) {
-    const s = await prisma.liveSession.findUnique({ where: { code: normalizeCode(rawCode) } });
-    if (!s) return null;
-    const questions = questionsOf(s);
+    const shared = await sharedState(normalizeCode(rawCode));
+    if (!shared) return null;
+    const { session: s, questions, revealed } = shared;
     const q = s.currentIndex >= 0 ? questions[s.currentIndex] : undefined;
-    const revealed = s.status === "REVEAL" || s.status === "ENDED";
-    const p = await LiveService.participant(s.id, participantId, token);
 
     let me = null;
-    if (p) {
-      const [rank, current] = await Promise.all([
-        prisma.liveParticipant.count({ where: { sessionId: s.id, score: { gt: p.score } } }),
-        s.currentIndex >= 0
-          ? prisma.liveAnswer.findUnique({ where: { participantId_questionIndex: { participantId: p.id, questionIndex: s.currentIndex } } })
-          : null,
-      ]);
-      me = {
-        nickname: p.nickname,
-        score: p.score,
-        rank: rank + 1,
-        answered: Boolean(current),
-        selected: current?.selected ?? null,
-        // El resultado de la pregunta solo se muestra al revelarla
-        lastCorrect: revealed && current ? current.correct : null,
-        lastPoints: revealed && current ? current.points : null,
-      };
+    if (participantId && token) {
+      const row = await LiveService.playerRow(s.id, participantId, s.currentIndex);
+      if (row && row.tokenHash === hashToken(token)) {
+        me = {
+          nickname: row.nickname,
+          score: row.score,
+          rank: Number(row.rank) + 1,
+          answered: row.answered,
+          selected: row.selected ?? null,
+          // El resultado de la pregunta solo se muestra al revelarla
+          lastCorrect: revealed && row.answered ? row.correct : null,
+          lastPoints: revealed && row.answered ? row.points : null,
+        };
+      }
     }
 
     return {
@@ -206,8 +266,8 @@ export class LiveService {
       question: q && s.status !== "LOBBY" ? { prompt: q.prompt, options: q.options } : null,
       correctIndex: revealed && q ? q.correctIndex : null,
       explanation: revealed && q ? q.explanation : null,
-      participants: await prisma.liveParticipant.count({ where: { sessionId: s.id } }),
-      leaderboard: revealed ? await LiveService.leaderboard(s.id, 5) : [],
+      participants: shared.participants,
+      leaderboard: shared.leaderboard,
       me,
     };
   }

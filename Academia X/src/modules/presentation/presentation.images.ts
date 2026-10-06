@@ -1,12 +1,11 @@
-import path from "path";
-import { readFile } from "fs/promises";
-import { UPLOADS_ROOT } from "@/lib/uploads";
+import { parseUploadUrl, readUpload } from "@/lib/storage";
 import { safeFetch } from "./presentation.template";
 
 /**
  * Imágenes de la lección para la presentación: las subidas/generadas en la
- * plataforma (/api/uploads/...) se leen del disco; los enlaces externos se
- * descargan con las mismas protecciones que los modelos web.
+ * plataforma (/api/uploads/...) se leen del almacenamiento (Supabase Storage o
+ * disco); los enlaces externos se descargan con las mismas protecciones que los
+ * modelos web.
  * PowerPoint y el PDF solo admiten PNG y JPG: otros formatos se omiten.
  */
 
@@ -40,16 +39,10 @@ function dimensions(b: Uint8Array): { mime: LessonImage["mime"]; width: number; 
   return null;
 }
 
-async function readLocalUpload(url: string): Promise<Uint8Array | null> {
-  const rel = decodeURIComponent(url.replace(/^\/api\/uploads\//, "").split("?")[0]);
-  const full = path.resolve(UPLOADS_ROOT, rel);
-  // Solo archivos dentro de la carpeta de subidas
-  if (!full.startsWith(path.resolve(UPLOADS_ROOT) + path.sep)) return null;
-  try {
-    return new Uint8Array(await readFile(full));
-  } catch {
-    return null;
-  }
+async function readPlatformUpload(url: string): Promise<Uint8Array | null> {
+  // Solo carpetas y nombres válidos (nada de rutas arbitrarias)
+  const parsed = parseUploadUrl(url);
+  return parsed ? readUpload(parsed.folder, parsed.fileName, MAX_IMAGE_BYTES) : null;
 }
 
 export function lessonImageFromBytes(bytes: Uint8Array): LessonImage | null {
@@ -60,7 +53,7 @@ export function lessonImageFromBytes(bytes: Uint8Array): LessonImage | null {
 export async function loadLessonImage(url: string): Promise<LessonImage | null> {
   try {
     let bytes: Uint8Array | null = null;
-    if (url.startsWith("/api/uploads/")) bytes = await readLocalUpload(url);
+    if (url.startsWith("/api/uploads/")) bytes = await readPlatformUpload(url);
     else if (/^https:\/\//i.test(url)) bytes = (await safeFetch(url)).bytes;
     if (!bytes || bytes.length > MAX_IMAGE_BYTES) return null;
     const dim = dimensions(bytes);

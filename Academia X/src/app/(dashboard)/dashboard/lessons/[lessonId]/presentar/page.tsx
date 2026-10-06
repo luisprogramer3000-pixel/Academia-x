@@ -21,7 +21,7 @@ export default async function PresentLessonPage({
   const { tenantId, tenant } = await getDashboardContext(STAFF_ROLES);
 
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { course: { tenantId } } },
+    where: { id: lessonId, module: { course: { tenantId, deletedAt: null } } },
     select: {
       title: true,
       content: true,

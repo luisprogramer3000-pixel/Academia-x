@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ClipboardList, Paperclip, CheckCircle2, AlertCircle, UploadCloud, Clock, CalendarClock } from "lucide-react";
 import { getMyAssignmentsAction, submitAssignmentAction } from "@/app/actions/assignment.actions";
-import { uploadMaterialAction } from "@/app/actions/upload.actions";
+import { uploadMaterialFile } from "@/lib/upload-material";
 
 interface MySubmission {
   id: string;
@@ -43,14 +43,12 @@ export function StudentAssignments({ lessonId }: { lessonId: string }) {
   async function handleUpload(assignmentId: string, file: File) {
     setBusyId(assignmentId);
     setMessage(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await uploadMaterialAction(formData);
+    const res = await uploadMaterialFile(file);
     setBusyId(null);
-    if (res.success && res.fileUrl) {
-      setUploadedFile((prev) => ({ ...prev, [assignmentId]: { url: res.fileUrl!, name: res.fileName || file.name } }));
+    if (res.success) {
+      setUploadedFile((prev) => ({ ...prev, [assignmentId]: { url: res.fileUrl, name: res.fileName } }));
     } else {
-      setMessage({ type: "error", text: res.error || "No se pudo subir el archivo." });
+      setMessage({ type: "error", text: res.error });
     }
   }
 

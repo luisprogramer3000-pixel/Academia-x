@@ -42,3 +42,9 @@ next-env.d.ts
 
 # user uploads (runtime, no versionar)
 /public/uploads/
+# Credenciales temporales para la migración de región de Supabase
+.env.migration
+.env.tokyo-backup
+
+# Caché del ADN de los modelos de presentación
+.cache/

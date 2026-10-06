@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireTenantAccess, STAFF_ROLES } from "@/lib/session";
 import { ResourceService } from "@/modules/resources/resource.service";
+import { safeExternalUrl } from "@/lib/utils";
 
 async function findResource(id: string, tenantId: string) {
   const resource = await prisma.teachingResource.findFirst({ where: { id, tenantId } });
@@ -18,12 +19,14 @@ function fail(error: unknown, fallback: string) {
   return { success: false as const, error: error instanceof Error ? error.message : fallback };
 }
 
+/** Mueve el recurso a la papelera (se puede restaurar durante 30 días). */
 export async function deleteResourceAction(id: string) {
   try {
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
-    await findResource(id, tenantId);
-    await prisma.teachingResource.delete({ where: { id } });
+    const { TrashService } = await import("@/modules/course/trash.service");
+    await TrashService.moveResourceToTrash(tenantId, id);
     revalidatePath("/dashboard/resources");
+    revalidatePath("/dashboard/papelera");
     return { success: true as const };
   } catch (error) {
     return fail(error, "No se pudo eliminar el recurso.");
@@ -106,6 +109,13 @@ const scheduleSchema = z.object({
   groupName: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(2000).optional(),
   resourceId: z.string().trim().optional(),
+  // Enlace de la reunión online: solo https (Zoom, Meet, Teams...)
+  meetingUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .refine((v) => v === "" || safeExternalUrl(v)?.startsWith("https://"), "El enlace de la reunión debe empezar por https://")
+    .optional(),
 });
 
 export async function scheduleClassAction(input: unknown) {
@@ -124,6 +134,7 @@ export async function scheduleClassAction(input: unknown) {
         groupName: data.groupName || null,
         notes: data.notes || null,
         resourceId: data.resourceId || null,
+        meetingUrl: data.meetingUrl ? safeExternalUrl(data.meetingUrl) : null,
       },
     });
     revalidatePath("/dashboard/planner");
@@ -131,6 +142,23 @@ export async function scheduleClassAction(input: unknown) {
     return { success: true as const, id: created.id };
   } catch (error) {
     return fail(error, "No se pudo programar la clase.");
+  }
+}
+
+const statusSchema = z.enum(["SCHEDULED", "DONE", "CANCELLED"]);
+
+/** Marca una clase como dada, cancelada o de nuevo programada. */
+export async function setScheduledClassStatusAction(id: string, status: unknown) {
+  try {
+    const { tenantId } = await requireTenantAccess(STAFF_ROLES);
+    const value = statusSchema.parse(status);
+    const result = await prisma.scheduledClass.updateMany({ where: { id, tenantId }, data: { status: value } });
+    if (result.count === 0) throw new Error("Clase no encontrada.");
+    revalidatePath("/dashboard/planner");
+    revalidatePath("/dashboard");
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "No se pudo actualizar la clase.");
   }
 }
 

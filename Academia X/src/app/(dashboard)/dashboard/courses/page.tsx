@@ -75,7 +75,7 @@ export default async function CoursesPage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => {
-                const totalLessons = course.modules.reduce((acc, m) => acc + m.lessons.length, 0);
+                const totalLessons = course.modules.reduce((acc, m) => acc + m._count.lessons, 0);
                 return (
                   <div key={course.id} className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-blue-500/40 transition-all flex flex-col justify-between">
                     <div>

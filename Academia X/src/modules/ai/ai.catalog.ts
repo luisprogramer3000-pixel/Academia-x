@@ -154,7 +154,7 @@ export const AI_OPERATION_CATALOG: Record<AIOperation, AIOperationConfig> = {
     },
   },
   /**
-   * Imagen de alta calidad (Nano Banana): ~$0.034 por imagen, 11 veces más cara
+   * Imagen de alta calidad (Flux 1.1 Pro en fal.ai): ~$0.04 por imagen, 13 veces más cara
    * que la estándar. Para portadas, infografías y material que se imprime.
    */
   IMAGE_GENERATION_HQ: {

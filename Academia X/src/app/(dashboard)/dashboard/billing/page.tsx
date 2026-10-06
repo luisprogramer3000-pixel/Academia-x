@@ -7,6 +7,9 @@ import { openBillingPortalAction } from "@/app/actions/billing.actions";
 import { PricingPlans } from "./pricing-plans";
 import { AICreditEngine } from "@/modules/ai/ai.credit-engine";
 import { CreditCard, CheckCircle2, Users, Sparkles, ArrowUpRight } from "lucide-react";
+import { formatInTimezone } from "@/lib/timezone";
+
+const longDate = { day: "numeric", month: "long", year: "numeric" } as const;
 
 interface BillingPageProps {
   searchParams: Promise<{ checkout?: string; welcome?: string; inactive?: string; plan?: string; interval?: string; billingInterval?: string }>;
@@ -89,7 +92,7 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
 
           {active?.cancelAtPeriodEnd && (
             <div className="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
-              Tu suscripción se cancelará el {active.currentPeriodEnd.toLocaleDateString("es-ES")}. Puedes reactivarla desde el portal de facturación.
+              Tu suscripción se cancelará el {formatInTimezone(active.currentPeriodEnd, academy.timezone, longDate)}. Puedes reactivarla desde el portal de facturación.
             </div>
           )}
 
@@ -106,7 +109,7 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
                       <span className="text-xs text-slate-400 font-normal">/{active.billingInterval === "YEARLY" ? "año" : "mes"}</span>
                     </div>
                     <span className="text-xs text-slate-400 block">
-                      Próxima renovación: {active.currentPeriodEnd.toLocaleDateString("es-ES")}
+                      Próxima renovación: {formatInTimezone(active.currentPeriodEnd, academy.timezone, longDate)}
                     </span>
                   </>
                 ) : (

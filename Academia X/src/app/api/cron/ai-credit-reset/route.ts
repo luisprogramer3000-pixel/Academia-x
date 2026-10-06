@@ -1,35 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AICreditJobService } from "@/modules/ai/ai.job-service";
+import { verifyCronAuthorization } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 
-function verifyAuthorization(req: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  const isProduction = process.env.NODE_ENV === "production";
-
-  // En producción, CRON_SECRET es estrictamente obligatorio
-  if (isProduction && (!cronSecret || cronSecret.trim() === "")) {
-    console.error("[CRON] Unauthorized: CRON_SECRET is missing in production environment.");
-    return false;
-  }
-
-  // Si no hay secreto configurado en entornos locales/test no productivos, permitir
-  if (!cronSecret) {
-    return true;
-  }
-
-  const authHeader = req.headers.get("authorization");
-  const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, "").trim() : undefined;
-  const customHeader = req.headers.get("x-cron-secret")?.trim();
-
-  const isBearerValid = bearerToken !== undefined && bearerToken.length > 0 && bearerToken === cronSecret;
-  const isCustomValid = customHeader !== undefined && customHeader.length > 0 && customHeader === cronSecret;
-
-  return isBearerValid || isCustomValid;
-}
-
 export async function GET(req: NextRequest) {
-  if (!verifyAuthorization(req)) {
+  if (!verifyCronAuthorization(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

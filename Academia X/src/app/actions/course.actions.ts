@@ -30,7 +30,7 @@ const externalUrlSchema = z
 const createCourseSchema = z.object({
   title: z.string().trim().min(3, "El título debe tener al menos 3 caracteres").max(150),
   slug: z.string().nullable().optional(),
-  description: z.string().max(5000).nullable().optional(),
+  description: z.string().max(10000, "La descripción no puede superar los 10 000 caracteres.").nullable().optional(),
   level: z.string().max(20).default("A1"),
   language: z.string().max(10).default("es"),
   priceAmount: z.coerce.number().min(0).default(0),
@@ -51,15 +51,28 @@ const createLessonSchema = z.object({
 
 const MAX_LESSON_CONTENT_BYTES = 500_000;
 
-export async function createCourseAction(formData: FormData): Promise<void> {
+export interface CreateCourseState {
+  error?: string;
+  /** Lo que escribió el profesor, para no perderlo si hay un error */
+  values?: Record<string, string>;
+}
+
+const COURSE_FIELD_LABELS: Record<string, string> = {
+  title: "Título", description: "Descripción", priceAmount: "Precio", paymentLink: "Link de pago", level: "Nivel",
+};
+
+/**
+ * Crea un curso desde el formulario (useActionState). Los errores de validación
+ * vuelven al formulario como mensaje; nunca tumban la página.
+ */
+export async function createCourseAction(_prev: CreateCourseState, formData: FormData): Promise<CreateCourseState> {
+  const values = Object.fromEntries(["title", "description", "level", "priceAmount", "paymentType", "paymentLink"].map((k) => [k, String(formData.get(k) ?? "")]));
+  let courseId: string;
   try {
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
-    console.log("[createCourseAction] tenantId:", tenantId);
-
     await requireActiveSubscription(tenantId);
-    console.log("[createCourseAction] Subscription check passed");
 
-    const validated = createCourseSchema.parse({
+    const parsed = createCourseSchema.safeParse({
       title: formData.get("title") as string,
       slug: (formData.get("slug") as string) || undefined,
       description: (formData.get("description") as string) || undefined,
@@ -69,7 +82,13 @@ export async function createCourseAction(formData: FormData): Promise<void> {
       paymentType: (formData.get("paymentType") as string) || "EXTERNAL",
       paymentLink: (formData.get("paymentLink") as string) || undefined,
     });
-    console.log("[createCourseAction] Validation passed, title:", validated.title);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      const field = COURSE_FIELD_LABELS[String(issue?.path[0])] ?? "Formulario";
+      const message = issue?.code === "too_big" && issue.path[0] === "description" ? issue.message : `${field}: ${issue?.message}`;
+      return { error: message, values };
+    }
+    const validated = parsed.data;
 
     const course = await CourseService.createCourse({
       tenantId,
@@ -82,16 +101,14 @@ export async function createCourseAction(formData: FormData): Promise<void> {
       paymentType: validated.paymentType,
       paymentLink: validated.paymentLink ?? undefined,
     });
-
-    console.log("[createCourseAction] Course created with id:", course.id);
-
+    courseId = course.id;
     revalidatePath("/dashboard/courses");
-    console.log("[createCourseAction] About to redirect to:", `/dashboard/courses/${course.id}/builder`);
-    redirect(`/dashboard/courses/${course.id}/builder`);
-  } catch (error: any) {
-    console.error("[createCourseAction] Error:", error?.message || error);
-    throw error;
+  } catch (error) {
+    console.error("[createCourseAction] Error:", error instanceof Error ? error.message : error);
+    return { error: error instanceof Error ? error.message : "No se pudo crear el curso.", values };
   }
+  // Fuera del try: redirect() funciona lanzando una señal que no debe capturarse
+  redirect(`/dashboard/courses/${courseId}/builder`);
 }
 
 const createStandaloneLessonSchema = z.object({
@@ -158,7 +175,8 @@ async function generateUniqueSlug(tenantId: string, title: string): Promise<stri
   let slug = base;
   let counter = 1;
   while (
-    await prisma.course.findUnique({ where: { tenantId_slug: { tenantId, slug } } })
+    // deletedAt: undefined → también cuenta los cursos de la papelera (su slug sigue ocupado)
+    await prisma.course.findUnique({ where: { tenantId_slug: { tenantId, slug }, deletedAt: undefined } })
   ) {
     slug = `${base}-${counter++}`;
   }
@@ -436,16 +454,19 @@ export async function removeCourseLandingAction(courseId: string) {
 }
 
 /**
- * Elimina un curso con todo su contenido. Se rechaza si ya emitió
+ * Mueve un curso (o una lección suelta) a la papelera: desaparece de la
+ * plataforma pero se puede restaurar durante 30 días. Se rechaza si ya emitió
  * certificados: en ese caso la salida correcta es archivarlo.
  */
 export async function deleteCourseAction(courseId: string) {
   try {
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
-    await assertCourseInTenant(courseId, tenantId);
-    await CourseService.deleteCourse(tenantId, courseId);
+    const { TrashService } = await import("@/modules/course/trash.service");
+    await TrashService.moveCourseToTrash(tenantId, courseId);
     revalidatePath("/dashboard/courses");
     revalidatePath("/dashboard/lessons");
+    revalidatePath("/dashboard/papelera");
+    revalidatePath("/a", "layout");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "No se pudo eliminar el curso." };
@@ -530,7 +551,7 @@ export async function toggleLessonProgressAction(lessonId: string) {
   const { tenantId, userId, role } = await requireTenantAccess();
 
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { course: { tenantId } } },
+    where: { id: lessonId, module: { course: { tenantId, deletedAt: null } } },
     select: { id: true, module: { select: { course: { select: { id: true, slug: true } } } } },
   });
   if (!lesson) throw new Error("Lección no encontrada.");

@@ -10,7 +10,12 @@ import {
   TemplateError,
   type ResolvedModel,
 } from "@/modules/presentation/presentation.template";
-import { getLibraryTemplate } from "@/modules/presentation/presentation.library";
+import { getLibraryModelBytes, getLibraryTemplate } from "@/modules/presentation/presentation.library";
+import { generatePresentation, type GeneratePresentationResult } from "@/modules/presentation/engine";
+import type { DesignMode } from "@/modules/presentation/engine/types";
+import { PresentationEngineError } from "@/modules/presentation/engine/errors";
+import { imageGenerator, librarySearch, loadImage } from "@/modules/presentation/engine/sources";
+import type { DeckTheme } from "@/modules/presentation/presentation.themes";
 import { contentCapacity, fillPptxTemplate, splitForCapacity } from "@/modules/presentation/pptx-template";
 import { loadDeckImages } from "@/modules/presentation/presentation.images";
 import { fitDeckToCount, lessonToPlainText, MAX_SLIDES, MIN_SLIDES } from "@/modules/presentation/presentation.deck";
@@ -42,6 +47,7 @@ const DENSITIES: TextDensity[] = ["minimo", "estandar", "detallado"];
 export async function GET(req: NextRequest, context: { params: Promise<{ lessonId: string }> }) {
   const { lessonId } = await context.params;
   const format = (req.nextUrl.searchParams.get("format") || "pptx").toLowerCase();
+  if (format === "pptx" && engineV2()) return respondV2(lessonId, { density: "estandar", design: { kind: "preset", preset: "marca" } });
   return respond(lessonId, format, "estandar", undefined, async (primary) => ({ theme: getPresetTheme("marca", primary) }));
 }
 
@@ -62,6 +68,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ lesson
   const slideCount = Number.isFinite(requested) && requested > 0 ? Math.max(MIN_SLIDES, Math.min(MAX_SLIDES, Math.round(requested))) : undefined;
 
   const quality = String(form.get("quality") || "basic");
+
+  if (format === "pptx" && engineV2()) {
+    const preset = String(form.get("preset") || "marca");
+    const file = form.get("file");
+    return respondV2(lessonId, {
+      density,
+      // "auto" (o vacío): el motor decide por la complejidad de la clase
+      slideCount: String(form.get("slides") || "auto") === "auto" ? undefined : slideCount,
+      templateMode: String(form.get("templateMode") || "inspired") === "adapt" ? "ADAPT_TEMPLATE" : "INSPIRED_BY_TEMPLATE",
+      design:
+        design === "upload" ? { kind: "upload", file: file instanceof File ? file : null }
+        : design === "web" ? { kind: "web", url: String(form.get("url") || "").trim() }
+        : { kind: "preset", preset },
+      ai: quality === "ai"
+        ? {
+            imageCount: Math.max(0, Math.min(24, Number(form.get("imageCount") || 0))),
+            idempotencyKey: String(form.get("idempotencyKey") || crypto.randomUUID()).slice(0, 100),
+          }
+        : undefined,
+    });
+  }
   const ai = quality === "ai"
     ? {
         imageCount: Math.max(0, Math.min(4, Number(form.get("imageCount") || 0))),
@@ -144,7 +171,7 @@ async function respond(
   // no una versión de las diapositivas: no depende del modelo, la densidad ni la IA
   if (format === "pdf") {
     try {
-      const images = await loadDeckImages(blocks.filter((b) => b.type === "image").map((b) => b.url));
+      const images = await loadDeckImages(blocks.filter((b) => b.type === "image" || b.type === "text").map((b) => b.url));
       const file = await renderLessonDocument(
         { lessonTitle: lesson.title, courseTitle: lesson.module.course.title, academyName: deckInput.academyName, level: lesson.module.course.level, blocks },
         images
@@ -254,4 +281,153 @@ function fileResponse(file: Buffer, title: string, format: string) {
       "Cache-Control": "no-store",
     },
   });
+}
+
+// ─── Motor de presentaciones v2 ──────────────────────────────────────────────
+
+/** Interruptor: PRESENTATION_ENGINE=v1 vuelve al generador anterior sin desplegar código. */
+function engineV2(): boolean {
+  return (process.env.PRESENTATION_ENGINE || "v2").toLowerCase() !== "v1";
+}
+
+type DesignSpec =
+  | { kind: "preset"; preset: string }
+  | { kind: "upload"; file: File | null }
+  | { kind: "web"; url: string };
+
+interface V2Options {
+  density: TextDensity;
+  slideCount?: number;
+  templateMode?: DesignMode;
+  design: DesignSpec;
+  ai?: { imageCount: number; idempotencyKey: string };
+}
+
+const isZip = (b: Uint8Array) => b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+
+/** Traduce la elección del profesor a un modo de diseño del motor. */
+async function resolveDesignChoice(spec: DesignSpec, primary: string, templateMode: DesignMode): Promise<{
+  mode: DesignMode; theme?: DeckTheme; template?: { id: string; bytes: Uint8Array };
+}> {
+  if (spec.kind === "upload") {
+    if (!spec.file || spec.file.size === 0) throw new TemplateError("Sube un archivo con tu modelo.");
+    if (spec.file.size > 36 * 1024 * 1024) throw new TemplateError("El archivo supera los 36 MB.");
+    const bytes = new Uint8Array(await spec.file.arrayBuffer());
+    if (isZip(bytes)) return { mode: templateMode, template: { id: spec.file.name.slice(0, 80) || "modelo", bytes } };
+    return { mode: "BASIC", theme: (await resolveUploadedModel(bytes)).theme };
+  }
+  if (spec.kind === "web") {
+    if (!spec.url) throw new TemplateError("Pega el enlace del modelo que quieres replicar.");
+    const model = await resolveWebModel(spec.url);
+    if (model.template) return { mode: templateMode, template: { id: "web", bytes: model.template.bytes } };
+    return { mode: "BASIC", theme: model.theme };
+  }
+  if (spec.preset === "smart") return { mode: "SMART_DESIGN" };
+  if (spec.preset.startsWith("lib:")) {
+    const id = spec.preset.slice(4);
+    const bytes = await getLibraryModelBytes(id);
+    if (!bytes) throw new TemplateError("Ese modelo ya no está disponible.");
+    return { mode: templateMode, template: { id, bytes } };
+  }
+  return { mode: "BASIC", theme: getPresetTheme(spec.preset, primary) };
+}
+
+async function respondV2(lessonId: string, opts: V2Options) {
+  let auth: { tenantId: string; userId: string };
+  try {
+    auth = await requireTenantAccess(STAFF_ROLES);
+    await assertLessonInTenant(lessonId, auth.tenantId);
+  } catch {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: {
+      title: true,
+      content: true,
+      teacherPlan: true,
+      module: { select: { course: { select: { title: true, level: true, language: true, tenant: { select: { name: true, primaryColor: true } } } } } },
+    },
+  });
+  if (!lesson) return NextResponse.json({ error: "Lección no encontrada" }, { status: 404 });
+
+  let blocks: DeckInput["blocks"] = [];
+  try {
+    const parsed = JSON.parse(lesson.content || "{}");
+    blocks = Array.isArray(parsed.blocks) ? parsed.blocks : Array.isArray(parsed) ? parsed : [];
+  } catch {
+    blocks = [];
+  }
+  const course = lesson.module.course;
+  const primary = normalizeHex(course.tenant.primaryColor || "#2563EB");
+
+  let design: Awaited<ReturnType<typeof resolveDesignChoice>>;
+  try {
+    design = await resolveDesignChoice(opts.design, primary, opts.templateMode ?? "INSPIRED_BY_TEMPLATE");
+  } catch (error) {
+    const message = error instanceof TemplateError ? error.message : "No se pudo cargar el modelo.";
+    if (!(error instanceof TemplateError)) console.error("[presentation-v2] Modelo", error);
+    return NextResponse.json({ error: message }, { status: 422 });
+  }
+
+  // Inteligente con IA: planificación con IA (créditos) + ilustraciones opcionales
+  let planner: Awaited<ReturnType<typeof AIService.presentationPlanner>> | undefined;
+  if (opts.ai) {
+    try {
+      await requireActiveSubscription(auth.tenantId);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Tu plan no permite usar la IA." }, { status: 402 });
+    }
+    try {
+      planner = await AIService.presentationPlanner({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey, lessonId });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === AICreditError.INSUFFICIENT_AI_CREDITS) {
+        return NextResponse.json({ error: "No tienes créditos de IA suficientes. Usa la versión básica (gratis) o recarga créditos." }, { status: 402 });
+      }
+      console.error("[presentation-v2] Créditos", error);
+      return NextResponse.json({ error: "No se pudo iniciar la presentación inteligente." }, { status: 500 });
+    }
+  }
+
+  let result: GeneratePresentationResult;
+  try {
+    result = await generatePresentation({
+      lesson: {
+        lessonId,
+        title: lesson.title,
+        courseTitle: course.title,
+        academyName: course.tenant.name,
+        language: course.language || "es",
+        level: course.level,
+        blocks,
+        teacherPlan: (lesson.teacherPlan as never) ?? null,
+      },
+      density: opts.density,
+      targetSlides: opts.slideCount,
+      design: { ...design, brandPrimary: primary },
+      planner: planner ? { kind: "llm", call: planner.call } : { kind: "heuristic" },
+      images: {
+        load: loadImage,
+        searchLibrary: librarySearch(auth.userId),
+        generate: planner && opts.ai?.imageCount ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey }) : undefined,
+      },
+      imageBudget: opts.ai?.imageCount ?? 0,
+    });
+    await planner?.finish(result.plan.metadata.planner === "llm");
+  } catch (error) {
+    await planner?.finish(false, error).catch(() => undefined);
+    console.error("[presentation-v2] Error generando", error);
+    const message = error instanceof PresentationEngineError ? error.message : "No se pudo generar la presentación.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  const res = fileResponse(result.file, lesson.title, "pptx");
+  res.headers.set("X-Presentation-Engine", String(result.engineVersion));
+  res.headers.set("X-Presentation-Quality", String(result.quality.finalScore));
+  res.headers.set("X-Presentation-Slides", String(result.slides.length));
+  res.headers.set("X-Presentation-Planner", result.plan.metadata.planner);
+  if (result.warnings.length) res.headers.set("X-Presentation-Warnings", encodeURIComponent(result.warnings.join(" | ").slice(0, 600)));
+  return res;
 }

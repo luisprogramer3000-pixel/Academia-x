@@ -73,6 +73,13 @@ export async function getLibraryPreview(id: string): Promise<{ data: Uint8Array;
   return null;
 }
 
+/** Bytes del .pptx del modelo (motor v2: su ADN se analiza una vez y se cachea por hash). */
+export async function getLibraryModelBytes(id: string): Promise<Uint8Array | null> {
+  const model = (await listLibraryModels()).find((m) => m.id === id);
+  if (!model) return null;
+  return new Uint8Array(await readFile(path.join(DIR, model.file)));
+}
+
 export async function getLibraryTemplate(id: string): Promise<PptxTemplate | null> {
   const model = (await listLibraryModels()).find((m) => m.id === id);
   if (!model) return null;

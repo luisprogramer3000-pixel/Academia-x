@@ -21,6 +21,9 @@ import {
   FolderOpen,
   Wand2,
   Inbox,
+  Trash2,
+  Library,
+  Pencil,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -36,6 +39,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
     { label: "Plan de clase IA", href: "/dashboard/class-plan", icon: CalendarClock },
     { label: "Herramientas IA", href: "/dashboard/ai-tools", icon: Wand2 },
     { label: "Mis recursos", href: "/dashboard/resources", icon: FolderOpen },
+    { label: "Biblioteca de la plataforma", href: "/dashboard/biblioteca", icon: Library },
     { label: "Planificador", href: "/dashboard/planner", icon: CalendarDays },
     { label: "Cursos", href: "/dashboard/courses", icon: Layers },
     { label: "Lecciones", href: "/dashboard/lessons", icon: FileText },
@@ -47,6 +51,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
     { label: "Analíticas (Academy)", href: "/dashboard/analytics", icon: BarChart3 },
     { label: "Facturación & Planes", href: "/dashboard/billing", icon: CreditCard },
     { label: "Configuración & Branding", href: "/dashboard/settings", icon: Settings },
+    { label: "Papelera", href: "/dashboard/papelera", icon: Trash2 },
     { label: "Soporte VIP", href: "/dashboard/support", icon: LifeBuoy },
   ];
 
@@ -70,8 +75,10 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+            // "Nueva lección" vive bajo /courses/new/lesson pero pertenece a Lecciones
+            const section = pathname.startsWith("/dashboard/courses/new/lesson") ? "/dashboard/lessons" : pathname;
+            const isActive = section === item.href ||
+              (item.href !== "/dashboard" && section.startsWith(item.href + "/"));
 
             return (
               <Link
@@ -102,8 +109,8 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Footer Public Page Link */}
-      <div className="p-4 border-t border-slate-800">
+      {/* Página pública: verla y editarla */}
+      <div className="p-4 border-t border-slate-800 space-y-2">
         <Link
           href={`/a/${tenantSlug}`}
           target="_blank"
@@ -113,6 +120,14 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
             <Globe className="w-4 h-4 text-blue-400" /> Ver Página Pública
           </span>
           <span>↗</span>
+        </Link>
+        <Link
+          href="/dashboard/settings#pagina-publica"
+          className="flex items-center justify-between p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 text-xs font-semibold text-blue-200 hover:bg-blue-600/20 hover:text-white transition-all"
+        >
+          <span className="flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-blue-400" /> Editar página principal
+          </span>
         </Link>
       </div>
     </aside>

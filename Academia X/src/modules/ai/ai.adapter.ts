@@ -224,6 +224,22 @@ export interface LessonDocumentOutput {
   estimatedCost: number;
 }
 
+/** Llamada JSON genérica del planificador de presentaciones (motor v2). */
+export interface PresentationPlanCall {
+  system: string;
+  user: string;
+  /** Respuesta anterior + instrucciones de corrección (reintento) */
+  history?: Array<{ role: "assistant" | "user"; content: string }>;
+}
+
+export interface PresentationPlanRaw {
+  raw: unknown;
+  text: string;
+  promptTokens: number;
+  completionTokens: number;
+  estimatedCost: number;
+}
+
 export interface AIProviderAdapter {
   providerName: string;
   modelName: string;
@@ -242,6 +258,8 @@ export interface AIProviderAdapter {
   generateClassPlan(params: ClassPlanParams): Promise<ClassPlanOutput>;
   generateMaterial(params: MaterialGenParams): Promise<MaterialGenOutput>;
   generatePresentationDeck(params: AiDeckParams): Promise<AiDeckOutput>;
+  /** Plan pedagógico de la presentación (JSON validado después con Zod) */
+  generatePresentationPlan(call: PresentationPlanCall): Promise<PresentationPlanRaw>;
 }
 
 /**
@@ -531,6 +549,11 @@ export class MockAIAdapter implements AIProviderAdapter {
       cards: Array.from({ length: n }, (_, i) => ({ front: `Término ${i + 1}`, back: `Significado ${i + 1}` })),
     };
     return { material: normalizeMaterialOutput(raw, params), promptTokens: 400, completionTokens: 900, estimatedCost: 0.0007 };
+  }
+
+  async generatePresentationPlan(_call: PresentationPlanCall): Promise<PresentationPlanRaw> {
+    // El simulador no planifica: el motor detecta el plan vacío y usa su planificador pedagógico interno
+    return { raw: {}, text: "{}", promptTokens: 0, completionTokens: 0, estimatedCost: 0 };
   }
 
   async generatePresentationDeck(params: AiDeckParams): Promise<AiDeckOutput> {
@@ -934,6 +957,15 @@ Genera entre 4 y 6 módulos, cada uno con entre 3 y 5 lecciones. Los títulos de
       completionTokens: result.completionTokens,
       estimatedCost: result.estimatedCost,
     };
+  }
+
+  async generatePresentationPlan(call: PresentationPlanCall): Promise<PresentationPlanRaw> {
+    const result = await this.callChatCompletion([
+      { role: "system", content: call.system },
+      { role: "user", content: call.user },
+      ...(call.history ?? []),
+    ], true, 150000);
+    return { raw: result.parsed ?? {}, text: result.content, promptTokens: result.promptTokens, completionTokens: result.completionTokens, estimatedCost: result.estimatedCost };
   }
 
   async generatePresentationDeck(params: AiDeckParams): Promise<AiDeckOutput> {

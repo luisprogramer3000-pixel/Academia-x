@@ -46,7 +46,7 @@ export function LessonCardActions({ id, title, canPreview }: { id: string; title
       {confirm && (
         <DialogShell title="Eliminar lección" onClose={() => setConfirm(false)}>
           <p className="text-sm text-slate-300">
-            ¿Eliminar <strong>{title}</strong>? Se borrará su contenido, las actividades y los resultados de los alumnos. Esta acción no se puede deshacer.
+            ¿Eliminar <strong>{title}</strong>? Irá a la <strong>Papelera</strong> con su contenido, actividades y resultados de los alumnos, y podrás restaurarla durante 30 días.
           </p>
           {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
           <div className="flex justify-end gap-2 mt-6">

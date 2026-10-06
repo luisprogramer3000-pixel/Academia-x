@@ -149,8 +149,8 @@ export class CertificateService {
     return prisma.certificate.findMany({
       where: { tenantId },
       include: {
-        user: true,
-        course: true,
+        user: { select: { id: true, name: true, email: true } },
+        course: { select: { id: true, title: true } },
       },
       orderBy: { issuedAt: "desc" },
     });

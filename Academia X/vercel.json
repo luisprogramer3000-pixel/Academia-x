@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/ai-credit-reset?limit=200",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/purge-trash",
+      "schedule": "30 4 * * *"
     }
   ]
 }

@@ -20,6 +20,8 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
     where: { userId_tenantId: { userId, tenantId } },
     include: {
       enrollments: {
+        // Sin cursos de la papelera (las relaciones no pasan por el filtro automático)
+        where: { course: { deletedAt: null } },
         include: { course: { select: { id: true, title: true, level: true, description: true, status: true } } },
         orderBy: { enrolledAt: "desc" },
       },
@@ -115,7 +117,7 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
                       </Link>
                       {certCode ? (
                         <Link href={`/verify/${certCode}`} className="px-4 py-2 rounded-xl bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center gap-1">
-                          <Award className="w-4 h-4" /> Ver certificado
+                          <Award className="w-4 h-4" /> Ver / descargar certificado
                         </Link>
                       ) : progress.percentage === 100 && progress.totalLessons > 0 ? (
                         <form action={claimCertificateFormAction.bind(null, e.courseId)}>

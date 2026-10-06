@@ -12,6 +12,7 @@ import {
   AIFeedbackParams,
   LessonDocumentParams,
   LessonDocumentOutput,
+  type PresentationPlanCall,
 } from "./ai.adapter";
 import { CourseService } from "@/modules/course/course.service";
 import { AICreditEngine } from "./ai.credit-engine";
@@ -146,17 +147,20 @@ export class AIService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const usages = await prisma.aIUsage.findMany({
+    // La suma la hace la base de datos: viaja una fila en lugar de todo el uso del mes
+    const usage = await prisma.aIUsage.aggregate({
       where: {
         tenantId,
         createdAt: { gte: startOfMonth },
       },
+      _sum: { promptTokens: true, completionTokens: true, estimatedCost: true },
+      _count: { _all: true },
     });
 
-    const totalPromptTokens = usages.reduce((acc, u) => acc + u.promptTokens, 0);
-    const totalCompletionTokens = usages.reduce((acc, u) => acc + u.completionTokens, 0);
+    const totalPromptTokens = usage._sum.promptTokens ?? 0;
+    const totalCompletionTokens = usage._sum.completionTokens ?? 0;
     const totalTokens = totalPromptTokens + totalCompletionTokens;
-    const totalCost = usages.reduce((acc, u) => acc + Number(u.estimatedCost || 0), 0);
+    const totalCost = Number(usage._sum.estimatedCost ?? 0);
 
     // Obtener plan del tenant desde suscripción activa
     const subscription = await prisma.subscription.findFirst({
@@ -172,7 +176,7 @@ export class AIService {
       totalCompletionTokens,
       totalTokens,
       totalCost,
-      callCount: usages.length,
+      callCount: usage._count._all,
       planId,
       limitTokens,
       usagePercentage,
@@ -872,7 +876,7 @@ export class AIService {
       userId?: string;
       idempotencyKey?: string;
       lessonId?: string;
-      /** "standard" = Flux Schnell (1 crédito) · "hq" = Nano Banana (2 créditos) */
+      /** "standard" = Flux Schnell (1 crédito) · "hq" = Flux 1.1 Pro (2 créditos) */
       imageQuality?: ImageQuality;
     }
   ): Promise<ClassAgentOutput & { imagesGenerated: number; imageErrors: string[] }> {
@@ -1052,7 +1056,7 @@ export class AIService {
   ): Promise<{ imagesGenerated: number; imageErrors: string[] }> {
     const targets = items
       .filter((s) => s.imagePrompt && !s.imageUrl)
-      .slice(0, Math.max(0, Math.min(6, input.count)));
+      .slice(0, Math.max(0, Math.min(30, input.count)));
     if (targets.length === 0) return { imagesGenerated: 0, imageErrors: [] };
 
     const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
@@ -1101,6 +1105,58 @@ export class AIService {
       }
     }
     return { imagesGenerated, imageErrors };
+  }
+
+  /**
+   * Planificador de presentaciones (motor v2) con IA. Cobra UNA operación
+   * (como generar una lección) y devuelve:
+   *   - `call`: la llamada JSON que usa el motor (una, más un reintento correctivo);
+   *   - `finish`: confirma el cobro si el plan de la IA se usó, o lo devuelve si
+   *     el motor tuvo que recurrir a su planificador interno.
+   */
+  static async presentationPlanner(input: { tenantId: string; userId?: string; idempotencyKey?: string; lessonId?: string }) {
+    const adapter = getAIAdapter();
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+    const credit = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.LESSON_GENERATION,
+      idempotencyKey: input.idempotencyKey,
+      referenceId: input.lessonId,
+    });
+
+    const call = async (c: PresentationPlanCall) => {
+      const out = await adapter.generatePresentationPlan(c);
+      try {
+        await prisma.aIUsage.create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "LESSON_GENERATION",
+            provider: adapter.providerName,
+            model: adapter.modelName || "unknown",
+            promptTokens: out.promptTokens,
+            completionTokens: out.completionTokens,
+            estimatedCost: out.estimatedCost,
+            creditsUsed: credit.creditsUsed,
+            creditTransactionId: credit.transactionId || null,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not log AIUsage for presentation plan:", err);
+      }
+      return { raw: out.raw, text: out.text };
+    };
+
+    const finish = async (usedLlmPlan: boolean, error?: unknown) => {
+      if (usedLlmPlan) return;
+      await AIService.executeAutoRefund(
+        validTenantId, credit.transactionId, validUserId, AIOperation.LESSON_GENERATION,
+        error ?? new Error("PRESENTATION_PLAN_FALLBACK"), input.idempotencyKey
+      );
+    };
+
+    return { call, finish, tenantId: validTenantId, userId: validUserId };
   }
 
   /**

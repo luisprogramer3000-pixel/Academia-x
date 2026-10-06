@@ -295,6 +295,12 @@ export class AnthropicAdapter implements AIProviderAdapter {
     };
   }
 
+  async generatePresentationPlan(call: import("./ai.adapter").PresentationPlanCall): Promise<import("./ai.adapter").PresentationPlanRaw> {
+    const extra = (call.history ?? []).map((m) => `${m.role === "assistant" ? "Respuesta anterior" : "Corrección"}:\n${m.content}`).join("\n\n");
+    const r = await this.callJson(call.system, extra ? `${call.user}\n\n${extra}` : call.user);
+    return { raw: r.parsed, text: JSON.stringify(r.parsed), promptTokens: r.promptTokens, completionTokens: r.completionTokens, estimatedCost: r.estimatedCost };
+  }
+
   async generatePresentationDeck(params: AiDeckParams): Promise<AiDeckOutput> {
     const r = await this.callJson(buildAiDeckPrompt(params), `Lección: "${params.lessonTitle}".\n\n${params.lessonText}`);
     return {

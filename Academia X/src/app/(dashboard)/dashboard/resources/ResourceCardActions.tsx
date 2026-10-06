@@ -41,7 +41,7 @@ export function ResourceCardActions({ id, title }: { id: string; title: string }
       {confirm && (
         <DialogShell title="Eliminar recurso" onClose={() => setConfirm(false)}>
           <p className="text-sm text-slate-300">
-            ¿Eliminar <strong>{title}</strong>? Las lecciones que ya creaste a partir de él no se borran.
+            ¿Eliminar <strong>{title}</strong>? Irá a la <strong>Papelera</strong>, donde podrás restaurarlo durante 30 días. Las lecciones que ya creaste a partir de él no se borran.
           </p>
           {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
           <div className="flex justify-end gap-2 mt-6">

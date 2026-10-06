@@ -16,7 +16,7 @@ export default async function EditStandaloneLessonPage({ params }: { params: Pro
   const { tenantId, tenant: academy } = ctx;
 
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { course: { tenantId } } },
+    where: { id: lessonId, module: { course: { tenantId, deletedAt: null } } },
     include: { module: { select: { courseId: true } } },
   });
   if (!lesson) notFound();

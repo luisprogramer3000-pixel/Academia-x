@@ -6,6 +6,7 @@ import { CourseService } from "@/modules/course/course.service";
 import { inviteUserAction, enrollStudentAction, unenrollStudentAction, revokeInvitationAction } from "@/app/actions/user.actions";
 import { Users, UserPlus, Mail, Trash2, Clock, Link as LinkIcon, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
+import { formatInTimezone } from "@/lib/timezone";
 
 export default async function StudentsPage() {
   const ctx = await getDashboardContext(STAFF_ROLES);
@@ -17,7 +18,7 @@ export default async function StudentsPage() {
   const students = academy ? await UserService.getStudentsByTenant(tenantId) : [];
   const pendingInvitations = academy ? await UserService.getPendingInvitations(tenantId) : [];
   const studentInvitations = pendingInvitations.filter((inv) => inv.role === "STUDENT");
-  const courses = academy ? await CourseService.getCoursesByTenant(tenantId) : [];
+  const courses = academy ? await CourseService.getCourseOptions(tenantId) : [];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -134,7 +135,7 @@ export default async function StudentsPage() {
                           <div>
                             <span className="text-sm font-semibold text-white block">{inv.email}</span>
                             <span className="text-xs text-slate-400 font-mono">
-                              Expira: {new Date(inv.expiresAt).toLocaleDateString()}
+                              Expira: {formatInTimezone(inv.expiresAt, academy.timezone, { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           </div>
                         </div>

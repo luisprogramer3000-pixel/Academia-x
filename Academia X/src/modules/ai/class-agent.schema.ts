@@ -68,6 +68,8 @@ export interface ClassImageBrief {
   prompt: string;
   /** Texto alternativo, necesario para accesibilidad */
   altText: string;
+  /** Término del concepto clave que ilustra (la imagen se muestra dentro de ese concepto) */
+  concept?: string;
   /** URL, solo si el profesor pidió generarla */
   url?: string;
 }
@@ -86,6 +88,8 @@ export interface ClassAgentOutput {
   homework: string;
   teacherNotes: string[];
   images: ClassImageBrief[];
+  /** Lectura de comprensión de la clase */
+  reading?: { title: string; text: string; questions: Array<{ question: string; options: string[]; correctAnswerIndex: number }> };
   promptTokens: number;
   completionTokens: number;
   estimatedCost: number;
@@ -107,7 +111,8 @@ export function buildClassAgentSystemPrompt(params: ClassAgentParams): string {
     "3. Los ejercicios incluyen siempre su solución, porque el profesor la necesita para corregir en clase.",
     "4. El guion de clase reparte los minutos hasta cubrir la duración indicada, sin dejar huecos ni pasarse.",
     "5. Las notas para el profesor recogen los errores más frecuentes de los alumnos con este tema y cómo anticiparlos.",
-    "6. El mapa mental organiza el tema en 3 a 5 ramas, cada una con 2 a 4 ideas hijas.",
+    "6. El mapa mental ES la clasificación real del tema, con el criterio que usan los libros de texto (p. ej. medios de transporte → terrestres, aéreos, acuáticos; seres vivos → animales, plantas, hongos; palabras → sustantivos, verbos, adjetivos): 2 a 5 categorías, cada una con 2 a 4 ejemplos reales. Otras distinciones del tema (p. ej. público/privado) van en la explicación o en los conceptos clave, NO en el mapa. PROHIBIDO usar ramas como \"Tipos\", \"Ejemplos\", \"Usos\", \"Características\" o \"Ventajas\": cada rama es UNA categoría (\"Terrestres\", \"Aéreos\", \"Acuáticos\").",
+    "6b. La lectura de comprensión es obligatoria: un texto breve y natural (80-160 palabras, adecuado al nivel) que use el vocabulario y los conceptos de la clase, con 3 preguntas de comprensión de opción múltiple (idea principal, detalle, vocabulario en contexto).",
     "7. Nada de relleno ni frases genéricas: si algo no aporta a la clase, se omite.",
     "",
     `Idioma de toda la salida: ${params.language}.`,
@@ -124,19 +129,20 @@ export function buildClassAgentSystemPrompt(params: ClassAgentParams): string {
     '  "prerequisites": string[],',
     '  "keyConcepts": [{ "term": string, "definition": string, "example": string }],',
     '  "explanation": string,',
-    '  "mindMap": { "center": string, "branches": [{ "label": string, "children": string[] }] },',
+    '  "mindMap": { "center": string, "branches": [{ "label": string, "children": string[] }] },  // la clasificación real del tema',
+    '  "reading": { "title": string, "text": string, "questions": [{ "question": string, "options": string[4], "correctAnswerIndex": 0-3 }] },',
     '  "examples": string[],',
     '  "exercises": [{ "instruction": string, "type": "practica"|"produccion"|"reflexion", "solution": string }],',
     '  "quiz": [{ "question": string, "options": string[4], "correctAnswerIndex": 0-3, "explanation": string }],',
     '  "classFlow": [{ "minute": number, "durationMinutes": number, "activity": string }],',
     '  "homework": string,',
     '  "teacherNotes": string[],',
-    `  "images": [{ "purpose": string, "prompt": string, "altText": string }]  // exactamente ${params.imageCount ?? 0} elementos`,
+    `  "images": [{ "concept": string, "purpose": string, "prompt": string, "altText": string }]  // exactamente ${params.imageCount ?? 0} elementos`,
     "}",
     "",
     `Genera entre 4 y 6 conceptos clave, 3 y 5 ejercicios, y 4 preguntas de quiz.`,
     params.imageCount
-      ? `Para cada imagen, el prompt debe describir una escena o diagrama concreto y visual, sin texto dentro de la imagen.`
+      ? `Cada imagen ilustra UN concepto clave distinto (los ${params.imageCount} más visuales): en "concept" copia exactamente su "term". El prompt describe en inglés o español una escena concreta y visual que muestre ese concepto (objetos, personas, lugar, acción), sin texto, letras ni números dentro de la imagen.`
       : `El array "images" debe ir vacío.`,
   ]
     .filter(Boolean)
@@ -201,13 +207,54 @@ export function normalizeClassAgentOutput(
       })),
     homework: asString(raw.homework),
     teacherNotes: asArray<string>(raw.teacherNotes).filter((x) => typeof x === "string"),
-    images: asArray<ClassImageBrief>(raw.images)
-      .filter((i) => i && typeof i.prompt === "string")
-      .slice(0, params.imageCount ?? 0)
-      .map((i) => ({
-        purpose: asString(i.purpose),
-        prompt: asString(i.prompt),
-        altText: asString(i.altText, asString(i.purpose)),
-      })),
+    reading: normalizeReading(raw.reading, asString),
+    images: linkImagesToConcepts(
+      asArray<ClassImageBrief>(raw.images)
+        .filter((i) => i && typeof i.prompt === "string")
+        .slice(0, params.imageCount ?? 0)
+        .map((i) => ({
+          purpose: asString(i.purpose),
+          prompt: asString(i.prompt),
+          altText: asString(i.altText, asString(i.purpose)),
+          concept: asString(i.concept) || undefined,
+        })),
+      asArray<KeyConcept>(raw.keyConcepts).map((c) => (c && typeof c.term === "string" ? c.term.trim() : "")).filter(Boolean)
+    ),
   };
+}
+
+/**
+ * Cada imagen queda ligada a un concepto clave distinto. Si el modelo no indicó
+ * el concepto (o escribió otro), se le asigna el primer concepto aún sin imagen.
+ */
+function linkImagesToConcepts(images: ClassImageBrief[], terms: string[]): ClassImageBrief[] {
+  const norm = (t: string) => t.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const used = new Set<string>();
+  const matched = images.map((img) => {
+    const term = img.concept ? terms.find((t) => norm(t) === norm(img.concept!) && !used.has(t)) : undefined;
+    if (term) used.add(term);
+    return { ...img, concept: term };
+  });
+  return matched.map((img) => {
+    if (img.concept) return img;
+    const free = terms.find((t) => !used.has(t));
+    if (!free) return img;
+    used.add(free);
+    return { ...img, concept: free, prompt: `${img.prompt} (Concepto: ${free})` };
+  });
+}
+
+function normalizeReading(value: unknown, asString: (v: unknown, f?: string) => string): ClassAgentOutput["reading"] {
+  const r = (value ?? {}) as { title?: unknown; text?: unknown; questions?: unknown };
+  const text = asString(r.text);
+  if (text.split(/\s+/).length < 30) return undefined;
+  const questions = (Array.isArray(r.questions) ? r.questions : [])
+    .map((q: { question?: unknown; options?: unknown; correctAnswerIndex?: unknown }) => ({
+      question: asString(q?.question),
+      options: Array.isArray(q?.options) ? q.options.filter((o): o is string => typeof o === "string" && o.trim().length > 0).slice(0, 4) : [],
+      correctAnswerIndex: typeof q?.correctAnswerIndex === "number" ? q.correctAnswerIndex : 0,
+    }))
+    .filter((q) => q.question && q.options.length >= 2 && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < q.options.length)
+    .slice(0, 4);
+  return { title: asString(r.title, "Lectura"), text, questions };
 }

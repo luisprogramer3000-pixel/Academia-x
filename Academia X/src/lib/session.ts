@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -35,6 +36,8 @@ export interface TenantContext {
     primaryColor: string;
     secondaryColor: string;
     language: string;
+    /** Zona horaria IANA de la academia (fechas mostradas desde el servidor) */
+    timezone: string;
   };
   user: {
     id: string;
@@ -68,6 +71,22 @@ export async function clearSession(): Promise<void> {
 }
 
 /**
+ * Membresía + academia + usuario, memorizada solo durante la petición en curso
+ * (React cache): si la página y sus acciones la piden varias veces, se consulta una vez.
+ */
+const loadMembership = cache((userId: string, tenantId: string) =>
+  prisma.membership.findUnique({
+    where: { userId_tenantId: { userId, tenantId } },
+    include: {
+      tenant: {
+        select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, language: true, timezone: true },
+      },
+      user: { select: { id: true, email: true, name: true, globalRole: true } },
+    },
+  })
+);
+
+/**
  * Resuelve el contexto del tenant activo validando la membresía contra la base de datos.
  * Nunca confía en tenantId/rol enviados por el cliente: todo se deriva de la sesión.
  */
@@ -77,15 +96,7 @@ async function resolveTenantContext(allowedRoles?: AcademyRole[]): Promise<Tenan
     throw new AuthError("UNAUTHORIZED");
   }
 
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.userId, tenantId: session.tenantId } },
-    include: {
-      tenant: {
-        select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, language: true },
-      },
-      user: { select: { id: true, email: true, name: true, globalRole: true } },
-    },
-  });
+  const membership = await loadMembership(session.userId, session.tenantId);
 
   if (!membership) {
     throw new AuthError("UNAUTHORIZED", "Tu sesión ya no es válida para esta academia.");
@@ -129,6 +140,14 @@ export async function getDashboardContext(
   allowedRoles: AcademyRole[] = STAFF_ROLES,
   options: { requirePlan?: boolean } = {}
 ): Promise<DashboardContext> {
+  // La suscripción se pide a la vez que se valida la membresía (el tenant sale de la sesión firmada):
+  // un viaje a la base de datos menos por página. Si la membresía falla, el resultado se descarta.
+  const { getActiveSubscriptionCached } = await import("@/modules/billing/subscription-cache");
+  const sessionTenantId = (await getSession())?.tenantId;
+  const subscriptionPromise = sessionTenantId ? getActiveSubscriptionCached(sessionTenantId) : Promise.resolve(null);
+  // Evita un "unhandled rejection" si la validación de la membresía falla antes
+  subscriptionPromise.catch(() => undefined);
+
   let ctx: TenantContext;
   try {
     ctx = await resolveTenantContext(allowedRoles);
@@ -140,8 +159,7 @@ export async function getDashboardContext(
     throw error;
   }
 
-  const { BillingService } = await import("@/modules/billing/billing.service");
-  const active = await BillingService.getActiveSubscription(ctx.tenantId);
+  const active = await subscriptionPromise;
   const requirePlan = options.requirePlan ?? true;
 
   if (requirePlan && !active && !ctx.isSuperAdmin) {
@@ -165,14 +183,14 @@ export async function assertCourseInTenant(courseId: string, tenantId: string) {
 }
 
 export async function assertModuleInTenant(moduleId: string, tenantId: string) {
-  const mod = await prisma.module.findFirst({ where: { id: moduleId, course: { tenantId } }, select: { id: true, courseId: true } });
+  const mod = await prisma.module.findFirst({ where: { id: moduleId, course: { tenantId, deletedAt: null } }, select: { id: true, courseId: true } });
   if (!mod) throw new AuthError("FORBIDDEN", "Módulo no encontrado en tu academia.");
   return mod;
 }
 
 export async function assertLessonInTenant(lessonId: string, tenantId: string) {
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { course: { tenantId } } },
+    where: { id: lessonId, module: { course: { tenantId, deletedAt: null } } },
     select: { id: true, module: { select: { courseId: true } } },
   });
   if (!lesson) throw new AuthError("FORBIDDEN", "Lección no encontrada en tu academia.");

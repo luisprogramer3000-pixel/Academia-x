@@ -157,12 +157,12 @@ export class UserService {
         tenantId,
         role: "STUDENT",
       },
+      // Solo lo que se muestra: nunca el hash de la contraseña ni la landing/descripción de los cursos
       include: {
-        user: true,
+        user: { select: { id: true, name: true, email: true } },
         enrollments: {
-          include: {
-            course: true,
-          },
+          where: { course: { deletedAt: null } },
+          select: { id: true, courseId: true, course: { select: { id: true, title: true } } },
         },
       },
       orderBy: { createdAt: "desc" },

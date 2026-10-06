@@ -77,6 +77,10 @@ export function validateProductionEnv(): EnvValidationResult {
     "STRIPE_PRICE_ACADEMY_YEARLY",
   ];
   const warnings = recommended.filter((key) => !process.env[key]);
+  // Sin Supabase Storage, los archivos subidos van al disco del servidor y un redespliegue puede borrarlos
+  if (isProduction && process.env.STORAGE_DRIVER !== "local" && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    warnings.push("SUPABASE_SERVICE_ROLE_KEY (archivos subidos en disco local: se pierden al redesplegar)");
+  }
 
   const valid = missingSecrets.length === 0;
 

@@ -274,7 +274,7 @@ export function CourseSettingsForm({ courseId, initial }: CourseSettingsFormProp
                   disabled={saving}
                   className="flex-1 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-bold"
                 >
-                  Sí, eliminar
+                  Mover a la papelera
                 </button>
                 <button
                   type="button"
@@ -289,8 +289,8 @@ export function CourseSettingsForm({ courseId, initial }: CourseSettingsFormProp
 
           <p className="text-xs text-slate-500">
             <strong className="text-slate-400">Archivar</strong> lo retira del catálogo conservando alumnos y
-            certificados. <strong className="text-slate-400">Eliminar</strong> borra el curso con sus módulos y
-            lecciones, y no se puede deshacer; no está permitido si ya emitió certificados.
+            certificados. <strong className="text-slate-400">Eliminar</strong> lo mueve a la Papelera con sus módulos,
+            lecciones y alumnos: puedes restaurarlo durante 30 días. No está permitido si ya emitió certificados.
           </p>
         </div>
       </div>

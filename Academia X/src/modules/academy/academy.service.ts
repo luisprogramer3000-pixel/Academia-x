@@ -102,7 +102,8 @@ export class AcademyService {
         where: { slug },
         include: {
           courses: {
-            where: { status: "PUBLISHED" },
+            // Las relaciones no pasan por el filtro automático de la papelera (src/lib/db.ts)
+            where: { status: "PUBLISHED", deletedAt: null },
           },
         },
       });
@@ -147,7 +148,7 @@ export class AcademyService {
       return await prisma.tenant.findUnique({
         where: { id: tenantId },
         include: {
-          courses: true,
+          courses: { where: { deletedAt: null } },
           memberships: {
             include: {
               user: true,
@@ -169,7 +170,7 @@ export class AcademyService {
       orderBy: { createdAt: "desc" },
       include: {
         _count: {
-          select: { courses: true, memberships: true },
+          select: { courses: { where: { deletedAt: null } }, memberships: true },
         },
       },
     });

@@ -1,6 +1,10 @@
 import { CertificateService } from "@/modules/certificate/certificate.service";
 import Link from "next/link";
-import { ShieldCheck, Award, CheckCircle2, Globe, Calendar, User, School, AlertTriangle } from "lucide-react";
+import { ShieldCheck, Calendar, User, AlertTriangle } from "lucide-react";
+import { buildCertificateData } from "@/modules/certificate/certificate-view";
+import { CertificateView } from "@/components/certificates/registry";
+import { CertificatePrintStyles, CertificateSheetViewer, DownloadPdfButton } from "@/components/certificates/CertificateSheetViewer";
+import { formatInTimezone } from "@/lib/timezone";
 
 interface VerificationPageProps {
   params: Promise<{ code: string }>;
@@ -21,7 +25,8 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
         academyName: certificate.tenant.name,
         logoUrl: certificate.tenant.logoUrl,
         primaryColor: certificate.tenant.primaryColor || "#2563eb",
-        issuedAt: new Date(certificate.issuedAt).toLocaleDateString("es-ES", {
+        // Fecha en la zona horaria de la academia que emitió el certificado
+        issuedAt: formatInTimezone(certificate.issuedAt, certificate.tenant.timezone, {
           year: "numeric",
           month: "long",
           day: "numeric",
@@ -48,93 +53,45 @@ export default async function PublicCertificateVerificationPage({ params }: Veri
     );
   }
 
+  const view = await buildCertificateData(certificate!);
+  const fileName = `Certificado ${certData.studentName} - ${certData.courseTitle}`.replace(/[\/:*?"<>|]+/g, " ");
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 selection:bg-blue-500 selection:text-white">
-      {/* Container */}
-      <div className="w-full max-w-2xl">
-        {/* Verification Status Badge */}
-        <div className="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <ShieldCheck className="w-5 h-5" /> Certificado Oficial Verificado
+    <div className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8 sm:px-6 selection:bg-blue-500 selection:text-white">
+      <CertificatePrintStyles />
+      <div className="w-full max-w-6xl mx-auto">
+        {/* Estado de verificación + descarga */}
+        <div className="no-print mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+            <ShieldCheck className="w-5 h-5" /> Certificado oficial verificado · emitido por {certData.academyName}
+            <span className="text-xs font-mono font-bold bg-emerald-500/20 px-2.5 py-1 rounded-md border border-emerald-500/30">{certData.code}</span>
           </div>
-          <span className="text-xs font-mono font-bold bg-emerald-500/20 px-3 py-1 rounded-md border border-emerald-500/30">
-            {certData.code}
-          </span>
+          <DownloadPdfButton fileName={fileName} />
         </div>
 
-        {/* Certificate Card */}
-        <div className="p-10 rounded-3xl bg-slate-900 border-2 border-slate-800 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <CertificateSheetViewer>
+          <CertificateView templateId={certificate!.template} data={view} />
+        </CertificateSheetViewer>
 
-          {/* Academy Header */}
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              {certData.logoUrl ? (
-                <img src={certData.logoUrl} alt={certData.academyName} className="w-10 h-10 rounded-xl object-cover shadow-md" />
-              ) : (
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md"
-                  style={{ backgroundColor: certData.primaryColor }}
-                >
-                  {certData.academyName.slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              <div>
-                <h2 className="font-bold text-white text-base">{certData.academyName}</h2>
-                <span className="text-xs text-blue-400 font-mono">Institución Emisora Acreditada</span>
-              </div>
-            </div>
-
-            <Award className="w-8 h-8 text-amber-400" />
+        {/* Datos de autenticidad */}
+        <div className="no-print mt-6 grid sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <p className="text-slate-500 flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Titular</p>
+            <p className="text-white font-semibold mt-1">{certData.studentName}</p>
           </div>
-
-          {/* Main Body */}
-          <div className="text-center space-y-6 my-8">
-            <span className="text-xs font-mono uppercase tracking-widest text-slate-400">
-              Acredita que
-            </span>
-
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              {certData.studentName}
-            </h1>
-
-            <p className="text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
-              ha completado satisfactoriamente los requisitos académicos e instancias de evaluación del programa:
-            </p>
-
-            <div className="p-6 rounded-2xl bg-slate-950 border border-slate-800 inline-block w-full">
-              <span className="px-3 py-1 rounded-md bg-blue-500/10 text-blue-400 text-xs font-mono font-semibold uppercase mb-2 inline-block">
-                Nivel MCER: {certData.courseLevel}
-              </span>
-              <h3 className="text-xl font-bold text-white">{certData.courseTitle}</h3>
-            </div>
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <p className="text-slate-500 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Fecha de emisión</p>
+            <p className="text-white font-semibold mt-1">{certData.issuedAt}</p>
           </div>
-
-          {/* Footer Metadata */}
-          <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 font-mono gap-4">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-slate-500" /> Fecha de Emisión: {certData.issuedAt}
-            </div>
-
-            {certData.cryptoHash ? (
-              <div className="flex items-center gap-1.5 text-amber-400 group relative">
-                <ShieldCheck className="w-4 h-4" /> Certificado Premium Verificado
-                <div className="absolute bottom-full right-0 sm:left-1/2 sm:-translate-x-1/2 mb-2 w-max max-w-[250px] p-2 bg-slate-900 text-[10px] rounded-lg border border-slate-700 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl">
-                  <span className="block text-slate-400 mb-1">Firma Criptográfica SHA-256:</span>
-                  <span className="break-all font-mono text-slate-300">{certData.cryptoHash}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-emerald-400" /> Verificación Estándar
-              </div>
-            )}
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 group relative">
+            <p className="text-slate-500 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> {certData.cryptoHash ? "Firma criptográfica SHA-256" : "Verificación estándar"}</p>
+            <p className="text-slate-300 font-mono mt-1 break-all">{certData.cryptoHash ? `${certData.cryptoHash.slice(0, 32)}…` : "—"}</p>
           </div>
         </div>
-
-        <div className="text-center mt-6 text-xs text-slate-500">
-          Validado oficialmente por <Link href="/" className="text-slate-400 hover:text-white underline">Mentor Studio Global Platform Engine</Link>.
-        </div>
+        <p className="no-print text-center mt-6 text-xs text-slate-500">
+          Para guardarlo, pulsa <strong className="text-slate-300">Descargar PDF</strong> y elige <strong className="text-slate-300">Guardar como PDF</strong> como destino.
+          {" "}Validado por <Link href="/" className="text-slate-400 hover:text-white underline">Mentor Studio Global</Link>.
+        </p>
       </div>
     </div>
   );

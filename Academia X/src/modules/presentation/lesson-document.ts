@@ -390,6 +390,8 @@ export async function renderLessonDocument(
       } else if (b.type === "text") {
         if (b.title) heading(b.title);
         if (b.content) renderText(b.content);
+        // Ilustración del concepto, debajo de su texto
+        if (b.url) await drawImage(b.url);
       } else if (b.type === "quiz" && b.question) {
         exercise++;
         const opts = b.options ?? [];

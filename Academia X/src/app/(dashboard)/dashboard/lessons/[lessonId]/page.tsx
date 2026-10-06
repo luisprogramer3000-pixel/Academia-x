@@ -26,7 +26,7 @@ export default async function LessonViewPage({
   const { tenantId, tenant: academy } = ctx;
 
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { course: { tenantId } } },
+    where: { id: lessonId, module: { course: { tenantId, deletedAt: null } } },
     select: { id: true, title: true, content: true, teacherPlan: true, module: { select: { course: { select: { level: true } } } } },
   });
   if (!lesson) notFound();

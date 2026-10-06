@@ -11,7 +11,7 @@ const GRADES = [
   "Primaria (6-8 años)", "Primaria (9-12 años)", "Secundaria", "Bachillerato", "Universidad", "Adultos",
   "ELE A1", "ELE A2", "ELE B1", "ELE B2", "ELE C1", "ELE C2",
 ];
-const LANGUAGES = ["Español", "English", "Português", "Français", "Deutsch", "Italiano"];
+import { CLASS_LANGUAGES as LANGUAGES } from "@/modules/ai/reading-guidance";
 
 export function ToolForm({ tool }: { tool: Pick<MaterialTool, "id" | "name" | "emoji" | "description" | "countLabel" | "defaultCount" | "maxCount" | "liveQuiz"> }) {
   const router = useRouter();
@@ -60,7 +60,7 @@ export function ToolForm({ tool }: { tool: Pick<MaterialTool, "id" | "name" | "e
             <select name="grade" defaultValue="Universidad" className={input}>{GRADES.map((g) => <option key={g}>{g}</option>)}</select>
           </div>
           <div>
-            <label className={label}>Disciplina</label>
+            <label className={label}>Asignatura</label>
             <input name="subject" required defaultValue="Español" className={input} />
           </div>
         </div>

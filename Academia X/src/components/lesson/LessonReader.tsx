@@ -228,7 +228,7 @@ export function LessonReader({
                     {b.title}
                   </h3>
                 )}
-                {b.content && <LessonProse text={b.content} accent={accent} />}
+                <TextWithImage block={b} accent={accent} />
               </section>
             );
           }
@@ -246,7 +246,7 @@ export function LessonReader({
                     {b.title}
                   </h2>
                 )}
-                {b.content && <LessonProse text={b.content} accent={accent} />}
+                <TextWithImage block={b} accent={accent} />
               </section>
             );
           }
@@ -548,5 +548,20 @@ function VideoEmbed({ url, title }: { url?: string; title?: string }) {
     <a href={embed.src} target="_blank" rel="noopener noreferrer" className="block rounded-2xl border border-slate-200 px-5 py-4 text-slate-800 font-semibold hover:bg-slate-50">
       ▶ Ver video: {title || embed.src}
     </a>
+  );
+}
+
+/** Texto de una sección; si trae ilustración (p. ej. un concepto clave), va al lado del texto. */
+function TextWithImage({ block, accent }: { block: LessonBlock; accent: string }) {
+  const src = safeExternalUrl(block.url);
+  if (!src) return block.content ? <LessonProse text={block.content} accent={accent} /> : null;
+  return (
+    <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6 items-start">
+      <div className="min-w-0">{block.content && <LessonProse text={block.content} accent={accent} />}</div>
+      <figure className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 md:order-last order-first">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={block.title || "Ilustración del concepto"} className="w-full aspect-video object-cover" loading="lazy" />
+      </figure>
+    </div>
   );
 }

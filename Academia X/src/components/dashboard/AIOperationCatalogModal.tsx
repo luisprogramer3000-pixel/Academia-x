@@ -52,7 +52,7 @@ const OPERATION_LABELS: Record<AIOperation, { title: string; description: string
   },
   IMAGE_GENERATION_HQ: {
     title: "Imagen Alta Calidad",
-    description: "Ilustración de máxima calidad (Nano Banana). Para portadas, infografías y material impreso.",
+    description: "Ilustración de máxima calidad (Flux 1.1 Pro). Para portadas, infografías y material impreso.",
   }
 };
 

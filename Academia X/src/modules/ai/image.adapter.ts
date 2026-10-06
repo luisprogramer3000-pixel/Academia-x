@@ -1,15 +1,12 @@
 /**
- * Generación de imágenes para las clases, con dos niveles de calidad.
+ * Generación de imágenes para las clases, con dos niveles de calidad, ambos en fal.ai
+ * (una sola clave y un solo saldo: FAL_KEY).
  *
- * ESTÁNDAR  → Flux Schnell en fal.ai   (~$0.003 por imagen 16:9, segundos)
- * ALTA      → Nano Banana en Gemini    (~$0.034 por imagen, 11 veces más cara)
+ * ESTÁNDAR  → Flux Schnell   (~$0.003 por imagen 16:9, segundos)
+ * ALTA      → Flux 1.1 Pro   (~$0.04 por imagen, mucho más detalle y mejor composición)
  *
- * El profesor elige: muchas ilustraciones baratas para una lección normal, o
- * pocas de máxima calidad para una portada o una infografía que se imprime.
- *
- * Se usa REST en los dos casos para no añadir dependencias al despliegue
- * gestionado. Sin clave configurada se falla de forma explícita en producción:
- * nunca se cobra al profesor por una imagen que no existe.
+ * Sin clave configurada se falla de forma explícita (también en desarrollo):
+ * nunca se entrega una imagen falsa ni se cobra al profesor por una que no existe.
  */
 
 export type ImageQuality = "standard" | "hq";
@@ -31,19 +28,15 @@ export class ImageGenerationError extends Error {
   }
 }
 
-const FAL_ENDPOINT = "https://fal.run/fal-ai/flux/schnell";
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const FAL_MODELS: Record<ImageQuality, { endpoint: string; model: string; cost: number }> = {
+  standard: { endpoint: "https://fal.run/fal-ai/flux/schnell", model: "flux/schnell", cost: 0.003 },
+  hq: { endpoint: "https://fal.run/fal-ai/flux-pro/v1.1", model: "flux-pro/v1.1", cost: 0.04 },
+};
 
-const DEFAULT_HQ_MODEL = "gemini-3.1-flash-lite-image";
-const COST_STANDARD = 0.003;
-const COST_HQ = 0.034;
+const FAL_SIZES = { "16:9": "landscape_16_9", "4:3": "landscape_4_3", "1:1": "square_hd" } as const;
 
-/** PNG 1x1 transparente, solo para desarrollo sin claves */
-const PLACEHOLDER_PNG =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
-export function isImageQualityConfigured(quality: ImageQuality): boolean {
-  return quality === "hq" ? Boolean(process.env.GEMINI_API_KEY) : Boolean(process.env.FAL_KEY);
+export function isImageQualityConfigured(_quality: ImageQuality): boolean {
+  return Boolean(process.env.FAL_KEY);
 }
 
 /**
@@ -59,31 +52,16 @@ function buildPrompt(prompt: string): string {
   ].join(" ");
 }
 
-function placeholder(prompt: string, quality: ImageQuality): GeneratedImage {
-  return {
-    buffer: Buffer.from(PLACEHOLDER_PNG, "base64"),
-    mimeType: "image/png",
-    prompt,
-    estimatedCost: 0,
-    provider: "placeholder",
-    model: quality,
-  };
-}
-
-/** Flux Schnell (fal.ai): rápido y barato, para el grueso de las ilustraciones */
-async function generateWithFal(prompt: string): Promise<GeneratedImage> {
+async function generateWithFal(prompt: string, quality: ImageQuality, aspectRatio: keyof typeof FAL_SIZES): Promise<GeneratedImage> {
   const apiKey = process.env.FAL_KEY;
-
   if (!apiKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new ImageGenerationError("La generación de imágenes no está configurada: falta FAL_KEY.");
-    }
-    return placeholder(prompt, "standard");
+    throw new ImageGenerationError("La generación de imágenes no está configurada: falta FAL_KEY.");
   }
+  const cfg = FAL_MODELS[quality];
 
   let response: Response;
   try {
-    response = await fetch(FAL_ENDPOINT, {
+    response = await fetch(cfg.endpoint, {
       method: "POST",
       headers: {
         // fal exige el prefijo "Key", no "Bearer"
@@ -92,14 +70,13 @@ async function generateWithFal(prompt: string): Promise<GeneratedImage> {
       },
       body: JSON.stringify({
         prompt,
-        // 1024x576: por debajo de 1 megapíxel, que es la unidad de facturación
-        image_size: "landscape_16_9",
+        // 1024x576 en 16:9: por debajo de 1 megapíxel, que es la unidad de facturación
+        image_size: FAL_SIZES[aspectRatio],
         num_images: 1,
-        num_inference_steps: 4,
-        enable_safety_checker: true,
+        ...(quality === "standard" ? { num_inference_steps: 4, enable_safety_checker: true } : { safety_tolerance: "2" }),
         output_format: "jpeg",
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(90_000),
     });
   } catch (error) {
     throw new ImageGenerationError(
@@ -117,10 +94,11 @@ async function generateWithFal(prompt: string): Promise<GeneratedImage> {
 
   const payload = (await response.json()) as {
     images?: Array<{ url?: string; content_type?: string }>;
+    has_nsfw_concepts?: boolean[];
   };
 
   const imageUrl = payload.images?.[0]?.url;
-  if (!imageUrl) {
+  if (!imageUrl || payload.has_nsfw_concepts?.[0]) {
     throw new ImageGenerationError("fal.ai no devolvió ninguna imagen.");
   }
 
@@ -129,68 +107,19 @@ async function generateWithFal(prompt: string): Promise<GeneratedImage> {
   if (!download.ok) {
     throw new ImageGenerationError(`No se pudo descargar la imagen generada (${download.status}).`);
   }
+  const buffer = Buffer.from(await download.arrayBuffer());
+  // Una imagen real pesa varios KB: si llega casi vacía, es un error y no se cobra
+  if (buffer.length < 2048) {
+    throw new ImageGenerationError("La imagen generada llegó vacía.");
+  }
 
   return {
-    buffer: Buffer.from(await download.arrayBuffer()),
+    buffer,
     mimeType: payload.images?.[0]?.content_type || "image/jpeg",
     prompt,
-    estimatedCost: COST_STANDARD,
+    estimatedCost: cfg.cost,
     provider: "fal.ai",
-    model: "flux/schnell",
-  };
-}
-
-/** Nano Banana (Gemini): máxima calidad, para portadas e infografías */
-async function generateWithGemini(prompt: string, aspectRatio: string): Promise<GeneratedImage> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_IMAGE_MODEL || DEFAULT_HQ_MODEL;
-
-  if (!apiKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new ImageGenerationError("La generación en alta calidad no está configurada: falta GEMINI_API_KEY.");
-    }
-    return placeholder(prompt, "hq");
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(GEMINI_ENDPOINT, {
-      method: "POST",
-      headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        input: [{ type: "text", text: prompt }],
-        response_format: { type: "image", mime_type: "image/jpeg", aspect_ratio: aspectRatio, image_size: "1K" },
-      }),
-      signal: AbortSignal.timeout(90_000),
-    });
-  } catch (error) {
-    throw new ImageGenerationError(
-      `No se pudo contactar con el generador de alta calidad: ${error instanceof Error ? error.message : "error de red"}`
-    );
-  }
-
-  if (!response.ok) {
-    const detail = (await response.text()).slice(0, 300);
-    throw new ImageGenerationError(`El generador de alta calidad respondió ${response.status}: ${detail}`);
-  }
-
-  const payload = (await response.json()) as {
-    interaction?: { output_image?: { mime_type?: string; data?: string } };
-  };
-
-  const image = payload.interaction?.output_image;
-  if (!image?.data) {
-    throw new ImageGenerationError("El generador de alta calidad no devolvió ninguna imagen.");
-  }
-
-  return {
-    buffer: Buffer.from(image.data, "base64"),
-    mimeType: image.mime_type || "image/jpeg",
-    prompt,
-    estimatedCost: COST_HQ,
-    provider: "gemini",
-    model,
+    model: cfg.model,
   };
 }
 
@@ -205,7 +134,5 @@ export async function generateClassImage(params: {
   const quality = params.quality || "standard";
   const enrichedPrompt = buildPrompt(params.prompt);
 
-  return quality === "hq"
-    ? generateWithGemini(enrichedPrompt, params.aspectRatio || "16:9")
-    : generateWithFal(enrichedPrompt);
+  return generateWithFal(enrichedPrompt, quality, params.aspectRatio || "16:9");
 }

@@ -705,21 +705,20 @@ export class AICreditEngine {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Calcular consumo real de este mes en el ledger
-    const monthlyUsages = await prisma.aICreditTransaction.findMany({
+    // Suma por tipo de crédito en la base de datos (los consumos se guardan en negativo)
+    const monthlyUsages = await prisma.aICreditTransaction.groupBy({
+      by: ["creditType"],
       where: {
         tenantId,
         createdAt: { gte: startOfMonth },
         transactionType: AICreditTransactionType.USAGE,
       },
+      _sum: { amount: true },
     });
+    const usedOf = (type: AICreditType) => Math.abs(monthlyUsages.find((u) => u.creditType === type)?._sum.amount ?? 0);
 
-    const teacherUsed = monthlyUsages
-      .filter((u) => u.creditType === AICreditType.TEACHER)
-      .reduce((acc, u) => acc + Math.abs(u.amount), 0);
-
-    const studentUsed = monthlyUsages
-      .filter((u) => u.creditType === AICreditType.STUDENT)
-      .reduce((acc, u) => acc + Math.abs(u.amount), 0);
+    const teacherUsed = usedOf(AICreditType.TEACHER);
+    const studentUsed = usedOf(AICreditType.STUDENT);
 
     const teacherPct =
       planConfig.teacherAllowance > 0

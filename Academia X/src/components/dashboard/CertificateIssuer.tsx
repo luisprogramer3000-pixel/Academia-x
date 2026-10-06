@@ -7,7 +7,9 @@ import {
   approveCertificateAction,
   setCourseCertificateTemplateAction,
 } from "@/app/actions/certificate.actions";
-import { CERTIFICATE_TEMPLATE_LIST, getCertificateTemplate } from "@/modules/certificate/certificate.templates";
+import { CERTIFICATE_DESIGNS, resolveDesign } from "@/components/certificates/registry";
+import { CertificateSheetViewer } from "@/components/certificates/CertificateSheetViewer";
+import { SAMPLE_CERTIFICATE } from "@/components/certificates/certificate-data";
 
 interface CourseOption {
   id: string;
@@ -71,7 +73,13 @@ export function CertificateIssuer({ courses, academyName }: { courses: CourseOpt
     }
   }
 
-  const active = getCertificateTemplate(template);
+  const activeDesign = resolveDesign(template);
+  const previewData = {
+    ...SAMPLE_CERTIFICATE,
+    academyName,
+    courseName: courses.find((c) => c.id === courseId)?.title ?? SAMPLE_CERTIFICATE.courseName,
+    studentName: "Nombre del Alumno",
+  };
 
   if (courses.length === 0) {
     return (
@@ -122,56 +130,40 @@ export function CertificateIssuer({ courses, academyName }: { courses: CourseOpt
           Se aplica a los certificados que emitas de este curso. Los ya emitidos conservan su diseño.
         </p>
 
-        <div className="grid sm:grid-cols-3 gap-3 mb-5">
-          {CERTIFICATE_TEMPLATE_LIST.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => chooseTemplate(t.id)}
-              className={`text-left p-4 rounded-xl border-2 transition-all ${
-                template === t.id ? "border-amber-500 bg-amber-500/5" : "border-slate-800 hover:border-slate-700"
-              }`}
-            >
-              <div
-                className="h-14 rounded-lg mb-3 flex items-center justify-center text-[10px] font-bold"
-                style={{
-                  backgroundColor: t.style.surface,
-                  color: t.style.heading,
-                  border: `2px ${t.style.frame === "double" ? "double" : "solid"} ${t.style.border}`,
-                }}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+          {CERTIFICATE_DESIGNS.map((t) => {
+            const selected = activeDesign.id === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => chooseTemplate(t.id)}
+                className={`text-left p-2.5 rounded-xl border-2 transition-all ${selected ? "border-amber-500 bg-amber-500/5" : "border-slate-800 hover:border-slate-700"}`}
               >
-                <span style={{ color: t.style.accent }}>★ {t.name.toUpperCase()} ★</span>
-              </div>
-              <p className="text-sm font-bold text-white">{t.name}</p>
-              <p className="text-[11px] text-slate-400 mt-1 leading-snug">{t.description}</p>
-            </button>
-          ))}
+                <div className="rounded-md overflow-hidden pointer-events-none">
+                  <CertificateSheetViewer>
+                    <t.Component data={previewData} />
+                  </CertificateSheetViewer>
+                </div>
+                <p className="text-sm font-bold text-white mt-2.5 flex items-center gap-1.5">
+                  {selected && <CheckCircle2 className="w-4 h-4 text-amber-400" />} {t.name}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{t.description}</p>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Vista previa del elegido */}
-        <div
-          className="rounded-xl p-6 text-center"
-          style={{
-            backgroundColor: active.style.surface,
-            border: `3px ${active.style.frame === "double" ? "double" : "solid"} ${active.style.border}`,
-          }}
-        >
-          <p className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: active.style.accent }}>
-            {academyName}
-          </p>
-          <p className="text-sm font-semibold mb-3" style={{ color: active.style.heading }}>
-            {active.heading}
-          </p>
-          <p className={`text-2xl ${active.style.nameClass} font-bold mb-2`} style={{ color: active.style.heading }}>
-            Nombre del Alumno
-          </p>
-          <p className="text-xs" style={{ color: active.style.body }}>
-            {active.statement}
-          </p>
-          <p className="text-sm font-semibold mt-1" style={{ color: active.style.accent }}>
-            {courses.find((c) => c.id === courseId)?.title}
-          </p>
+        {/* Vista previa grande del elegido */}
+        <div className="rounded-xl bg-slate-950 p-3 sm:p-4 pointer-events-none">
+          <CertificateSheetViewer>
+            <activeDesign.Component data={previewData} />
+          </CertificateSheetViewer>
         </div>
+        <p className="text-[11px] text-slate-500 mt-2">
+          Vista previa con datos de ejemplo. Cada certificado emitido lleva el nombre del alumno, la fecha, el docente que lo aprobó y un QR real de verificación,
+          y se descarga en PDF desde su enlace (botón del código en la lista de alumnos).
+        </p>
       </div>
 
       {/* Alumnos inscritos */}
@@ -214,7 +206,7 @@ export function CertificateIssuer({ courses, academyName }: { courses: CourseOpt
                     rel="noreferrer"
                     className="shrink-0 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 flex items-center gap-1.5"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {s.certificate.code}
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {s.certificate.code} · Ver / PDF
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 ) : (

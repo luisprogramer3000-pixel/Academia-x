@@ -45,7 +45,7 @@ export class ResourceService {
     let moduleId: string | null = null;
     let courseId: string | null = null;
     if (dest.mode === "module") {
-      const mod = await prisma.module.findFirst({ where: { id: dest.moduleId, course: { tenantId } }, select: { id: true, courseId: true } });
+      const mod = await prisma.module.findFirst({ where: { id: dest.moduleId, course: { tenantId, deletedAt: null } }, select: { id: true, courseId: true } });
       if (!mod) throw new Error("Módulo no encontrado en tu academia.");
       moduleId = mod.id;
       courseId = mod.courseId;
@@ -56,7 +56,8 @@ export class ResourceService {
         const { slugify } = await import("@/modules/academy/academy.service");
         const base = slugify(resource.title) || "leccion";
         let slug = base;
-        for (let i = 1; await tx.course.findUnique({ where: { tenantId_slug: { tenantId, slug } } }); i++) slug = `${base}-${i}`;
+        // deletedAt: undefined → también cuenta los cursos de la papelera (su slug sigue ocupado)
+        for (let i = 1; await tx.course.findUnique({ where: { tenantId_slug: { tenantId, slug }, deletedAt: undefined } }); i++) slug = `${base}-${i}`;
 
         const course = await tx.course.create({
           data: {

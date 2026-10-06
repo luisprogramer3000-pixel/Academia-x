@@ -61,8 +61,8 @@ export async function setCourseCertificateTemplateAction(courseId: string, templ
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
     await assertCourseInTenant(courseId, tenantId);
 
-    const valid = ["CLASSIC", "MODERN", "ELEGANT"];
-    const chosen = valid.includes(template) ? template : "CLASSIC";
+    const { CERTIFICATE_DESIGN_IDS } = await import("@/components/certificates/registry");
+    const chosen = CERTIFICATE_DESIGN_IDS.includes(template) ? template : CERTIFICATE_DESIGN_IDS[0];
 
     await prisma.course.updateMany({
       where: { id: courseId, tenantId },

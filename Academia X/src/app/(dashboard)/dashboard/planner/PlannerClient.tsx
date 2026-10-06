@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteScheduledClassAction } from "@/app/actions/resource.actions";
+import { deleteScheduledClassAction, setScheduledClassStatusAction } from "@/app/actions/resource.actions";
 import { ScheduleClassDialog, type ResourceOption } from "@/components/dashboard/ScheduleClassDialog";
 import { DialogShell } from "@/components/dashboard/DialogShell";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, FileText, Loader2, Plus, Trash2, Users } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, FileText, Loader2, Plus, RotateCcw, Trash2, Users, Video, XCircle } from "lucide-react";
 
 export interface PlannerEvent {
   id: string;
@@ -17,7 +17,17 @@ export interface PlannerEvent {
   notes: string | null;
   resourceId: string | null;
   resourceTitle: string | null;
+  status: "SCHEDULED" | "DONE" | "CANCELLED";
+  meetingUrl: string | null;
 }
+
+/** Estilo de cada clase en el calendario según su estado */
+const STATUS_STYLE: Record<PlannerEvent["status"], string> = {
+  SCHEDULED: "bg-blue-500/15 border-blue-500/30 text-blue-100 hover:bg-blue-500/25",
+  DONE: "bg-emerald-500/10 border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20",
+  CANCELLED: "bg-slate-800/60 border-slate-700 text-slate-500 line-through hover:bg-slate-800",
+};
+const STATUS_LABEL: Record<PlannerEvent["status"], string> = { SCHEDULED: "Programada", DONE: "Dada", CANCELLED: "Cancelada" };
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const monthFmt = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
@@ -112,8 +122,10 @@ function PlannerCalendar({ year, month, events, upcoming, resources }: PlannerPr
                     <button
                       key={e.id}
                       onClick={(ev) => { ev.stopPropagation(); setSelected(e); }}
-                      className="w-full text-left text-[11px] px-1.5 py-1 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-100 hover:bg-blue-500/25 truncate"
+                      className={`w-full text-left text-[11px] px-1.5 py-1 rounded-md border truncate ${STATUS_STYLE[e.status]}`}
+                      title={`${e.title} · ${STATUS_LABEL[e.status]}`}
                     >
+                      {e.status === "DONE" && "✓ "}
                       <span className="font-semibold">{timeFmt.format(new Date(e.startsAt))}</span> {e.title}
                     </button>
                   ))}
@@ -126,7 +138,9 @@ function PlannerCalendar({ year, month, events, upcoming, resources }: PlannerPr
       </section>
 
       <aside className="rounded-2xl bg-slate-900 border border-slate-800 p-5 self-start">
-        <h3 className="font-bold flex items-center gap-2 mb-4"><CalendarDays className="w-4 h-4 text-blue-400" /> Próximas clases</h3>
+        <h3 className="font-bold flex items-center gap-2 mb-1"><CalendarDays className="w-4 h-4 text-blue-400" /> Próximas clases</h3>
+        {/* Las horas se muestran en la zona de este equipo: cada profesor ve su hora local */}
+        <p className="text-[11px] text-slate-500 mb-4">Horas en tu zona: {Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " ")}</p>
         {upcoming.length === 0 ? (
           <p className="text-sm text-slate-500">No tienes clases programadas. Haz clic en un día del calendario para añadir una.</p>
         ) : (
@@ -158,23 +172,56 @@ function PlannerCalendar({ year, month, events, upcoming, resources }: PlannerPr
 
 function EventDialog({ event, onClose }: { event: PlannerEvent; onClose: () => void }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "delete" | PlannerEvent["status"]>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function remove() {
-    setBusy(true);
+    setBusy("delete");
     const res = await deleteScheduledClassAction(event.id);
-    setBusy(false);
+    setBusy(null);
     if (!res.success) return setError(res.error);
     router.refresh();
     onClose();
   }
 
+  async function setStatus(status: PlannerEvent["status"]) {
+    setBusy(status);
+    const res = await setScheduledClassStatusAction(event.id, status);
+    setBusy(null);
+    if (!res.success) return setError(res.error);
+    router.refresh();
+    onClose();
+  }
+
+  const statusButton = (status: PlannerEvent["status"], label: string, Icon: typeof CheckCircle2, cls: string) => (
+    <button
+      type="button"
+      onClick={() => setStatus(status)}
+      disabled={busy !== null}
+      className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 ${cls}`}
+    >
+      {busy === status ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />} {label}
+    </button>
+  );
+
   return (
     <DialogShell title={event.title} onClose={onClose}>
       <div className="space-y-3 text-sm">
+        <span className={`inline-block px-2 py-0.5 rounded-md border text-[11px] font-semibold no-underline ${STATUS_STYLE[event.status].replace("line-through", "")}`}>
+          {STATUS_LABEL[event.status]}
+        </span>
         <p className="flex items-center gap-2 capitalize text-slate-300"><Clock className="w-4 h-4 text-slate-500" /> {longFmt.format(new Date(event.startsAt))} · {event.durationMinutes} min</p>
         {event.groupName && <p className="flex items-center gap-2 text-slate-300"><Users className="w-4 h-4 text-slate-500" /> {event.groupName}</p>}
+        {event.meetingUrl && event.status === "SCHEDULED" && (
+          <a
+            href={event.meetingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold"
+          >
+            <Video className="w-4 h-4" /> Unirse a la reunión
+          </a>
+        )}
         {event.notes && <p className="text-slate-400 whitespace-pre-line">{event.notes}</p>}
         {event.resourceId && (
           <Link href={`/dashboard/resources/${event.resourceId}`} className="flex items-center gap-2 p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/40">
@@ -185,9 +232,14 @@ function EventDialog({ event, onClose }: { event: PlannerEvent; onClose: () => v
         )}
         {error && <p className="text-red-400">{error}</p>}
       </div>
-      <div className="flex justify-between gap-2 mt-6">
-        <button onClick={remove} disabled={busy} className="px-4 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 text-sm font-semibold flex items-center gap-2">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Eliminar
+      <div className="flex flex-wrap gap-2 mt-5">
+        {event.status !== "DONE" && statusButton("DONE", "Marcar como dada", CheckCircle2, "bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600/25")}
+        {event.status === "SCHEDULED" && statusButton("CANCELLED", "Cancelar clase", XCircle, "bg-slate-800 text-slate-300 hover:bg-slate-700")}
+        {event.status !== "SCHEDULED" && statusButton("SCHEDULED", "Volver a programada", RotateCcw, "bg-slate-800 text-slate-300 hover:bg-slate-700")}
+      </div>
+      <div className="flex justify-between gap-2 mt-4">
+        <button onClick={remove} disabled={busy !== null} className="px-4 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 text-sm font-semibold flex items-center gap-2">
+          {busy === "delete" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Eliminar
         </button>
         <button onClick={onClose} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Cerrar</button>
       </div>

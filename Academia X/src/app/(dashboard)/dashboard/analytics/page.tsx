@@ -52,7 +52,7 @@ export default async function AnalyticsPage() {
     where: { tenantId }
   });
 
-  const analytics = await AnalyticsService.getMonthlyAnalytics(tenantId, 6);
+  const analytics = await AnalyticsService.getMonthlyAnalytics(tenantId, 6, academy.timezone);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">

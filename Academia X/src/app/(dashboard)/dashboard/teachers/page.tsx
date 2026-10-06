@@ -5,6 +5,7 @@ import { UserService } from "@/modules/user/user.service";
 import { inviteUserAction, revokeInvitationAction } from "@/app/actions/user.actions";
 import { GraduationCap, UserPlus, Mail, ShieldCheck, Clock, Link as LinkIcon, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { formatInTimezone } from "@/lib/timezone";
 
 export default async function TeachersPage() {
   const ctx = await getDashboardContext(OWNER_ONLY);
@@ -89,7 +90,7 @@ export default async function TeachersPage() {
                           <div>
                             <span className="text-sm font-semibold text-white block">{inv.email}</span>
                             <span className="text-xs text-slate-400 font-mono">
-                              Expira: {new Date(inv.expiresAt).toLocaleDateString()}
+                              Expira: {formatInTimezone(inv.expiresAt, academy.timezone, { day: "numeric", month: "short", year: "numeric" })}
                             </span>
                           </div>
                         </div>

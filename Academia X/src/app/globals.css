@@ -239,3 +239,33 @@ body.dark .glass-gold-card,
 .brand-scope[data-tone="light"] .text-amber-400 { color: #b45309; }
 .brand-scope[data-tone="light"] .text-red-300,
 .brand-scope[data-tone="light"] .text-red-400 { color: #b91c1c; }
+
+/* Variantes con transparencia que también usa el panel del profesor */
+.brand-scope .bg-slate-950\/70,
+.brand-scope .bg-slate-950\/85 { background-color: color-mix(in srgb, var(--brand-bg) 85%, transparent); }
+.brand-scope .bg-slate-900\/40 { background-color: color-mix(in srgb, var(--brand-surface) 70%, transparent); }
+.brand-scope .bg-slate-800\/30,
+.brand-scope .bg-slate-800\/40,
+.brand-scope .bg-slate-800\/60,
+.brand-scope .bg-slate-800\/95,
+.brand-scope .hover\:bg-slate-800\/40:hover,
+.brand-scope .hover\:bg-slate-900\/80:hover { background-color: var(--brand-surface-2); }
+.brand-scope .border-slate-900,
+.brand-scope .border-slate-700\/60,
+.brand-scope .border-slate-800\/60,
+.brand-scope .border-slate-800\/90,
+.brand-scope .hover\:border-slate-700\/50:hover { border-color: var(--brand-border); }
+
+/* Degradados oscuros del panel (bienvenida, Copiloto, Soporte...): con fondo
+   claro pasan a tonos suaves. Tailwind compone el degradado con variables:
+   basta con cambiar los colores de inicio, paso intermedio y final. */
+.brand-scope[data-tone="light"] .from-slate-900 { --tw-gradient-from: var(--brand-surface) var(--tw-gradient-from-position); }
+.brand-scope[data-tone="light"] .to-slate-900,
+.brand-scope[data-tone="light"] .to-slate-950 { --tw-gradient-to: var(--brand-surface) var(--tw-gradient-to-position); }
+.brand-scope[data-tone="light"] .from-blue-900\/20,
+.brand-scope[data-tone="light"] .from-blue-900\/40 { --tw-gradient-from: #dbeafe var(--tw-gradient-from-position); }
+.brand-scope[data-tone="light"] .from-indigo-900\/40,
+.brand-scope[data-tone="light"] .from-indigo-950\/40 { --tw-gradient-from: #e0e7ff var(--tw-gradient-from-position); }
+.brand-scope[data-tone="light"] .via-indigo-900\/30 { --tw-gradient-stops: var(--tw-gradient-from), #eef2ff var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.brand-scope[data-tone="light"] .via-blue-900\/30 { --tw-gradient-stops: var(--tw-gradient-from), #eff6ff var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.brand-scope[data-tone="light"] .via-slate-950 { --tw-gradient-stops: var(--tw-gradient-from), var(--brand-bg) var(--tw-gradient-via-position), var(--tw-gradient-to); }

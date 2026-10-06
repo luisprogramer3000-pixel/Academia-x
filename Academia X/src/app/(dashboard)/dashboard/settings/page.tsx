@@ -3,6 +3,10 @@ import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { BrandingSettingsForm } from "@/components/dashboard/BrandingSettingsForm";
 import { StudentAIToggle } from "@/components/dashboard/StudentAIToggle";
+import { TimezoneSettings } from "@/components/dashboard/TimezoneSettings";
+import { PanelColorSettings } from "@/components/dashboard/PanelColorSettings";
+import { AcademyLandingSettings } from "@/components/dashboard/AcademyLandingSettings";
+import { getAcademyLanding } from "@/modules/academy/academy-landing";
 import { Palette, Globe } from "lucide-react";
 import { SAAS_PLANS } from "@/modules/billing/plans";
 import { prisma } from "@/lib/db";
@@ -21,7 +25,17 @@ export default async function SettingsPage() {
 
   const planId = ctx.activePlan?.id as keyof typeof SAAS_PLANS | undefined;
   const capabilities = planId ? SAAS_PLANS[planId].capabilities : null;
-  const tenantRecord = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { customDomain: true } });
+  const tenantRecord = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { customDomain: true, panelColor: true } });
+  const [landing, publishedCourses] = await Promise.all([
+    getAcademyLanding(tenantId),
+    prisma.course.findMany({
+      where: { tenantId, status: "PUBLISHED", deletedAt: null },
+      orderBy: { createdAt: "asc" },
+      take: 6,
+      select: { id: true, slug: true, title: true, level: true, imageUrl: true, priceAmount: true, currency: true, modules: { select: { _count: { select: { lessons: true } } } } },
+    }),
+  ]);
+  const appHost = process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com";
   const wallet = await prisma.aICreditWallet.findUnique({
     where: { tenantId },
     select: { allowTeacherCreditsForStudents: true, teacherCredits: true },
@@ -65,6 +79,25 @@ export default async function SettingsPage() {
               Tu plan permite cambiar el nombre. Colores y logo están disponibles desde el plan Professional.
             </p>
           )}
+
+          <AcademyLandingSettings
+            initial={landing}
+            publicUrl={`/a/${tenantSlug}`}
+            academy={{ name, primaryColor, secondaryColor, logoUrl: logoUrl || null, host: `${appHost}/a/${tenantSlug}` }}
+            courses={publishedCourses.map((c) => ({
+              id: c.id,
+              title: c.title,
+              level: c.level,
+              lessonsCount: c.modules.reduce((sum, m) => sum + m._count.lessons, 0),
+              price: Number(c.priceAmount) > 0 ? `$${c.priceAmount.toString()} ${c.currency}` : "Gratis",
+              imageUrl: c.imageUrl,
+              href: `/a/${tenantSlug}/courses/${c.slug}`,
+            }))}
+          />
+
+          <PanelColorSettings initial={tenantRecord?.panelColor ?? null} />
+
+          <TimezoneSettings initial={academy.timezone} />
 
           <section className="mt-10 p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
             <div>

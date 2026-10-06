@@ -31,8 +31,9 @@ export class AuditService {
     try {
       return await prisma.auditLog.findMany({
         where: { tenantId },
+        // Solo lo que se muestra: nunca el hash de la contraseña del usuario
         include: {
-          user: true,
+          user: { select: { id: true, name: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
         take: 50,

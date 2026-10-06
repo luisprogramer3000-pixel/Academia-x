@@ -100,7 +100,17 @@ export const VOCABULARY_RULES =
   "El significado es breve y claro (máx. 12 palabras) y el ejemplo es una oración completa distinta de la lectura.";
 
 /** Idiomas de apoyo para la clase bilingüe */
-export const NATIVE_LANGUAGES = ["English", "Português", "Français", "Deutsch", "Italiano", "中文", "日本語", "العربية", "Русский"];
+/**
+ * Idiomas de las clases (idioma de la clase y lengua nativa de los alumnos usan
+ * la MISMA lista): los básicos primero; "Otro" permite escribir cualquier idioma.
+ */
+export const CLASS_LANGUAGES = [
+  "Español", "English", "Français", "Deutsch", "Italiano", "Português",
+  "中文 (Chino)", "日本語 (Japonés)", "한국어 (Coreano)", "العربية (Árabe)", "Русский (Ruso)", "Nederlands (Neerlandés)", "Türkçe (Turco)", "हिन्दी (Hindi)",
+];
+export const OTHER_LANGUAGE = "Otro…";
+/** @deprecated usar CLASS_LANGUAGES */
+export const NATIVE_LANGUAGES = CLASS_LANGUAGES;
 
 /**
  * Clase bilingüe (sobre todo A1): el alumno se apoya en su idioma nativo sin

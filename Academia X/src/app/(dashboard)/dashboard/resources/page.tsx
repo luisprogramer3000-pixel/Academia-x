@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatInTimezone } from "@/lib/timezone";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, STAFF_ROLES } from "@/lib/session";
@@ -6,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { ResourceCardActions } from "./ResourceCardActions";
 import { CalendarClock, FolderOpen, GraduationCap, Plus, Search, Wand2 } from "lucide-react";
 
-const dateFmt = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric" });
+
 
 export default async function ResourcesPage({ searchParams }: { searchParams: Promise<{ q?: string; subject?: string }> }) {
   const { q = "", subject = "" } = await searchParams;
@@ -72,7 +73,7 @@ export default async function ResourcesPage({ searchParams }: { searchParams: Pr
               />
             </div>
             <select name="subject" defaultValue={subject} className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white">
-              <option value="">Todas las disciplinas</option>
+              <option value="">Todas las asignaturas</option>
               {subjects.map((s) => s.subject && <option key={s.subject} value={s.subject}>{s.subject}</option>)}
             </select>
             <button className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium">Filtrar</button>
@@ -121,7 +122,7 @@ export default async function ResourcesPage({ searchParams }: { searchParams: Pr
                     <p className="text-xs text-slate-400">{[r.subject, r.grade].filter(Boolean).join(" · ")}</p>
                   </Link>
                   <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                    <span>{r.user.name || r.user.email} · {dateFmt.format(r.createdAt)}</span>
+                    <span>{r.user.name || r.user.email} · {formatInTimezone(r.createdAt, academy.timezone, { day: "numeric", month: "short", year: "numeric" })}</span>
                     <ResourceCardActions id={r.id} title={r.title} />
                   </div>
                 </div>

@@ -152,8 +152,14 @@ export function buildDeck(input: DeckInput, density: TextDensity = "estandar"): 
   const slides: DeckSlide[] = [{ kind: "cover", title: input.lessonTitle, body: input.courseTitle, footnote: input.academyName, image: firstImage }];
   // Primera diapositiva generada por el último bloque de texto: ahí va su imagen
   let lastTextSlide = -1;
+  let pendingTextImage: { at: number; url: string } | null = null;
+  const flushTextImage = () => {
+    if (pendingTextImage && slides[pendingTextImage.at] && !slides[pendingTextImage.at].image) slides[pendingTextImage.at].image = pendingTextImage.url;
+    pendingTextImage = null;
+  };
 
   for (const block of input.blocks) {
+    flushTextImage();
     if (block.type === "image" && block.url) {
       const target = slides[lastTextSlide];
       if (target && !target.image) target.image = block.url;
@@ -173,6 +179,8 @@ export function buildDeck(input: DeckInput, density: TextDensity = "estandar"): 
     if (block.type === "text") {
       const { paragraphs, bullets, numbered } = parseText(block.content || "");
       if (!paragraphs.length && !bullets.length) continue;
+      // La ilustración del concepto acompaña a su primera diapositiva
+      if (block.url) pendingTextImage = { at: slides.length, url: block.url };
       const title = block.title || "Contenido";
 
       if (density === "minimo") {
@@ -267,6 +275,8 @@ export function buildDeck(input: DeckInput, density: TextDensity = "estandar"): 
       slides.push({ kind: "content", title: block.title || (block.type === "video" ? "Video" : "Material"), body: block.url, role: "link" });
     }
   }
+
+  flushTextImage();
 
   // Cierre con el plan del profesor. Va al final para que pueda recortarlo si reparte el PDF.
   const plan = input.teacherPlan;
