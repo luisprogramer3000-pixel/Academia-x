@@ -69,12 +69,6 @@ export default function Home() {
               >
                 Planes
               </a>
-              <Link
-                href="/a/jl-institute"
-                className="text-sky-custom hover:opacity-80 transition-opacity flex items-center gap-1 font-mono text-xs glass-panel px-3 py-1.5 rounded-full border border-amber-500/30 shadow-sm"
-              >
-                Demo: JL Institute <ArrowRight className="w-3 h-3" />
-              </Link>
             </nav>
 
             {/* Right actions */}
@@ -139,12 +133,6 @@ export default function Home() {
                   >
                     Comenzar Mi Academia
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                  <Link
-                    href="/a/jl-institute"
-                    className="px-8 py-4 rounded-xl glass-panel border border-amber-500/30 hover:border-amber-500/60 text-main font-semibold text-base transition-all flex items-center justify-center gap-2"
-                  >
-                    Ver Demostración VIP (JL Institute)
                   </Link>
                 </div>
 

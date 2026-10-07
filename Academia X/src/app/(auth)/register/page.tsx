@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles, ArrowRight, ArrowLeft, School, UserPlus, BookOpen } from "lucide-react";
+import { ArrowRight, ArrowLeft, School } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -37,10 +37,10 @@ function RegisterContent() {
         <div className="p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl backdrop-blur-xl">
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-bold text-white mb-3">
-              ¿Cómo deseas comenzar?
+              Comienza en Mentor Studio Global
             </h1>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Selecciona tu tipo de cuenta para continuar con la configuración en Mentor Studio Global.
+              Crea tu academia con tu propia marca en pocos minutos.
             </p>
           </div>
 
@@ -68,28 +68,6 @@ function RegisterContent() {
               </div>
             </Link>
 
-            {/* Option 2: Join Demo Academy */}
-            <Link
-              href="/a/jl-institute"
-              className="group block p-6 rounded-2xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 transition-all"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-bold text-lg text-white group-hover:text-indigo-300 transition-colors">
-                      Explorar Academia de Demo
-                    </h2>
-                    <ArrowRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Ver un portal público de ejemplo (JL Institute) para conocer la experiencia de los alumnos.
-                  </p>
-                </div>
-              </div>
-            </Link>
           </div>
 
           <div className="mt-8 text-center text-xs text-slate-400">

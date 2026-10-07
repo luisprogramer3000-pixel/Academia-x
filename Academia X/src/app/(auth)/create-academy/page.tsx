@@ -260,7 +260,7 @@ function CreateAcademyContent() {
                       required
                       value={formData.slug}
                       onChange={handleChange}
-                      placeholder="jl-institute"
+                      placeholder="mi-academia"
                       className="bg-transparent w-full text-amber-600 dark:text-amber-400 font-mono font-semibold focus:outline-none text-sm"
                     />
                   </div>
@@ -280,7 +280,7 @@ function CreateAcademyContent() {
                     required
                     value={formData.userEmail}
                     onChange={handleChange}
-                    placeholder="profesor@jl-institute.com"
+                    placeholder="profesor@miacademia.com"
                     className="w-full px-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                   />
                 </div>
