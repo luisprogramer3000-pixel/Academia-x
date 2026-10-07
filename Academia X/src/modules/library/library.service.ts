@@ -168,6 +168,66 @@ export class LibraryService {
     await deleteLibraryFile(doc.storageKey);
   }
 
+  /** Resumen para el panel del administrador: estados, tipos, descargas y aportes de profesores. */
+  static async stats() {
+    const col = await files();
+    const [byStatus, byKind, downloads, topDownloaded, contributors] = await Promise.all([
+      col.aggregate<{ _id: LibraryStatus; count: number }>([{ $group: { _id: "$status", count: { $sum: 1 } } }]).toArray(),
+      col
+        .aggregate<{ _id: string; count: number }>([
+          { $match: { status: "approved" } },
+          {
+            $group: {
+              _id: {
+                $switch: {
+                  branches: [
+                    { case: { $regexMatch: { input: "$mimeType", regex: "^image/" } }, then: "Imágenes" },
+                    { case: { $regexMatch: { input: "$mimeType", regex: "presentation|powerpoint" } }, then: "PowerPoint" },
+                    { case: { $eq: ["$mimeType", "application/pdf"] }, then: "PDF" },
+                    { case: { $regexMatch: { input: "$mimeType", regex: "^(audio|video)/" } }, then: "Audio y video" },
+                  ],
+                  default: "Otros",
+                },
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+        ])
+        .toArray(),
+      col.aggregate<{ total: number }>([{ $group: { _id: null, total: { $sum: "$downloads" } } }]).toArray(),
+      col.find({ status: "approved", downloads: { $gt: 0 } }).sort({ downloads: -1 }).limit(5).toArray(),
+      // Profesores (no el administrador) que han aportado archivos
+      col
+        .aggregate<{ _id: string; name: string; academy: string | null; total: number; approved: number; pending: number }>([
+          { $match: { "uploadedBy.isPlatformAdmin": false } },
+          {
+            $group: {
+              _id: "$uploadedBy.userId",
+              name: { $last: "$uploadedBy.name" },
+              academy: { $last: "$uploadedBy.tenantName" },
+              total: { $sum: 1 },
+              approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
+              pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+            },
+          },
+          { $sort: { pending: -1, total: -1 } },
+          { $limit: 20 },
+        ])
+        .toArray(),
+    ]);
+    const count = (s: LibraryStatus) => byStatus.find((b) => b._id === s)?.count ?? 0;
+    return {
+      approved: count("approved"),
+      pending: count("pending"),
+      rejected: count("rejected"),
+      byKind: byKind.map((k) => ({ label: k._id, count: k.count })),
+      downloads: downloads[0]?.total ?? 0,
+      topDownloaded: topDownloaded.map((d) => ({ id: d._id.toHexString(), title: d.title, downloads: d.downloads })),
+      contributors: contributors.map((c) => ({ userId: c._id, name: c.name, academy: c.academy, total: c.total, approved: c.approved, pending: c.pending })),
+    };
+  }
+
   static async countDownload(id: string) {
     const _id = objectId(id);
     if (_id) await (await files()).updateOne({ _id }, { $inc: { downloads: 1 } });

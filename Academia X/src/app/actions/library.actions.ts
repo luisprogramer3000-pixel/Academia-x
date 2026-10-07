@@ -75,6 +75,7 @@ export async function registerLibraryFileAction(input: unknown) {
       },
     });
     revalidatePath("/dashboard/biblioteca");
+    revalidatePath("/dashboard/admin/sales");
     return { success: true as const, status: doc.status };
   } catch (error) {
     return fail(error, "No se pudo guardar el archivo en la biblioteca.");
@@ -90,6 +91,7 @@ export async function reviewLibraryFileAction(id: string, decision: "approved" |
     const cleanNote = z.string().trim().max(300).parse(note ?? "");
     await LibraryService.review(id, value, cleanNote || null);
     revalidatePath("/dashboard/biblioteca");
+    revalidatePath("/dashboard/admin/sales");
     return { success: true as const };
   } catch (error) {
     return fail(error, "No se pudo revisar el archivo.");
@@ -101,6 +103,7 @@ export async function deleteLibraryFileAction(id: string) {
     const ctx = await requireTenantAccess(STAFF_ROLES);
     await LibraryService.remove(id, { userId: ctx.userId, isPlatformAdmin: ctx.isSuperAdmin });
     revalidatePath("/dashboard/biblioteca");
+    revalidatePath("/dashboard/admin/sales");
     return { success: true as const };
   } catch (error) {
     return fail(error, "No se pudo eliminar el archivo.");

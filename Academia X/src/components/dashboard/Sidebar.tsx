@@ -24,7 +24,11 @@ import {
   Trash2,
   Library,
   Pencil,
+  ShieldCheck,
+  BadgeDollarSign,
+  Cpu,
 } from "lucide-react";
+import { useIsPlatformAdmin } from "@/components/dashboard/AdminFlag";
 
 interface SidebarProps {
   tenantSlug: string;
@@ -33,6 +37,7 @@ interface SidebarProps {
 
 export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
   const pathname = usePathname();
+  const isPlatformAdmin = useIsPlatformAdmin();
 
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -95,6 +100,32 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
               </Link>
             );
           })}
+
+          {/* Administración de la plataforma (solo super admin) */}
+          {isPlatformAdmin && (
+            <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-1">
+              <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" /> Administración
+              </p>
+              {[
+                { label: "Ventas y biblioteca", href: "/dashboard/admin/sales", icon: BadgeDollarSign },
+                { label: "Créditos IA (global)", href: "/dashboard/admin/ai-credits", icon: Cpu },
+              ].map(({ label, href, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    pathname.startsWith(href)
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Regresar a la página principal */}
           <div className="pt-3 mt-3 border-t border-slate-800/80">
