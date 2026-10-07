@@ -18,6 +18,7 @@ import {
   Layers,
   FileCheck,
   Check,
+  Mail,
 } from "lucide-react";
 import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
@@ -408,6 +409,12 @@ export default function Home() {
               <span className="font-bold gold-gradient-text">Mentor Studio Global</span>
               <span className="text-xs text-subtle-custom">| VIP EdTech Platform</span>
             </div>
+            <a
+              href="mailto:info@mentorstudioglobal.com"
+              className="flex items-center gap-2 text-sm font-semibold text-gold-custom hover:opacity-80 transition-opacity"
+            >
+              <Mail className="w-4 h-4" /> info@mentorstudioglobal.com
+            </a>
             <p className="text-xs text-subtle-custom font-medium">
               © 2026 Mentor Studio Global — Virtual Language & Knowledge Suite. Todos los derechos reservados.
             </p>
