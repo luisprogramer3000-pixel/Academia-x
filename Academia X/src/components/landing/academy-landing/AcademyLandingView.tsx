@@ -33,13 +33,24 @@ export interface AcademyLandingViewProps {
   links: { login: string; join: string };
 }
 
+/** Textos que se muestran mientras la academia no escriba los suyos (el editor los usa como punto de partida). */
+export function academyLandingDefaults(academyName: string) {
+  return {
+    headline: "Formación de excelencia en enseñanza de idiomas",
+    subheadline: `Bienvenido a la página oficial de ${academyName}. Explora nuestros cursos interactivos y potencia tu aprendizaje.`,
+    callToAction: "Ver cursos",
+  };
+}
+
 export function AcademyLandingView({ landing, academy, courses, links }: AcademyLandingViewProps) {
   const template = getLandingTemplate(landing?.template);
-  const heroImageUrl = landing?.heroImageUrl || courses.find((c) => c.imageUrl)?.imageUrl || null;
+  // Imagen propia en cualquier modelo; la portada del primer curso solo en "Con imagen"
+  const heroImageUrl = landing?.heroImageUrl || (template.usesImage ? courses.find((c) => c.imageUrl)?.imageUrl : null) || null;
   const vars = landingVars(template, { accent: academy.primaryColor, brandBg: academy.secondaryColor, heroImageUrl });
-  const headline = landing?.headline || "Formación de excelencia en enseñanza de idiomas";
-  const subheadline = landing?.subheadline || `Bienvenido a la página oficial de ${academy.name}. Explora nuestros cursos interactivos y potencia tu aprendizaje.`;
-  const cta = landing?.callToAction || "Ver cursos";
+  const defaults = academyLandingDefaults(academy.name);
+  const headline = landing?.headline || defaults.headline;
+  const subheadline = landing?.subheadline || defaults.subheadline;
+  const cta = landing?.callToAction || defaults.callToAction;
   const centered = template.heroAlign === "center";
   const heading = template.serif ? "font-serif" : "";
   const card = "rounded-2xl border bg-[var(--lp-surface)] border-[var(--lp-border)]";
@@ -69,7 +80,7 @@ export function AcademyLandingView({ landing, academy, courses, links }: Academy
           </nav>
         </header>
 
-        <section className={`max-w-5xl mx-auto px-4 sm:px-6 ${template.usesImage ? "pt-20 pb-28 sm:pt-28 sm:pb-36" : "pt-14 pb-20 sm:pt-20 sm:pb-24"} ${centered ? "text-center" : ""}`}>
+        <section className={`max-w-5xl mx-auto px-4 sm:px-6 ${template.usesImage || heroImageUrl ? "pt-20 pb-28 sm:pt-28 sm:pb-36" : "pt-14 pb-20 sm:pt-20 sm:pb-24"} ${centered ? "text-center" : ""}`}>
           <span style={softBorder} className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-[0.18em] mb-6 border opacity-90">
             <Award className="w-3.5 h-3.5" /> Academia certificada
           </span>

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Bell, CheckCheck, Sparkles, AlertTriangle, AlertCircle, RefreshCw, XCircle, UserPlus } from "lucide-react";
 import {
-  getTenantNotificationsAction,
   markNotificationReadAction,
   markAllNotificationsReadAction,
 } from "@/app/actions/notification.actions";
@@ -30,9 +29,17 @@ export function NotificationBell({ tenantId }: NotificationBellProps) {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const inFlight = useRef(false);
+
+  // GET normal (no acción del servidor): las acciones de una página van en cola,
+  // y esta consulta periódica retrasaba los botones de guardar del panel.
   const fetchNotifications = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
-      const res = await getTenantNotificationsAction(tenantId);
+      const response = await fetch("/api/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const res = (await response.json()) as { success: boolean; notifications?: NotificationItem[]; unreadCount?: number };
       if (res.success && res.notifications) {
         setNotifications(res.notifications);
         setUnreadCount(res.unreadCount || 0);
@@ -40,6 +47,8 @@ export function NotificationBell({ tenantId }: NotificationBellProps) {
     } catch {
       // Fallo de red o servidor reiniciándose (recompilación, nueva versión publicada):
       // se reintenta en la siguiente consulta sin ensuciar la consola.
+    } finally {
+      inFlight.current = false;
     }
   };
 

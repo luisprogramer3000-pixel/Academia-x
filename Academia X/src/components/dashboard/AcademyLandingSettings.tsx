@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, ExternalLink, Layout, Loader2, Monitor, Smartphone, X } from "lucide-react";
 import { LANDING_TEMPLATES } from "@/components/landing/course-landing/templates";
-import { AcademyLandingView, type AcademyLandingCourse } from "@/components/landing/academy-landing/AcademyLandingView";
+import { AcademyLandingView, academyLandingDefaults, type AcademyLandingCourse } from "@/components/landing/academy-landing/AcademyLandingView";
 import { LessonImagePicker } from "./LessonImagePicker";
 import { saveAcademyLandingAction } from "@/app/actions/academy.actions";
 
@@ -33,8 +33,16 @@ export function AcademyLandingSettings({
   courses: AcademyLandingCourse[];
   publicUrl: string;
 }) {
-  const [draft, setDraft] = useState<Landing>(initial);
-  const [saved, setSaved] = useState<Landing>(initial);
+  // Los campos arrancan con el texto que hoy se ve en la página (no vacíos con un ejemplo gris)
+  const defaults = academyLandingDefaults(academy.name);
+  const start: Landing = {
+    ...initial,
+    headline: initial.headline || defaults.headline,
+    subheadline: initial.subheadline || defaults.subheadline,
+    callToAction: initial.callToAction || defaults.callToAction,
+  };
+  const [draft, setDraft] = useState<Landing>(start);
+  const [saved, setSaved] = useState<Landing>(start);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -49,7 +57,7 @@ export function AcademyLandingSettings({
     setBusy(false);
     if (!res.success) return setMessage({ ok: false, text: res.error });
     setSaved(draft);
-    setMessage({ ok: true, text: "Página publicada." });
+    setMessage({ ok: true, text: "Página publicada. Ya la ven tus visitantes." });
   }
 
   const template = LANDING_TEMPLATES.find((t) => t.id === draft.template);
@@ -104,18 +112,18 @@ export function AcademyLandingSettings({
       <div className="grid md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
           <label className={label}>Titular</label>
-          <input value={draft.headline} onChange={(e) => set({ headline: e.target.value })} maxLength={120} placeholder="Formación de excelencia en enseñanza de idiomas" className={input} />
+          <input value={draft.headline} onChange={(e) => set({ headline: e.target.value })} maxLength={120} placeholder={defaults.headline} className={input} />
         </div>
         <div className="md:col-span-2">
           <label className={label}>Subtítulo</label>
-          <textarea value={draft.subheadline} onChange={(e) => set({ subheadline: e.target.value })} maxLength={300} rows={2} placeholder={`Bienvenido a la página oficial de ${academy.name}…`} className={`${input} resize-none`} />
+          <textarea value={draft.subheadline} onChange={(e) => set({ subheadline: e.target.value })} maxLength={300} rows={2} placeholder={defaults.subheadline} className={`${input} resize-none`} />
         </div>
         <div>
           <label className={label}>Texto del botón principal</label>
-          <input value={draft.callToAction} onChange={(e) => set({ callToAction: e.target.value })} maxLength={40} placeholder="Ver cursos" className={input} />
+          <input value={draft.callToAction} onChange={(e) => set({ callToAction: e.target.value })} maxLength={40} placeholder={defaults.callToAction} className={input} />
         </div>
         <div>
-          <label className={label}>Imagen de portada {template?.usesImage ? "" : <span className="normal-case font-normal text-slate-500">(modelo “Con imagen”)</span>}</label>
+          <label className={label}>Imagen de portada {template?.usesImage ? "" : <span className="normal-case font-normal text-slate-500">(opcional)</span>}</label>
           {draft.heroImageUrl ? (
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -127,7 +135,11 @@ export function AcademyLandingSettings({
           ) : (
             <LessonImagePicker compact onPick={(img) => set({ heroImageUrl: img.url })} />
           )}
-          {!draft.heroImageUrl && <p className="text-[11px] text-slate-500 mt-1">Sin imagen se usa la portada de tu primer curso.</p>}
+          {!draft.heroImageUrl && (
+            <p className="text-[11px] text-slate-500 mt-1">
+              {template?.usesImage ? "Sin imagen se usa la portada de tu primer curso." : "Va de fondo detrás del título, con un velo para que el texto se lea."}
+            </p>
+          )}
         </div>
       </div>
 
@@ -158,11 +170,14 @@ export function AcademyLandingSettings({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        {message && <p className={`text-sm ${message.ok ? "text-emerald-400" : "text-red-400"}`}>{message.text}</p>}
-        {dirty && <button type="button" onClick={() => setDraft(saved)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Descartar cambios</button>}
+      {/* Barra de publicar: fija abajo mientras haya cambios o un aviso, para no tener que buscar el botón */}
+      <div className={`${dirty || busy || message ? "sticky bottom-4 z-20" : ""} flex flex-wrap items-center justify-end gap-3 p-3 rounded-2xl ${dirty || busy ? "bg-slate-950/95 border border-blue-500/40 shadow-2xl backdrop-blur" : ""}`}>
+        {dirty && !busy && <p className="text-sm text-amber-300 mr-auto">Tienes cambios sin publicar.</p>}
+        {message && !dirty && <p className={`text-sm mr-auto ${message.ok ? "text-emerald-400" : "text-red-400"}`}>{message.text}</p>}
+        {message && dirty && !message.ok && <p className="text-sm text-red-400">{message.text}</p>}
+        {dirty && !busy && <button type="button" onClick={() => setDraft(saved)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Descartar cambios</button>}
         <button type="button" onClick={save} disabled={busy || !dirty} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2">
-          {busy && <Loader2 className="w-4 h-4 animate-spin" />} Publicar página
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />} {busy ? "Publicando…" : "Publicar página"}
         </button>
       </div>
     </section>

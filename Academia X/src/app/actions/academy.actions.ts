@@ -226,8 +226,9 @@ export async function saveAcademyLandingAction(input: unknown) {
     const { tenantId, tenant } = await requireTenantAccess(OWNER_ONLY);
     const { saveAcademyLanding } = await import("@/modules/academy/academy-landing");
     const landing = await saveAcademyLanding(tenantId, input);
+    // Solo la página pública: el editor ya muestra lo guardado, y revalidar
+    // /dashboard/settings obligaría a regenerar toda la configuración en la respuesta
     revalidatePath(`/a/${tenant.slug}`);
-    revalidatePath("/dashboard/settings");
     return { success: true as const, landing };
   } catch (error) {
     if (error instanceof z.ZodError) return { success: false as const, error: error.issues[0]?.message ?? "Datos no válidos." };
