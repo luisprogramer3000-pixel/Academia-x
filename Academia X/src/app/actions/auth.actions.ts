@@ -91,7 +91,8 @@ export async function loginAction(formData: FormData) {
     return {
       success: true,
       tenantSlug: membership.tenant.slug,
-      redirectTo: destinationForRole(membership.role),
+      // El administrador de la plataforma entra directo a su panel de ventas y biblioteca
+      redirectTo: user.globalRole === "SUPER_ADMIN" ? "/dashboard/admin/sales" : destinationForRole(membership.role),
     };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
