@@ -17,8 +17,27 @@ const READ_OPERATIONS = new Set([
   "findMany", "findFirst", "findFirstOrThrow", "findUnique", "findUniqueOrThrow", "count", "aggregate", "groupBy",
 ]);
 
+/**
+ * Supabase a veces tarda más de 5 s en abrir una conexión (el límite por defecto
+ * de Prisma) y la operación falla con "Can't reach database server". Si la URL
+ * no los trae, se añaden connect_timeout=15 y pool_timeout=20.
+ */
+function databaseUrl(): string | undefined {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (!url.searchParams.has("connect_timeout")) url.searchParams.set("connect_timeout", "15");
+    if (!url.searchParams.has("pool_timeout")) url.searchParams.set("pool_timeout", "20");
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function createClient() {
-  return new PrismaClient().$extends({
+  const url = databaseUrl();
+  return new PrismaClient(url ? { datasources: { db: { url } } } : undefined).$extends({
     name: "soft-delete",
     query: {
       $allModels: {
