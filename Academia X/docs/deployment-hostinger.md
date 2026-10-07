@@ -69,18 +69,28 @@ está en `.gitignore`, así que nunca llega al repositorio):
 
 ```bash
 NODE_ENV="production"
-NEXT_PUBLIC_APP_URL="https://mentorstudioglobal.com"
+# Dirección pública oficial (con www). nginx redirige mentorstudioglobal.com → www.
+NEXT_PUBLIC_APP_URL="https://www.mentorstudioglobal.com"
+# Dominio BASE, SIN www: con él se reconocen los subdominios de las academias
+# (academia.mentorstudioglobal.com). El middleware ya acepta www por su cuenta.
 NEXT_PUBLIC_APP_HOST="mentorstudioglobal.com"
 
-# Supabase — connection_limit=10 porque es un proceso permanente, no serverless
-DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10"
+# Supabase — connection_limit=10 porque es un proceso permanente, no serverless.
+# connect_timeout/pool_timeout: Supabase tarda a veces ~6 s en abrir una conexión
+# y el límite por defecto de Prisma (5 s) daría errores intermitentes.
+DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10&connect_timeout=15&pool_timeout=20"
 DIRECT_URL="postgresql://...pooler.supabase.com:5432/postgres"
 NEXT_PUBLIC_SUPABASE_URL="https://xxxx.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_..."
 
+# Archivos subidos en Supabase Storage (bucket privado). Clave SECRETA: nunca con NEXT_PUBLIC_
+SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
+
 # Secretos (generar valores nuevos, nunca reutilizar los de desarrollo)
 JWT_SECRET="..."
 CRON_SECRET="..."
+# Los certificados se firman con CERTIFICATE_SIGNING_SECRET o, si falta, con JWT_SECRET.
+# Cambiar cualquiera de los dos después invalida la verificación de los ya emitidos.
 
 # Stripe (claves live)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
@@ -97,6 +107,16 @@ STRIPE_PRICE_ACADEMY_YEARLY="price_..."
 AI_PROVIDER="openai"
 OPENAI_API_KEY="sk-proj-..."
 OPENAI_MODEL="gpt-4o-mini"
+AI_MODEL_PREMIUM="gpt-4o"
+# Imágenes de las clases y las presentaciones (fal.ai)
+FAL_KEY="..."
+
+# Biblioteca de la plataforma (MongoDB Atlas). En Atlas → Network Access hay que
+# permitir la IP del VPS, o la biblioteca mostrará "no está disponible".
+MONGODB_URI="mongodb+srv://..."
+
+# Soporte (lo muestra la página de Soporte VIP)
+SUPPORT_EMAIL="info@mentorstudioglobal.com"
 
 # Emails
 RESEND_API_KEY="re_..."
@@ -134,7 +154,18 @@ pm2 save
 pm2 startup        # ejecutar el comando que imprime, para que arranque al reiniciar
 
 curl http://127.0.0.1:3000/api/health   # debe responder {"status":"ok","db":"ok"}
+
+# Biblioteca: crea el bucket privado y los índices de MongoDB (seguro repetirlo)
+npx tsx scripts/setup-library.ts
 ```
+
+El proceso de PM2 se llama **`mentor-studio-global`** (ver `deploy/ecosystem.config.js`):
+`pm2 logs mentor-studio-global`, `pm2 reload mentor-studio-global`.
+
+> La base de datos y la biblioteca son las mismas que en desarrollo: las academias,
+> la cuenta del administrador y los 56 archivos de la biblioteca ya están ahí.
+> La carpeta `public/archivos de power point para la biblioteca` **no** se sube al
+> servidor (está en `.gitignore`): sus archivos ya están en la biblioteca.
 
 ---
 
@@ -145,7 +176,7 @@ sudo cp deploy/nginx/mentor-studio.conf /etc/nginx/sites-available/mentor-studio
 sudo nano /etc/nginx/sites-available/mentor-studio
 ```
 
-Comentá el bloque `server` de HTTPS (el que escucha en el 443): todavía no existen
+Comentá los dos bloques `server` de HTTPS (los que escuchan en el 443): todavía no existen
 los certificados y nginx se niega a arrancar si apunta a un archivo que no está.
 Después activá el sitio:
 
@@ -200,10 +231,14 @@ renovación automática (estos sí se renuevan solos porque usan validación HTT
 
 ---
 
-## 6. Cron del reset mensual de créditos
+## 6. Tareas programadas (cron)
 
-`vercel.json` **no se ejecuta en un VPS**. Sin este paso, los clientes pagan el
-segundo mes y no reciben créditos nuevos.
+`vercel.json` **no se ejecuta en un VPS**. Hay dos tareas:
+
+- **Reset de créditos de IA** (cada hora): sin él, los clientes pagan el segundo mes y
+  no reciben créditos nuevos.
+- **Vaciado de la papelera** (diario): borra definitivamente lo que lleva más de 30 días
+  en la papelera.
 
 ```bash
 chmod +x /var/www/mentor-studio/deploy/*.sh
@@ -214,27 +249,74 @@ Agregar:
 
 ```
 0 * * * * /var/www/mentor-studio/deploy/cron-ai-credit-reset.sh
+30 4 * * * /var/www/mentor-studio/deploy/cron-purge-trash.sh
 ```
 
-Probarlo a mano antes de confiar en él:
+Probarlos a mano antes de confiar en ellos:
 
 ```bash
 sudo /var/www/mentor-studio/deploy/cron-ai-credit-reset.sh
-cat /var/log/mentor-studio/cron.log
+sudo /var/www/mentor-studio/deploy/cron-purge-trash.sh
+cat /var/log/mentor-studio/cron.log      # deben aparecer dos líneas "OK"
 ```
 
 ---
 
-## 7. Webhook de Stripe
+## 7. Stripe en modo real (live)
 
-En el panel de Stripe → Developers → Webhooks, endpoint:
+Todo en el panel de Stripe con el interruptor **"Modo de prueba" apagado**. Lo creado
+en modo de prueba no existe en modo real: hay que crearlo de nuevo.
+
+### 7.1 Claves
+
+Developers → API keys: copiá `pk_live_...` a `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` y
+`sk_live_...` a `STRIPE_SECRET_KEY`.
+
+### 7.2 Los 6 precios de los planes
+
+Product catalog → crear 3 productos, cada uno con 2 precios recurrentes en USD, y
+copiar cada `price_...` a su variable:
+
+| Producto | Precio mensual | Precio anual | Variables |
+|---|---|---|---|
+| Starter | 29,00 USD / mes | 278,40 USD / año | `STRIPE_PRICE_STARTER_MONTHLY` / `_YEARLY` |
+| Professional VIP | 79,00 USD / mes | 758,40 USD / año | `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` |
+| Academy Executive | 199,00 USD / mes | 1910,40 USD / año | `STRIPE_PRICE_ACADEMY_MONTHLY` / `_YEARLY` |
+
+Los importes tienen que coincidir con `src/modules/billing/plans.ts`. Los paquetes de
+créditos de IA no necesitan precios: se cobran con el importe de cada paquete.
+
+### 7.3 Webhook
+
+Developers → Webhooks → Add endpoint:
 
 ```
-https://mentorstudioglobal.com/api/webhooks/stripe
+https://www.mentorstudioglobal.com/api/webhooks/stripe
 ```
 
-Copiá el `whsec_...` al `.env.production.local` y reiniciá (`pm2 reload mentor-studio`).
-Sin esto, los pagos se cobran pero **la suscripción nunca se activa**.
+Eventos que hay que marcar (son los que procesa la aplicación):
+
+```
+checkout.session.completed
+checkout.session.async_payment_succeeded
+customer.subscription.created
+customer.subscription.updated
+customer.subscription.deleted
+customer.subscription.paused
+customer.subscription.resumed
+invoice.paid
+invoice.payment_failed
+```
+
+Copiá el `whsec_...` a `STRIPE_WEBHOOK_SECRET` y reiniciá (`pm2 reload mentor-studio-global`).
+Sin esto, los pagos se cobran pero **la suscripción nunca se activa**, y el panel
+"Ventas y biblioteca" no se entera de renovaciones, cancelaciones ni pagos fallidos.
+
+### 7.4 Prueba real
+
+Contratá el plan Starter mensual con una tarjeta tuya desde una academia de prueba,
+comprobá que la academia queda activa y que aparece en `/dashboard/admin/sales`, y
+después reembolsalo y cancelalo desde Stripe.
 
 ---
 
@@ -261,13 +343,16 @@ Dos cosas que no están en el repositorio y se pierden si no las respaldás:
 
 ## 10. Comprobaciones finales
 
-- [ ] `https://mentorstudioglobal.com` carga con candado y sin avisos
+- [ ] `https://mentorstudioglobal.com` redirige a `https://www.mentorstudioglobal.com`, con candado y sin avisos
+- [ ] Iniciar sesión con admin@mentorstudioglobal.com lleva a `/dashboard/admin/sales`
+- [ ] La Biblioteca de la plataforma muestra los archivos (MongoDB conectado)
+- [ ] El QR de un certificado abre `https://www.mentorstudioglobal.com/verify/...`
 - [ ] `https://una-academia.mentorstudioglobal.com` muestra el portal de esa academia
 - [ ] `/api/health` responde `{"status":"ok"}`
 - [ ] Registro → pago con Stripe → la academia queda activa
 - [ ] Subir un logo de más de 2MB da error claro, y uno válido se ve tras recargar
 - [ ] Llega el email de invitación a un alumno
-- [ ] `sudo crontab -l` muestra la línea del reset
+- [ ] `sudo crontab -l` muestra las dos líneas (reset de créditos y papelera)
 - [ ] `pm2 list` muestra el proceso `online`; tras `sudo reboot` sigue levantado
 - [ ] La API pública de Supabase no devuelve datos:
       `curl "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/User?select=email" -H "apikey: $CLAVE"` → `[]`

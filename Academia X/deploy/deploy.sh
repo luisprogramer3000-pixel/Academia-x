@@ -33,7 +33,7 @@ HEALTH="$(curl -fsS -m 20 http://127.0.0.1:3000/api/health || true)"
 echo "    $HEALTH"
 
 if [[ "$HEALTH" != *'"status":"ok"'* ]]; then
-  echo "‼️  La aplicación no responde correctamente. Revisá: pm2 logs mentor-studio --lines 100" >&2
+  echo "‼️  La aplicación no responde correctamente. Revisá: pm2 logs mentor-studio-global --lines 100" >&2
   exit 1
 fi
 

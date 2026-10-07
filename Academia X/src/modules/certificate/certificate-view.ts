@@ -17,8 +17,12 @@ export async function buildCertificateData(cert: {
   course: { title: string; level: string };
   tenant: { name: string; logoUrl: string | null; timezone: string };
 }): Promise<CertificateData> {
-  const host = (process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com").replace(/^https?:\/\//, "");
-  const verifyUrl = `https://${host}/verify/${cert.code}`;
+  // La dirección pública real (https://www.mentorstudioglobal.com); en local, el dominio base
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const base = appUrl.startsWith("https://")
+    ? appUrl
+    : `https://${(process.env.NEXT_PUBLIC_APP_HOST || "mentorstudioglobal.com").replace(/^https?:\/\//, "")}`;
+  const verifyUrl = `${base}/verify/${cert.code}`;
   const [issuer, qrSvg] = await Promise.all([
     cert.issuedByUserId ? prisma.user.findUnique({ where: { id: cert.issuedByUserId }, select: { name: true } }).catch(() => null) : null,
     QRCode.toString(verifyUrl, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#111827", light: "#ffffff" } }).catch(() => null),
