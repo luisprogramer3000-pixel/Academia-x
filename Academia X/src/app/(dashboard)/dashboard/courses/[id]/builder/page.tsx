@@ -23,10 +23,12 @@ const PAGE_TOOLS: PageTool[] = MATERIAL_TOOLS.filter((t) => t.id !== "rubrica").
 
 interface BuilderPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ generar?: string; publico?: string }>;
 }
 
-export default async function CourseBuilderPage({ params }: BuilderPageProps) {
+export default async function CourseBuilderPage({ params, searchParams }: BuilderPageProps) {
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
   const ctx = await getDashboardContext(STAFF_ROLES);
   const { tenantId, tenant: academy } = ctx;
   const tenantSlug = academy.slug;
@@ -288,6 +290,8 @@ export default async function CourseBuilderPage({ params }: BuilderPageProps) {
                   courseTitle={courseData.title}
                   courseLevel={courseData.level}
                   hasExistingModules={courseData.modules.length > 0}
+                  autoStart={sp.generar === "1"}
+                  initialAudience={(sp.publico ?? "").slice(0, 200)}
                 />
               </div>
 

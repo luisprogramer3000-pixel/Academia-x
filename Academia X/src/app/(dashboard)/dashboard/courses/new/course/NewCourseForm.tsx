@@ -11,6 +11,10 @@ export function NewCourseForm() {
   const [state, formAction, pending] = useActionState<CreateCourseState, FormData>(createCourseAction, {});
   const v = state.values ?? {};
   const [descLength, setDescLength] = useState(v.description?.length ?? 0);
+  // El nivel sale del título ("Español B2 - …") mientras el profesor no lo elija a mano
+  const [level, setLevel] = useState(v.level || "B1");
+  const [levelTouched, setLevelTouched] = useState(Boolean(v.level));
+  const [generate, setGenerate] = useState(v.generateStructure !== "0");
   return (
     <form action={formAction} className="space-y-6">
 
@@ -19,6 +23,10 @@ export function NewCourseForm() {
         <input
           type="text"
           name="title"
+          onChange={(e) => {
+            const m = e.target.value.toUpperCase().match(/(?:^|[^A-Z])([ABC][12])(?![0-9])/);
+            if (m && !levelTouched) setLevel(m[1]);
+          }}
           required
           defaultValue={v.title}
           placeholder="Ej. Español B2 - Negocios e Industria"
@@ -45,9 +53,11 @@ export function NewCourseForm() {
       <div className="grid sm:grid-cols-2 gap-6">
         <div>
           <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Nivel MCER</label>
+          <input type="hidden" name="levelTouched" value={levelTouched ? "1" : "0"} />
           <select
             name="level"
-            defaultValue={v.level || "B1"}
+            value={level}
+            onChange={(e) => { setLevel(e.target.value); setLevelTouched(true); }}
             className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
           >
             <option value="A1">A1 - Acceso (Principiante)</option>
@@ -96,6 +106,29 @@ export function NewCourseForm() {
           />
         </div>
       </div>
+
+      <div>
+        <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">¿A quién va dirigido? <span className="normal-case font-normal text-slate-500">(opcional)</span></label>
+        <input
+          type="text"
+          name="audience"
+          maxLength={200}
+          defaultValue={v.audience}
+          placeholder="Ej. Adolescentes de 14-16 años, adultos que viajan por trabajo…"
+          className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
+        />
+      </div>
+
+      <label className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition-colors ${generate ? "border-indigo-500/50 bg-indigo-500/5" : "border-slate-800"}`}>
+        <input type="hidden" name="generateStructure" value={generate ? "1" : "0"} />
+        <input type="checkbox" checked={generate} onChange={(e) => setGenerate(e.target.checked)} className="mt-1 w-4 h-4 accent-indigo-500" />
+        <span>
+          <span className="block text-sm font-semibold text-white">Generar la estructura del curso con IA al crearlo</span>
+          <span className="block text-xs text-slate-400 mt-0.5">
+            La IA propone los módulos y lecciones según el título, el nivel y el público. Tú la revisas y la apruebas antes de añadirla (3 créditos).
+          </span>
+        </span>
+      </label>
 
       {state.error && (
         <div role="alert" className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{state.error}</div>

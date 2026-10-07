@@ -37,7 +37,8 @@ export interface CourseLandingViewProps {
 
 export function CourseLandingView({ landing, course, academy, links }: CourseLandingViewProps) {
   const template = getLandingTemplate(landing?.template);
-  const heroImageUrl = landing?.heroImageUrl || course.imageUrl || null;
+  // "Con imagen" usa la portada del curso si no hay una propia; los demás modelos, solo la subida a la landing
+  const heroImageUrl = landing?.heroImageUrl || (template.usesImage ? course.imageUrl : null) || null;
   const vars = landingVars(template, { accent: academy.primaryColor, brandBg: academy.secondaryColor, heroImageUrl });
 
   const headline = landing?.headline || course.title;
@@ -68,7 +69,7 @@ export function CourseLandingView({ landing, course, academy, links }: CourseLan
           </a>
         </header>
 
-        <section className={`max-w-4xl mx-auto px-4 sm:px-6 ${template.usesImage ? "pt-20 pb-24 sm:pt-28 sm:pb-32" : "pt-12 pb-16 sm:pt-16 sm:pb-20"} ${centered ? "text-center" : ""}`}>
+        <section className={`max-w-4xl mx-auto px-4 sm:px-6 ${template.usesImage || heroImageUrl ? "pt-20 pb-24 sm:pt-28 sm:pb-32" : "pt-12 pb-16 sm:pt-16 sm:pb-20"} ${centered ? "text-center" : ""}`}>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-5 opacity-80">{academy.name}</p>
           <h1 className={`text-3xl sm:text-5xl font-extrabold leading-tight mb-5 ${heading} ${centered ? "" : "max-w-3xl"}`}>{headline}</h1>
           {subheadline && (

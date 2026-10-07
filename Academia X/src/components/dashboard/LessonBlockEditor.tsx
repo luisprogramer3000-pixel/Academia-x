@@ -113,6 +113,8 @@ export function LessonBlockEditor({
       correctOptionIndex: 0,
     };
     setBlocks((prev) => [...prev, newBlock]);
+    // La barra está arriba y el bloque se añade al final: llevar al profesor hasta él
+    setTimeout(() => document.getElementById(newBlock.id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   };
 
   const removeBlock = (id: string) => {
@@ -262,6 +264,64 @@ export function LessonBlockEditor({
 
       {activeTab === "edit" ? (
         <>
+          {/* Barra para añadir bloques: arriba, a mano al empezar a editar */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
+            <span className="block text-xs font-mono font-semibold text-slate-400 uppercase tracking-wider mb-4">
+              Añadir Nuevo Bloque a la Lección:
+            </span>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <button
+                type="button"
+                onClick={() => addBlock("text")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all text-left group"
+              >
+                <Type className="w-5 h-5 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Texto / Teoría</div>
+                <div className="text-[10px] text-slate-400">Explicaciones</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addBlock("image")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all text-left group"
+              >
+                <ImageIcon className="w-5 h-5 text-pink-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Imagen</div>
+                <div className="text-[10px] text-slate-400">Subir o biblioteca</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addBlock("video")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left group"
+              >
+                <Video className="w-5 h-5 text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Video</div>
+                <div className="text-[10px] text-slate-400">YouTube / MP4</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addBlock("resource")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all text-left group"
+              >
+                <FileText className="w-5 h-5 text-emerald-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Recurso PDF</div>
+                <div className="text-[10px] text-slate-400">Archivos & Links</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => addBlock("quiz")}
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all text-left group"
+              >
+                <HelpCircle className="w-5 h-5 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-xs text-white">Quiz / Ejercicio</div>
+                <div className="text-[10px] text-slate-400">Preguntas</div>
+              </button>
+            </div>
+          </div>
           {/* Agente de Clase: prepara la lección entera de una vez */}
           <ClassAgentWizard
             lessonId={lessonId}
@@ -332,6 +392,7 @@ export function LessonBlockEditor({
               blocks.map((block, idx) => (
                 <div
                   key={block.id}
+                  id={block.id}
                   className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all space-y-4 relative group"
                 >
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -633,69 +694,11 @@ export function LessonBlockEditor({
               ))
             ) : (
               <div className="p-12 rounded-3xl bg-slate-900 border border-slate-800 text-center text-slate-400">
-                Aún no has añadido bloques de contenido a esta lección. Usa la barra inferior para comenzar.
+                Aún no has añadido bloques de contenido a esta lección. Usa la barra «Añadir nuevo bloque» de arriba para comenzar.
               </div>
             )}
           </div>
 
-          {/* Add Block Toolbar */}
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800">
-            <span className="block text-xs font-mono font-semibold text-slate-400 uppercase tracking-wider mb-4">
-              Añadir Nuevo Bloque a la Lección:
-            </span>
-
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <button
-                type="button"
-                onClick={() => addBlock("text")}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all text-left group"
-              >
-                <Type className="w-5 h-5 text-blue-400 mb-2 group-hover:scale-110 transition-transform" />
-                <div className="font-semibold text-xs text-white">Texto / Teoría</div>
-                <div className="text-[10px] text-slate-400">Explicaciones</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addBlock("image")}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-pink-500/50 transition-all text-left group"
-              >
-                <ImageIcon className="w-5 h-5 text-pink-400 mb-2 group-hover:scale-110 transition-transform" />
-                <div className="font-semibold text-xs text-white">Imagen</div>
-                <div className="text-[10px] text-slate-400">Subir o biblioteca</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addBlock("video")}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500/50 transition-all text-left group"
-              >
-                <Video className="w-5 h-5 text-indigo-400 mb-2 group-hover:scale-110 transition-transform" />
-                <div className="font-semibold text-xs text-white">Video</div>
-                <div className="text-[10px] text-slate-400">YouTube / MP4</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addBlock("resource")}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all text-left group"
-              >
-                <FileText className="w-5 h-5 text-emerald-400 mb-2 group-hover:scale-110 transition-transform" />
-                <div className="font-semibold text-xs text-white">Recurso PDF</div>
-                <div className="text-[10px] text-slate-400">Archivos & Links</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => addBlock("quiz")}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all text-left group"
-              >
-                <HelpCircle className="w-5 h-5 text-purple-400 mb-2 group-hover:scale-110 transition-transform" />
-                <div className="font-semibold text-xs text-white">Quiz / Ejercicio</div>
-                <div className="text-[10px] text-slate-400">Preguntas</div>
-              </button>
-            </div>
-          </div>
         </>
       ) : (
         /* Vista del alumno con actividades en modo práctica (sin guardar nota) */

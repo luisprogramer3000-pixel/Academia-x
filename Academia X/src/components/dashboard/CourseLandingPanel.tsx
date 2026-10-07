@@ -9,6 +9,7 @@ import { generateLandingPageAIAction } from "@/app/actions/ai.actions";
 import { saveCourseLandingAction, removeCourseLandingAction, generateLandingHeroImageAction } from "@/app/actions/course.actions";
 import { LANDING_TEMPLATES, getLandingTemplate, type LandingTemplateId } from "@/components/landing/course-landing/templates";
 import { landingDraftKey } from "@/components/landing/course-landing/draft";
+import { LessonImagePicker } from "@/components/dashboard/LessonImagePicker";
 
 export interface CourseLanding {
   template?: LandingTemplateId;
@@ -284,29 +285,46 @@ export function CourseLandingPanel({
                 </button>
               </div>
 
-              {/* Imagen de portada */}
-              {template.usesImage && (
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
-                  <label className={label}>Imagen de portada</label>
-                  {draft.heroImageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={draft.heroImageUrl} alt="Portada" className="w-full max-h-52 object-cover rounded-xl border border-slate-800" />
+              {/* Imagen del encabezado (todos los modelos) */}
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+                <label className={label}>Imagen del encabezado {template.usesImage ? "" : "(opcional)"}</label>
+                <p className="text-xs text-slate-400 -mt-1">
+                  Va de fondo detrás del título con un velo para que el texto se lea. Recomendado: foto horizontal de al menos 1600 px de ancho.
+                </p>
+                {draft.heroImageUrl && (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={draft.heroImageUrl} alt="Encabezado" className="w-full max-h-52 object-cover rounded-xl border border-slate-800" />
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ ...draft, heroImageUrl: "" })}
+                      className="absolute top-2 right-2 px-3 py-1.5 rounded-lg bg-slate-950/80 hover:bg-red-600 text-white text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Quitar imagen
+                    </button>
+                  </div>
+                )}
+                <LessonImagePicker
+                  onPick={({ url }) => {
+                    setDraft((d) => (d ? { ...d, heroImageUrl: url } : d));
+                    setMessage({ type: "success", text: "Imagen del encabezado lista. Mírala en la vista previa y publica." });
+                  }}
+                />
+                <p className="text-[11px] text-slate-500 pt-1">O genérala con IA:</p>
+                <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={2} maxLength={500} placeholder="Describe la foto de portada" className={input} />
+                <button
+                  type="button"
+                  onClick={generateImage}
+                  disabled={busy !== null || imagePrompt.trim().length < 5}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center gap-2"
+                >
+                  {busy === "image" ? (
+                    <><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Generando imagen...</>
+                  ) : (
+                    <><ImageIcon className="w-4 h-4" /> {draft.heroImageUrl ? "Generar otra imagen" : "Generar imagen con IA"} (1 crédito)</>
                   )}
-                  <textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={2} maxLength={500} placeholder="Describe la foto de portada" className={input} />
-                  <button
-                    type="button"
-                    onClick={generateImage}
-                    disabled={busy !== null || imagePrompt.trim().length < 5}
-                    className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center gap-2"
-                  >
-                    {busy === "image" ? (
-                      <><span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Generando imagen...</>
-                    ) : (
-                      <><ImageIcon className="w-4 h-4" /> {draft.heroImageUrl ? "Generar otra imagen" : "Generar imagen con IA"} (1 crédito)</>
-                    )}
-                  </button>
-                </div>
-              )}
+                </button>
+              </div>
 
               <div>
                 <label className={label}>Titular</label>

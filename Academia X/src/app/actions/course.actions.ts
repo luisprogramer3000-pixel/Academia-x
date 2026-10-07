@@ -66,7 +66,7 @@ const COURSE_FIELD_LABELS: Record<string, string> = {
  * vuelven al formulario como mensaje; nunca tumban la página.
  */
 export async function createCourseAction(_prev: CreateCourseState, formData: FormData): Promise<CreateCourseState> {
-  const values = Object.fromEntries(["title", "description", "level", "priceAmount", "paymentType", "paymentLink"].map((k) => [k, String(formData.get(k) ?? "")]));
+  const values = Object.fromEntries(["title", "description", "level", "priceAmount", "paymentType", "paymentLink", "audience", "generateStructure"].map((k) => [k, String(formData.get(k) ?? "")]));
   let courseId: string;
   try {
     const { tenantId } = await requireTenantAccess(STAFF_ROLES);
@@ -76,7 +76,9 @@ export async function createCourseAction(_prev: CreateCourseState, formData: For
       title: formData.get("title") as string,
       slug: (formData.get("slug") as string) || undefined,
       description: (formData.get("description") as string) || undefined,
-      level: (formData.get("level") as string) || "A1",
+      // Si el profesor no eligió el nivel a mano, manda el que diga el título ("Español B2 - …")
+      level: (formData.get("levelTouched") !== "1" && String(formData.get("title") ?? "").toUpperCase().match(/(?:^|[^A-Z])([ABC][12])(?![0-9])/)?.[1])
+        || (formData.get("level") as string) || "A1",
       language: (formData.get("language") as string) || "es",
       priceAmount: formData.get("priceAmount") as string,
       paymentType: (formData.get("paymentType") as string) || "EXTERNAL",
@@ -108,7 +110,9 @@ export async function createCourseAction(_prev: CreateCourseState, formData: For
     return { error: error instanceof Error ? error.message : "No se pudo crear el curso.", values };
   }
   // Fuera del try: redirect() funciona lanzando una señal que no debe capturarse
-  redirect(`/dashboard/courses/${courseId}/builder`);
+  const generate = formData.get("generateStructure") === "1";
+  const audience = String(formData.get("audience") ?? "").trim().slice(0, 200);
+  redirect(`/dashboard/courses/${courseId}/builder${generate ? `?generar=1${audience ? `&publico=${encodeURIComponent(audience)}` : ""}` : ""}`);
 }
 
 const createStandaloneLessonSchema = z.object({

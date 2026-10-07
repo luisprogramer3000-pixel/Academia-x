@@ -90,6 +90,33 @@ export function landingVars(
   opts: { accent: string; brandBg?: string | null; heroImageUrl?: string | null }
 ): Record<string, string> {
   const accent = /^#[0-9a-f]{6}$/i.test(opts.accent) ? opts.accent : "#2563eb";
+  const vars = baseVars(template, accent, opts);
+  // Imagen propia en el encabezado de cualquier modelo: la foto va de fondo con
+  // un velo del color del modelo para que el texto blanco siempre se lea.
+  if (opts.heroImageUrl && !template.usesImage) {
+    const tint = HERO_TINT[template.id] ?? "10,12,20";
+    vars["--lp-hero-bg"] = `linear-gradient(rgba(${tint},.62), rgba(${tint},.68)), url("${opts.heroImageUrl.replace(/"/g, "")}") center / cover no-repeat`;
+    vars["--lp-hero-text"] = "#ffffff";
+    vars["--lp-hero-muted"] = "rgba(255,255,255,.88)";
+    if (template.id === "marca" || template.id === "minimal") {
+      vars["--lp-hero-btn"] = "#ffffff";
+      vars["--lp-hero-btn-text"] = accent;
+    }
+  }
+  return vars;
+}
+
+/** Color del velo sobre la foto de encabezado (r,g,b) según el modelo. */
+const HERO_TINT: Partial<Record<LandingTemplateId, string>> = {
+  elegante: "11,11,12",
+  horizonte: "31,46,34",
+};
+
+function baseVars(
+  template: LandingTemplate,
+  accent: string,
+  opts: { brandBg?: string | null; heroImageUrl?: string | null }
+): Record<string, string> {
   switch (template.id) {
     case "impacto":
       return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Wand2, Sparkles, AlertCircle, CheckCircle2, X, BookOpen } from "lucide-react";
 import { regenerateCourseStructureAIAction } from "@/app/actions/ai.actions";
@@ -17,6 +17,9 @@ interface CourseStructurePanelProps {
   courseTitle: string;
   courseLevel: string;
   hasExistingModules: boolean;
+  /** Recién creado desde "Crear curso": se abre y genera la propuesta sin pedir otro clic */
+  autoStart?: boolean;
+  initialAudience?: string;
 }
 
 export function CourseStructurePanel({
@@ -24,12 +27,14 @@ export function CourseStructurePanel({
   courseTitle,
   courseLevel,
   hasExistingModules,
+  autoStart = false,
+  initialAudience = "",
 }: CourseStructurePanelProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [proposal, setProposal] = useState<ProposedModule[] | null>(null);
-  const [audience, setAudience] = useState("");
+  const [audience, setAudience] = useState(initialAudience);
   const [feedback, setFeedback] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -59,6 +64,18 @@ export function CourseStructurePanel({
     }
     setProposal(modules);
   }
+
+  // Generación automática al llegar desde la creación del curso (una sola vez)
+  const started = useRef(false);
+  useEffect(() => {
+    if (!autoStart || started.current || hasExistingModules) return;
+    started.current = true;
+    setOpen(true);
+    generate();
+    // Quita ?generar=1 de la dirección para que recargar no vuelva a cobrar
+    router.replace(`/dashboard/courses/${courseId}/builder`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function apply() {
     if (!proposal) return;
@@ -123,7 +140,13 @@ export function CourseStructurePanel({
           </div>
         )}
 
-        {!proposal ? (
+        {!proposal && busy && autoStart ? (
+          <div className="p-10 text-center space-y-3">
+            <span className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-indigo-400 border-t-transparent" />
+            <p className="text-white font-semibold">La IA está diseñando los módulos y lecciones de «{courseTitle}»…</p>
+            <p className="text-xs text-slate-400">Tarda unos segundos. Después podrás revisarla y aprobarla, o pedir otra versión.</p>
+          </div>
+        ) : !proposal ? (
           <div className="p-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
