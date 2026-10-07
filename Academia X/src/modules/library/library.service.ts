@@ -58,11 +58,13 @@ async function files(): Promise<Collection<LibraryFileDoc>> {
   const db = await getMongoDb();
   const col = db.collection<LibraryFileDoc>("library_files");
   // Índices: listado por estado/idioma/fecha, archivos de cada profesor y búsqueda de texto
-  indexesReady ??= Promise.all([
+  // language_override: sin él MongoDB lee el campo "language" ("Español", "Inglés"...) como
+  // idioma del índice de texto y rechaza la ficha. El índice antiguo se reemplaza.
+  indexesReady ??= col.dropIndex("text_search").catch(() => undefined).then(() => Promise.all([
     col.createIndex({ status: 1, language: 1, createdAt: -1 }),
     col.createIndex({ "uploadedBy.userId": 1, createdAt: -1 }),
-    col.createIndex({ title: "text", description: "text" }, { default_language: "spanish", name: "text_search" }),
-  ]).catch((error) => {
+    col.createIndex({ title: "text", description: "text" }, { default_language: "spanish", language_override: "textSearchLanguage", name: "text_search_v2" }),
+  ])).catch((error) => {
     indexesReady = null;
     throw error;
   });

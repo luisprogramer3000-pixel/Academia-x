@@ -36,7 +36,7 @@ async function main() {
   await Promise.all([
     col.createIndex({ status: 1, language: 1, createdAt: -1 }),
     col.createIndex({ "uploadedBy.userId": 1, createdAt: -1 }),
-    col.createIndex({ title: "text", description: "text" }, { default_language: "spanish", name: "text_search" }),
+    col.createIndex({ title: "text", description: "text" }, { default_language: "spanish", language_override: "textSearchLanguage", name: "text_search_v2" }),
   ]);
   console.log(`Índices: ${(await col.indexes()).map((i) => i.name).join(", ")}`);
   console.log(`Fichas en la biblioteca: ${await col.countDocuments()}`);

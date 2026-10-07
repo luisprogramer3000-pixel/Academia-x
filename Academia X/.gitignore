@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Caché del ADN de los modelos de presentación
 .cache/
+
+# Originales de la Biblioteca: se suben a Supabase/MongoDB con scripts/import-library-pptx.ts
+/public/archivos de power point para la biblioteca/
