@@ -29,18 +29,21 @@ export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages:
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return setError("Elige un archivo.");
-    if (!MATERIAL_TYPES[file.type]) return setError(`Formato no permitido. Usa ${MATERIAL_FORMATS_LABEL}.`);
+    // Sin Office instalado, Windows a veces no da el tipo de un .pptx/.docx: se deduce de la extensión
+    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    const type = MATERIAL_TYPES[file.type] ? file.type : Object.keys(MATERIAL_TYPES).find((t) => MATERIAL_TYPES[t] === extension);
+    if (!type) return setError(`Formato no permitido. Usa ${MATERIAL_FORMATS_LABEL}.`);
     setError("");
 
     // 1. Enlace firmado y subida directa al bucket de la biblioteca
     setBusy("upload");
-    const prepared = await prepareLibraryUploadAction({ type: file.type, size: file.size });
+    const prepared = await prepareLibraryUploadAction({ type, size: file.size });
     if (!prepared.success) {
       setBusy(null);
       return setError(prepared.error);
     }
     try {
-      const put = await fetch(prepared.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type, "x-upsert": "false" }, body: file });
+      const put = await fetch(prepared.uploadUrl, { method: "PUT", headers: { "Content-Type": type, "x-upsert": "false" }, body: file });
       if (!put.ok) {
         setBusy(null);
         return setError(put.status === 413 ? "El archivo es demasiado grande." : `No se pudo subir el archivo (${put.status}).`);
@@ -58,7 +61,7 @@ export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages:
       description,
       language,
       originalName: file.name,
-      mimeType: file.type,
+      mimeType: type,
       size: file.size,
     });
     setBusy(null);
