@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ImageIcon, Library, Loader2, Search, UploadCloud, X } from "lucide-react";
 import { uploadMaterialFile } from "@/lib/upload-material";
+import { shrinkImage } from "@/lib/shrink-image";
 import { IMAGE_FORMATS_LABEL, IMAGE_TYPES } from "@/lib/upload-types";
 import { copyLibraryImageAction, listLibraryImagesAction } from "@/app/actions/library.actions";
 
@@ -21,16 +22,20 @@ export function LessonImagePicker({
   /** Botones pequeños (para añadir una imagen a un bloque de texto) */
   compact?: boolean;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | "prepare" | "upload">(false);
   const [error, setError] = useState("");
   const [libraryOpen, setLibraryOpen] = useState(false);
 
-  async function upload(file: File) {
+  async function upload(original: File) {
     setError("");
-    if (!IMAGE_TYPES[file.type]) return setError(`Formato no permitido. Usa ${IMAGE_FORMATS_LABEL}.`);
-    if (file.size > MAX_IMAGE_BYTES) return setError("La imagen no debe superar los 15 MB.");
-    setBusy(true);
+    if (!IMAGE_TYPES[original.type]) return setError(`Formato no permitido. Usa ${IMAGE_FORMATS_LABEL}.`);
+    if (original.size > 4 * MAX_IMAGE_BYTES) return setError("La imagen es demasiado grande (máx. 60 MB).");
     try {
+      // Las fotos grandes se reducen a 1920 px antes de subirlas: pesan ~10 veces menos
+      setBusy("prepare");
+      const file = await shrinkImage(original);
+      if (file.size > MAX_IMAGE_BYTES) return setError("La imagen no debe superar los 15 MB.");
+      setBusy("upload");
       const res = await uploadMaterialFile(file, { purpose: "lesson-image" });
       if (res.success) onPick({ url: res.fileUrl, title: res.fileName.replace(/\.[^.]+$/, "") });
       else setError(res.error);
@@ -50,7 +55,7 @@ export function LessonImagePicker({
       <div className="flex flex-wrap gap-2">
         <label className={`${btn} cursor-pointer bg-slate-800 hover:bg-slate-700 text-white font-medium flex items-center gap-2 border border-slate-700 ${busy ? "opacity-50 pointer-events-none" : ""}`}>
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-          {busy ? "Subiendo…" : "Subir desde mi computadora"}
+          {busy === "prepare" ? "Preparando…" : busy ? "Subiendo…" : "Subir desde mi computadora"}
           <input
             type="file"
             accept={Object.keys(IMAGE_TYPES).join(",")}
@@ -65,7 +70,7 @@ export function LessonImagePicker({
         <button
           type="button"
           onClick={() => setLibraryOpen(true)}
-          disabled={busy}
+          disabled={busy !== false}
           className={`${btn} bg-slate-800 hover:bg-slate-700 text-white font-medium flex items-center gap-2 border border-slate-700 disabled:opacity-50`}
         >
           <Library className="w-4 h-4" /> Elegir de la biblioteca
