@@ -37,15 +37,27 @@ export function NotificationBell({ tenantId }: NotificationBellProps) {
         setNotifications(res.notifications);
         setUnreadCount(res.unreadCount || 0);
       }
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
+    } catch {
+      // Fallo de red o servidor reiniciándose (recompilación, nueva versión publicada):
+      // se reintenta en la siguiente consulta sin ensuciar la consola.
     }
   };
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+    // Solo consulta con la pestaña visible; al volver a ella, actualiza enseguida
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") fetchNotifications();
+    }, 15000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchNotifications();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
   useEffect(() => {

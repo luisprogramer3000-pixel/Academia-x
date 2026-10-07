@@ -166,6 +166,7 @@ export default function Home() {
                       src="/images/teachers-hero.jpg"
                       alt="Profesores realizando clases en plataforma Mentor Studio Global"
                       fill
+                      sizes="(min-width: 1024px) 45vw, 100vw"
                       priority
                       className="object-contain transition-transform duration-700 hover:scale-105"
                     />

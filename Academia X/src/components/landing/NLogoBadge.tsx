@@ -29,6 +29,7 @@ export function NLogoBadge({ size = "md", className = "" }: NLogoBadgeProps) {
         src="/images/LOGO STUDIO GLOBAL.png"
         alt="Mentor Studio Global Logo"
         fill
+        sizes="64px"
         className="object-contain"
       />
     </div>
