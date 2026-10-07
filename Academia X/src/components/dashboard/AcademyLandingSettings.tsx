@@ -176,7 +176,9 @@ export function AcademyLandingSettings({
         {message && !dirty && <p className={`text-sm mr-auto ${message.ok ? "text-emerald-400" : "text-red-400"}`}>{message.text}</p>}
         {message && dirty && !message.ok && <p className="text-sm text-red-400">{message.text}</p>}
         {dirty && !busy && <button type="button" onClick={() => setDraft(saved)} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Descartar cambios</button>}
-        <button type="button" onClick={save} disabled={busy || !dirty} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2">
+        {!dirty && !busy && !message && <p className="text-xs text-slate-500 mr-auto">Todo publicado. Puedes volver a publicar cuando quieras.</p>}
+        {/* Siempre se puede pulsar: publica lo que se ve, haya cambios o no */}
+        <button type="button" onClick={save} disabled={busy} className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold flex items-center gap-2">
           {busy && <Loader2 className="w-4 h-4 animate-spin" />} {busy ? "Publicando…" : "Publicar página"}
         </button>
       </div>
