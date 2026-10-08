@@ -60,11 +60,11 @@ describe("Production Readiness & Environment Safety Suite — Step 6.1", () => {
     expect(() => getAIAdapter()).toThrow(/OPENAI_API_KEY/);
   });
 
-  it("6. Detección de configuración de Stripe para producción", () => {
-    process.env.STRIPE_SECRET_KEY = "sk_test_mock";
-    process.env.STRIPE_WEBHOOK_SECRET = "whsec_mock";
-    expect(process.env.STRIPE_SECRET_KEY).toBeDefined();
-    expect(process.env.STRIPE_WEBHOOK_SECRET).toBeDefined();
+  it("6. Detección de configuración de Payphone para producción", () => {
+    process.env.PAYPHONE_TOKEN = "token_mock";
+    process.env.PAYPHONE_STORE_ID = "store_mock";
+    expect(process.env.PAYPHONE_TOKEN).toBeDefined();
+    expect(process.env.PAYPHONE_STORE_ID).toBeDefined();
   });
 
   it("7. Validación de secreto de CRON_SECRET", () => {

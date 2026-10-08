@@ -72,7 +72,7 @@ export default function PrivacyPage() {
               3. Seguridad, Encriptación y Procesamiento de Pagos
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Implementamos encriptación de datos en tránsito (TLS/SSL con HSTS estricto) y en reposo. Todas las transacciones bancarias son procesadas de forma directa por pasarelas certificadas PCI-DSS nivel 1 (Stripe).
+              Implementamos encriptación de datos en tránsito (TLS/SSL con HSTS estricto) y en reposo. Todas las transacciones bancarias son procesadas de forma directa por pasarelas certificadas PCI-DSS (Payphone). Mentor Studio Global nunca ve ni guarda el número completo de tu tarjeta: si autorizas los cobros automáticos, solo conservamos cifrado el identificador (token) que entrega Payphone.
             </p>
           </div>
 

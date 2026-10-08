@@ -84,15 +84,12 @@ CRON_SECRET                           (el generado)
 NEXT_PUBLIC_SUPABASE_URL              https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY  sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY             sb_secret_...   ← SECRETA, nunca con NEXT_PUBLIC_
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY    pk_live_...
-STRIPE_SECRET_KEY                     sk_live_...
-STRIPE_WEBHOOK_SECRET                 whsec_...
-STRIPE_PRICE_STARTER_MONTHLY          price_...
-STRIPE_PRICE_STARTER_YEARLY           price_...
-STRIPE_PRICE_PRO_MONTHLY              price_...
-STRIPE_PRICE_PRO_YEARLY               price_...
-STRIPE_PRICE_ACADEMY_MONTHLY          price_...
-STRIPE_PRICE_ACADEMY_YEARLY           price_...
+PAYPHONE_TOKEN                        (Payphone Developer → Credenciales)
+PAYPHONE_STORE_ID                     (Payphone Developer → Credenciales)
+PAYMENT_ENCRYPTION_KEY                (32+ caracteres; cifra las tarjetas guardadas)
+# Solo cuando Payphone apruebe la tokenización (sección 7):
+# PAYPHONE_TOKENIZATION_ENABLED       true
+# PAYPHONE_CODING_PASSWORD            (Payphone Developer)
 AI_PROVIDER                           openai
 OPENAI_API_KEY                        sk-proj-...
 OPENAI_MODEL                          gpt-4o-mini
@@ -118,7 +115,7 @@ subdominios de las academias. La dirección con www va en `NEXT_PUBLIC_APP_URL`.
 contraseña). Si no, la Biblioteca muestra "no está disponible".
 
 **No subir `.env.local` al repositorio ni al servidor**: Next.js le da prioridad
-sobre todo lo demás y dejaría la app en modo desarrollo con Stripe de pruebas.
+sobre todo lo demás y dejaría la app en modo desarrollo con los pagos simulados.
 
 ---
 
@@ -182,50 +179,72 @@ curl -fsS -m 120 -H "Authorization: Bearer TU_CRON_SECRET" "https://www.mentorst
 Si falta, no se pierde nada: la papelera de cada academia también se purga sola
 al abrirla; el cron solo cubre a las academias que nunca la abren.
 
+### Cron de renovación de planes (cada hora)
+
+Cobra las tarjetas guardadas que vencen (cuando la tokenización esté aprobada) y
+avisa a las academias sin cobro automático 7, 3 y 1 días antes de vencer:
+
+```
+curl -fsS -m 170 -H "Authorization: Bearer TU_CRON_SECRET" "https://www.mentorstudioglobal.com/api/cron/subscription-renewals"
+```
+
 ---
 
-## 7. Stripe en modo real (live)
+## 7. Payphone (cobros)
 
-Todo con el interruptor **"Modo de prueba" apagado** en Stripe: lo creado en modo de
-prueba no existe en modo real.
+Payphone no tiene suscripciones: la plataforma cobra cada periodo con el **botón de
+pago** (el cliente paga en el formulario de Payphone y vuelve a la web) y, cuando
+Payphone aprueba la **tokenización**, cobra sola la tarjeta guardada al vencer.
 
-**Claves** (Developers → API keys): `pk_live_...` → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
-`sk_live_...` → `STRIPE_SECRET_KEY`.
+### 7.1 Credenciales
 
-**Los 6 precios** (Product catalog → 3 productos con 2 precios recurrentes en USD):
+1. **Payphone Business** → Usuarios → Crear usuario con rol **Desarrollador**, vinculado a tu tienda.
+2. **Payphone Developer** (https://appdeveloper.payphonetodoesposible.com) → crear una aplicación tipo **WEB**:
+   - Dominio web: `www.mentorstudioglobal.com`
+   - URL de respuesta: `https://www.mentorstudioglobal.com/api/payphone/response`
+   - Ambiente: **PRUEBAS** para probar (todo se aprueba, no se cobra nada) y **PRODUCCIÓN** para cobrar.
+3. Pestaña **Credenciales** → copiar a las variables:
+   - `PAYPHONE_TOKEN` (el token Bearer)
+   - `PAYPHONE_STORE_ID`
 
-| Producto | Mensual | Anual | Variables |
-|---|---|---|---|
-| Starter | 29,00 USD | 278,40 USD | `STRIPE_PRICE_STARTER_MONTHLY` / `_YEARLY` |
-| Professional VIP | 79,00 USD | 758,40 USD | `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` |
-| Academy Executive | 199,00 USD | 1910,40 USD | `STRIPE_PRICE_ACADEMY_MONTHLY` / `_YEARLY` |
+Los precios de los planes incluyen IVA (15%): la plataforma informa a Payphone la base y el IVA.
 
-Tienen que coincidir con `src/modules/billing/plans.ts`. Los paquetes de créditos de
-IA no necesitan precios en Stripe.
+### 7.2 Notificación externa (recomendada)
 
-**Webhook** (Developers → Webhooks), endpoint con www:
-
-```
-https://www.mentorstudioglobal.com/api/webhooks/stripe
-```
-
-Eventos que el código procesa (conviene marcarlos todos):
+Si el cliente cierra el navegador justo después de pagar, la notificación de Payphone
+permite confirmar el pago igual. Hay que solicitarla a Payphone (formulario con RUC y
+datos de la empresa; 3 a 5 días hábiles) indicando la URL:
 
 ```
-checkout.session.completed              customer.subscription.created
-checkout.session.async_payment_succeeded customer.subscription.updated
-invoice.paid                            customer.subscription.deleted
-invoice.payment_failed                  customer.subscription.paused
-                                        customer.subscription.resumed
+https://www.mentorstudioglobal.com/api/payphone/NotificacionPago
 ```
 
-El `whsec_` que genera Stripe va en `STRIPE_WEBHOOK_SECRET`. **Test y Live tienen
-endpoints y secretos distintos.** Sin el webhook, los pagos se cobran pero la
-suscripción no se activa y el panel "Ventas y biblioteca" no se entera de nada.
+La plataforma nunca confía solo en el aviso: vuelve a confirmar cada pago con la API de Payphone.
 
-**Prueba real:** contratá el plan Starter mensual con una tarjeta tuya, comprobá que
-la academia queda activa y aparece en `/dashboard/admin/sales`, y reembolsalo y
-cancelalo desde Stripe.
+### 7.3 Cobro automático (tokenización)
+
+Requisito de Payphone: el botón de pago tiene que estar **funcionando en producción**.
+Después se solicita la tokenización (formulario; 3 a 5 días hábiles). Payphone retiene el
+**10% de lo cobrado con tarjetas guardadas durante 6 meses** y solo acepta Visa y Mastercard.
+
+Cuando la aprueben:
+
+```
+PAYPHONE_TOKENIZATION_ENABLED="true"
+PAYPHONE_CODING_PASSWORD="..."   # Payphone Developer → configuración de la aplicación
+```
+
+Desde ese momento, al pagar aparece la casilla para autorizar el cobro automático; las
+tarjetas se guardan cifradas (`PAYMENT_ENCRYPTION_KEY`) y el cron de renovaciones las cobra
+al vencer (un intento al día, hasta 3). Sin tarjeta guardada, la academia recibe avisos
+7, 3 y 1 días antes de vencer y tiene 7 días de gracia.
+
+### 7.4 Prueba
+
+Con la aplicación en **PRUEBAS**: contrata el plan Starter mensual desde una academia de
+prueba, comprueba que vuelve a Facturación con el plan activo y que el pago aparece en
+`/dashboard/admin/sales`. Después cambia la aplicación a **PRODUCCIÓN** y repite con una
+tarjeta real (puedes anularlo el mismo día en Payphone Business → Ventas → Anular).
 
 ---
 
@@ -236,10 +255,10 @@ cancelalo desde Stripe.
 - [ ] `/a/jl-global-school` muestra la academia VIP de verificación
 - [ ] Iniciar sesión con admin@mentorstudioglobal.com lleva a `/dashboard/admin/sales`
 - [ ] La Biblioteca de la plataforma muestra los archivos (MongoDB conectado)
-- [ ] Registro → pago con Stripe → la academia queda activa
+- [ ] Registro → pago con Payphone → vuelve a Facturación con la academia activa
 - [ ] Subir un logo, recargar, y que siga viéndose (confirma `UPLOADS_DIR`)
 - [ ] Llega el email de invitación a un alumno
-- [ ] Los dos cron (créditos y papelera) aparecen ejecutados en su registro
+- [ ] Los tres cron (créditos, papelera y renovaciones) aparecen ejecutados en su registro
 
 ---
 

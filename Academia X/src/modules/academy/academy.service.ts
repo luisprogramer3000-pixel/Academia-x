@@ -201,7 +201,7 @@ export class AcademyService {
         teachersCount: teachersCount + 1, // Incluye al Owner que enseña
         coursesCount,
         publishedCoursesCount,
-        monthlyRevenue: 0, // Se calculará con Stripe en Fase 6
+        monthlyRevenue: 0, // Pendiente: ventas de cursos de la academia
         currency: "USD",
       };
     } catch (error) {

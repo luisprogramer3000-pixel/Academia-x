@@ -16,7 +16,7 @@ se pueden copiar y pegar tal cual.
 | VPS Ubuntu 22.04+ con acceso root | Hostinger | 2 GB de RAM como mínimo (el `next build` es lo que más consume) |
 | Dominio apuntando al VPS | Tu proveedor de DNS | Ver paso 2 |
 | Proyecto Supabase | supabase.com | Con las migraciones aplicadas |
-| Cuenta de Stripe en modo live | stripe.com | 3 productos × 2 precios |
+| Cuenta de Payphone Business + Payphone Developer | payphone.app | Aplicación WEB con token y Store ID |
 | Cuenta de Resend con dominio verificado | resend.com | Para invitaciones y recuperación de contraseña |
 | Base de datos de Upstash Redis | upstash.com | Para el rate limiting |
 
@@ -92,16 +92,14 @@ CRON_SECRET="..."
 # Los certificados se firman con CERTIFICATE_SIGNING_SECRET o, si falta, con JWT_SECRET.
 # Cambiar cualquiera de los dos después invalida la verificación de los ya emitidos.
 
-# Stripe (claves live)
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
-STRIPE_SECRET_KEY="sk_live_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_PRICE_STARTER_MONTHLY="price_..."
-STRIPE_PRICE_STARTER_YEARLY="price_..."
-STRIPE_PRICE_PRO_MONTHLY="price_..."
-STRIPE_PRICE_PRO_YEARLY="price_..."
-STRIPE_PRICE_ACADEMY_MONTHLY="price_..."
-STRIPE_PRICE_ACADEMY_YEARLY="price_..."
+# Payphone (Payphone Developer → aplicación WEB → Credenciales)
+PAYPHONE_TOKEN="..."
+PAYPHONE_STORE_ID="..."
+# Cobro automático: solo cuando Payphone apruebe la tokenización (ver sección 7.3)
+# PAYPHONE_TOKENIZATION_ENABLED="true"
+# PAYPHONE_CODING_PASSWORD="..."
+# Clave para cifrar las tarjetas guardadas (32+ caracteres; no cambiarla después)
+PAYMENT_ENCRYPTION_KEY="..."
 
 # IA
 AI_PROVIDER="openai"
@@ -239,6 +237,8 @@ renovación automática (estos sí se renuevan solos porque usan validación HTT
   no reciben créditos nuevos.
 - **Vaciado de la papelera** (diario): borra definitivamente lo que lleva más de 30 días
   en la papelera.
+- **Renovación de planes** (cada hora): cobra las tarjetas guardadas que vencen y avisa
+  a las academias sin cobro automático.
 
 ```bash
 chmod +x /var/www/mentor-studio/deploy/*.sh
@@ -250,6 +250,7 @@ Agregar:
 ```
 0 * * * * /var/www/mentor-studio/deploy/cron-ai-credit-reset.sh
 30 4 * * * /var/www/mentor-studio/deploy/cron-purge-trash.sh
+15 * * * * /var/www/mentor-studio/deploy/cron-subscription-renewals.sh
 ```
 
 Probarlos a mano antes de confiar en ellos:
@@ -257,66 +258,67 @@ Probarlos a mano antes de confiar en ellos:
 ```bash
 sudo /var/www/mentor-studio/deploy/cron-ai-credit-reset.sh
 sudo /var/www/mentor-studio/deploy/cron-purge-trash.sh
-cat /var/log/mentor-studio/cron.log      # deben aparecer dos líneas "OK"
+sudo /var/www/mentor-studio/deploy/cron-subscription-renewals.sh
+cat /var/log/mentor-studio/cron.log      # deben aparecer tres líneas "OK"
 ```
 
 ---
 
-## 7. Stripe en modo real (live)
+## 7. Payphone (cobros)
 
-Todo en el panel de Stripe con el interruptor **"Modo de prueba" apagado**. Lo creado
-en modo de prueba no existe en modo real: hay que crearlo de nuevo.
+Payphone no tiene suscripciones: la plataforma cobra cada periodo con el **botón de
+pago** (el cliente paga en el formulario de Payphone y vuelve a la web) y, cuando
+Payphone aprueba la **tokenización**, cobra sola la tarjeta guardada al vencer.
 
-### 7.1 Claves
+### 7.1 Credenciales
 
-Developers → API keys: copiá `pk_live_...` a `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` y
-`sk_live_...` a `STRIPE_SECRET_KEY`.
+1. **Payphone Business** → Usuarios → Crear usuario con rol **Desarrollador**, vinculado a tu tienda.
+2. **Payphone Developer** (https://appdeveloper.payphonetodoesposible.com) → crear una aplicación tipo **WEB**:
+   - Dominio web: `www.mentorstudioglobal.com`
+   - URL de respuesta: `https://www.mentorstudioglobal.com/api/payphone/response`
+   - Ambiente: **PRUEBAS** para probar (todo se aprueba, no se cobra nada) y **PRODUCCIÓN** para cobrar.
+3. Pestaña **Credenciales** → copiar a las variables:
+   - `PAYPHONE_TOKEN` (el token Bearer)
+   - `PAYPHONE_STORE_ID`
 
-### 7.2 Los 6 precios de los planes
+Los precios de los planes incluyen IVA (15%): la plataforma informa a Payphone la base y el IVA.
 
-Product catalog → crear 3 productos, cada uno con 2 precios recurrentes en USD, y
-copiar cada `price_...` a su variable:
+### 7.2 Notificación externa (recomendada)
 
-| Producto | Precio mensual | Precio anual | Variables |
-|---|---|---|---|
-| Starter | 29,00 USD / mes | 278,40 USD / año | `STRIPE_PRICE_STARTER_MONTHLY` / `_YEARLY` |
-| Professional VIP | 79,00 USD / mes | 758,40 USD / año | `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` |
-| Academy Executive | 199,00 USD / mes | 1910,40 USD / año | `STRIPE_PRICE_ACADEMY_MONTHLY` / `_YEARLY` |
-
-Los importes tienen que coincidir con `src/modules/billing/plans.ts`. Los paquetes de
-créditos de IA no necesitan precios: se cobran con el importe de cada paquete.
-
-### 7.3 Webhook
-
-Developers → Webhooks → Add endpoint:
+Si el cliente cierra el navegador justo después de pagar, la notificación de Payphone
+permite confirmar el pago igual. Hay que solicitarla a Payphone (formulario con RUC y
+datos de la empresa; 3 a 5 días hábiles) indicando la URL:
 
 ```
-https://www.mentorstudioglobal.com/api/webhooks/stripe
+https://www.mentorstudioglobal.com/api/payphone/NotificacionPago
 ```
 
-Eventos que hay que marcar (son los que procesa la aplicación):
+La plataforma nunca confía solo en el aviso: vuelve a confirmar cada pago con la API de Payphone.
+
+### 7.3 Cobro automático (tokenización)
+
+Requisito de Payphone: el botón de pago tiene que estar **funcionando en producción**.
+Después se solicita la tokenización (formulario; 3 a 5 días hábiles). Payphone retiene el
+**10% de lo cobrado con tarjetas guardadas durante 6 meses** y solo acepta Visa y Mastercard.
+
+Cuando la aprueben:
 
 ```
-checkout.session.completed
-checkout.session.async_payment_succeeded
-customer.subscription.created
-customer.subscription.updated
-customer.subscription.deleted
-customer.subscription.paused
-customer.subscription.resumed
-invoice.paid
-invoice.payment_failed
+PAYPHONE_TOKENIZATION_ENABLED="true"
+PAYPHONE_CODING_PASSWORD="..."   # Payphone Developer → configuración de la aplicación
 ```
 
-Copiá el `whsec_...` a `STRIPE_WEBHOOK_SECRET` y reiniciá (`pm2 reload mentor-studio-global`).
-Sin esto, los pagos se cobran pero **la suscripción nunca se activa**, y el panel
-"Ventas y biblioteca" no se entera de renovaciones, cancelaciones ni pagos fallidos.
+Desde ese momento, al pagar aparece la casilla para autorizar el cobro automático; las
+tarjetas se guardan cifradas (`PAYMENT_ENCRYPTION_KEY`) y el cron de renovaciones las cobra
+al vencer (un intento al día, hasta 3). Sin tarjeta guardada, la academia recibe avisos
+7, 3 y 1 días antes de vencer y tiene 7 días de gracia.
 
-### 7.4 Prueba real
+### 7.4 Prueba
 
-Contratá el plan Starter mensual con una tarjeta tuya desde una academia de prueba,
-comprobá que la academia queda activa y que aparece en `/dashboard/admin/sales`, y
-después reembolsalo y cancelalo desde Stripe.
+Con la aplicación en **PRUEBAS**: contratá el plan Starter mensual desde una academia de
+prueba, comprobá que vuelve a Facturación con el plan activo y que el pago aparece en
+`/dashboard/admin/sales`. Después cambiá la aplicación a **PRODUCCIÓN** y repetí con una
+tarjeta real (podés anularlo el mismo día en Payphone Business → Ventas → Anular).
 
 ---
 
@@ -349,10 +351,10 @@ Dos cosas que no están en el repositorio y se pierden si no las respaldás:
 - [ ] El QR de un certificado abre `https://www.mentorstudioglobal.com/verify/...`
 - [ ] `https://una-academia.mentorstudioglobal.com` muestra el portal de esa academia
 - [ ] `/api/health` responde `{"status":"ok"}`
-- [ ] Registro → pago con Stripe → la academia queda activa
+- [ ] Registro → pago con Payphone → vuelve a Facturación con la academia activa
 - [ ] Subir un logo de más de 2MB da error claro, y uno válido se ve tras recargar
 - [ ] Llega el email de invitación a un alumno
-- [ ] `sudo crontab -l` muestra las dos líneas (reset de créditos y papelera)
+- [ ] `sudo crontab -l` muestra las tres líneas (créditos, papelera y renovaciones)
 - [ ] `pm2 list` muestra el proceso `online`; tras `sudo reboot` sigue levantado
 - [ ] La API pública de Supabase no devuelve datos:
       `curl "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/User?select=email" -H "apikey: $CLAVE"` → `[]`

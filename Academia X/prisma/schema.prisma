@@ -86,6 +86,7 @@ model User {
   scheduledClasses     ScheduledClass[]
   liveSessions         LiveSession[]
   progress             Progress[]
+  payments             Payment[]
 }
 
 /// Tokens de un solo uso para restablecer contraseña (se guarda solo el hash SHA-256)
@@ -107,7 +108,6 @@ model Tenant {
   name             String
   slug             String   @unique
   customDomain     String?  @unique
-  stripeCustomerId String?  @unique
   logoUrl          String?
   primaryColor     String   @default("#3B82F6")
   secondaryColor   String   @default("#F1F5F9")
@@ -138,6 +138,8 @@ model Tenant {
   scheduledClasses     ScheduledClass[]
   liveSessions         LiveSession[]
   enrollmentRequests   EnrollmentRequest[]
+  payments             Payment[]
+  paymentCard          PaymentCard?
 }
 
 model Membership {
@@ -552,17 +554,25 @@ enum BillingInterval {
   YEARLY
 }
 
+/// Plan de la academia. Con Payphone no hay suscripción en el proveedor: el
+/// sistema extiende currentPeriodEnd con cada pago aprobado y, si hay tarjeta
+/// guardada y autoRenew, la cobra solo al vencer (cron subscription-renewals).
+/// externalId: "pp_<tenantId>" (Payphone), "sub_internal_<tenantId>" (cortesía)
+/// o "sub_simulated_<tenantId>" (desarrollo sin Payphone).
 model Subscription {
   id                   String          @id @default(cuid())
   tenantId             String
-  stripeCustomerId     String?
-  stripeSubscriptionId String?         @unique
-  stripePriceId        String?
+  externalId           String?         @unique
   planId               String
   billingInterval      BillingInterval @default(MONTHLY)
   status               String
   currentPeriodEnd     DateTime        @db.Timestamptz(3)
   cancelAtPeriodEnd    Boolean         @default(false)
+  /// Cobrar sola la tarjeta guardada al vencer (si la academia tiene una)
+  autoRenew            Boolean         @default(true)
+  /// Intentos de cobro automático fallidos en el periodo actual
+  renewalAttempts      Int             @default(0)
+  lastRenewalAttemptAt DateTime?       @db.Timestamptz(3)
   createdAt            DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
 
@@ -571,11 +581,59 @@ model Subscription {
   @@index([tenantId, updatedAt])
 }
 
-/// Registro de eventos de Stripe ya procesados (idempotencia de webhooks)
-model StripeEvent {
-  id          String   @id
-  type        String
-  processedAt DateTime @default(now()) @db.Timestamptz(3)
+/// Cobro hecho con Payphone: plan (SUBSCRIPTION) o paquete de créditos (TOPUP).
+/// clientTransactionId es nuestro identificador ante Payphone (único, 15 caracteres);
+/// payphoneTransactionId, el suyo, que llega al volver del formulario de pago.
+model Payment {
+  id                    String          @id @default(cuid())
+  tenantId              String
+  userId                String?
+  kind                  String          // SUBSCRIPTION | TOPUP
+  /// BUTTON: el cliente pagó en el formulario de Payphone; TOKEN: cobro automático de la tarjeta guardada
+  method                String          @default("BUTTON")
+  status                String          @default("PENDING") // PENDING | APPROVED | CANCELED | FAILED
+  planId                String?
+  billingInterval       BillingInterval?
+  topupPurchaseId       String?         @unique
+  amountCents           Int
+  taxCents              Int             @default(0)
+  currency              String          @default("USD")
+  clientTransactionId   String          @unique
+  payphoneTransactionId Int?            @unique
+  authorizationCode     String?
+  cardBrand             String?
+  lastDigits            String?
+  /// El cliente aceptó guardar la tarjeta para cobros automáticos
+  saveCard              Boolean         @default(false)
+  failureReason         String?
+  confirmedAt           DateTime?       @db.Timestamptz(3)
+  createdAt             DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Tarjeta tokenizada por Payphone para cobros automáticos (una por academia).
+/// El token y los datos del titular se guardan cifrados (src/lib/secret-box.ts).
+model PaymentCard {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  /// cardToken de Payphone (ctoken), cifrado
+  tokenEncrypted  String
+  /// { name, email, phoneNumber, document } del titular, cifrado
+  holderEncrypted String
+  cardBrand       String?
+  lastDigits      String?
+  /// Momento en que el cliente aceptó los cobros automáticos
+  consentAt       DateTime @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model Invitation {
@@ -619,6 +677,9 @@ enum NotificationType {
   CREDIT_TOPUP_FAILED
   CREDIT_TOPUP_REFUNDED
   ENROLLMENT_REQUEST
+  SUBSCRIPTION_RENEWAL_REMINDER
+  SUBSCRIPTION_RENEWED
+  SUBSCRIPTION_PAYMENT_FAILED
 }
 
 model Notification {

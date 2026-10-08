@@ -72,7 +72,7 @@ export default function TermsPage() {
               3. Facturación, Planes SaaS y Modalidades de Pago
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Mentor Studio Global ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Stripe. Las tarifas se facturan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente.
+              Mentor Studio Global ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Payphone. Los precios están expresados en dólares e incluyen IVA. Las tarifas se pagan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente. Si el cliente lo autoriza expresamente al pagar, la tarjeta se guarda de forma tokenizada en Payphone y se cobra automáticamente al vencer cada periodo; el cobro automático puede desactivarse o la tarjeta eliminarse en cualquier momento desde Facturación.
             </p>
           </div>
 

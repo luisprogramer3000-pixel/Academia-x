@@ -8,7 +8,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { sendEmail, EmailTemplates } from "@/lib/email";
-import { getAppUrl } from "@/lib/stripe";
+import { getAppUrl } from "@/lib/app-url";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email no válido"),

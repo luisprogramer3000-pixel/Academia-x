@@ -110,6 +110,21 @@ export function NotificationBell({ tenantId }: NotificationBellProps) {
           icon: <AlertCircle className="w-4 h-4 text-orange-400" />,
           badgeBg: "bg-orange-500/10 text-orange-400 border-orange-500/20",
         };
+      case "SUBSCRIPTION_RENEWED":
+        return {
+          icon: <CheckCheck className="w-4 h-4 text-emerald-400" />,
+          badgeBg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        };
+      case "SUBSCRIPTION_PAYMENT_FAILED":
+        return {
+          icon: <XCircle className="w-4 h-4 text-rose-400" />,
+          badgeBg: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+        };
+      case "SUBSCRIPTION_RENEWAL_REMINDER":
+        return {
+          icon: <AlertTriangle className="w-4 h-4 text-amber-400" />,
+          badgeBg: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        };
       case "ENROLLMENT_REQUEST":
         return {
           icon: <UserPlus className="w-4 h-4 text-emerald-400" />,

@@ -3,20 +3,21 @@ import { Header } from "@/components/dashboard/Header";
 import { getDashboardContext, OWNER_ONLY } from "@/lib/session";
 import { BillingService } from "@/modules/billing/billing.service";
 import { SAAS_PLANS } from "@/modules/billing/plans";
-import { openBillingPortalAction } from "@/app/actions/billing.actions";
+import { createCheckoutAction, removeSavedCardAction, setAutoRenewAction } from "@/app/actions/billing.actions";
 import { PricingPlans } from "./pricing-plans";
 import { AICreditEngine } from "@/modules/ai/ai.credit-engine";
-import { CreditCard, CheckCircle2, Users, Sparkles, ArrowUpRight } from "lucide-react";
+import { isTokenizationEnabled } from "@/lib/payphone";
+import { CreditCard, CheckCircle2, Users, Sparkles, RefreshCw, AlertTriangle, XCircle, Receipt } from "lucide-react";
 import { formatInTimezone } from "@/lib/timezone";
 
 const longDate = { day: "numeric", month: "long", year: "numeric" } as const;
 
 interface BillingPageProps {
-  searchParams: Promise<{ checkout?: string; welcome?: string; inactive?: string; plan?: string; interval?: string; billingInterval?: string }>;
+  searchParams: Promise<{ checkout?: string; message?: string; welcome?: string; inactive?: string; plan?: string; interval?: string; billingInterval?: string }>;
 }
 
 export default async function BillingDashboardPage({ searchParams }: BillingPageProps) {
-  const { checkout, welcome, inactive, plan, interval, billingInterval: intervalParam } = await searchParams;
+  const { checkout, message, welcome, inactive, plan, interval, billingInterval: intervalParam } = await searchParams;
 
   // El plan elegido en la landing viaja en la URL: se preselecciona aquí para
   // que el cliente no tenga que volver a decidir lo que ya decidió.
@@ -35,7 +36,14 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
   const billingInfo = await BillingService.getTenantSubscriptionInfo(tenantId);
   const walletSummary = await AICreditEngine.getTenantWalletSummary(tenantId);
   const active = billingInfo.active;
-  const hasStripeCustomer = Boolean(active?.stripeCustomerId && !active.stripeCustomerId.startsWith("cus_simulated"));
+  const card = billingInfo.card;
+  const tokenization = isTokenizationEnabled();
+  // Cortesía / simulada: no se paga con Payphone, no hay renovación que gestionar
+  const paidWithPayphone = Boolean(active?.externalId?.startsWith("pp_"));
+  const courtesy = Boolean(active?.externalId?.startsWith("sub_internal_"));
+  const autoCharge = paidWithPayphone && Boolean(card) && Boolean(active?.autoRenew) && tokenization;
+  const statusLabel: Record<string, string> = { active: "Activo", trialing: "En prueba", past_due: "Vencido (en gracia)", canceled: "Cancelado" };
+  const usd = (cents: number) => (cents / 100).toLocaleString("es", { style: "currency", currency: "USD" });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex">
@@ -73,26 +81,27 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
               <span>
                 {active
                   ? <>¡Pago confirmado! Tu plan <strong>{active.plan.name}</strong> está activo.</>
-                  : "Pago recibido. Estamos confirmando tu suscripción con Stripe; esto puede tardar unos segundos. Recarga la página en un momento."}
+                  : "Pago recibido. Estamos activando tu plan; recarga la página en un momento."}
               </span>
             </div>
           )}
 
           {checkout === "canceled" && (
             <div className="mb-8 p-4 rounded-2xl bg-slate-800 border border-slate-700 text-slate-300 text-sm">
-              El pago fue cancelado. No se realizó ningún cargo.
+              El pago fue cancelado o rechazado. No se realizó ningún cargo.
+            </div>
+          )}
+
+          {checkout === "error" && (
+            <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{message || "No pudimos confirmar el pago con Payphone. Si se te cobró, escríbenos a info@mentorstudioglobal.com."}</span>
             </div>
           )}
 
           {active?.status === "past_due" && (
             <div className="mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-              No pudimos cobrar tu último pago. Actualiza tu método de pago para evitar la suspensión del servicio.
-            </div>
-          )}
-
-          {active?.cancelAtPeriodEnd && (
-            <div className="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
-              Tu suscripción se cancelará el {formatInTimezone(active.currentPeriodEnd, academy.timezone, longDate)}. Puedes reactivarla desde el portal de facturación.
+              Tu plan venció y no se pudo renovar. Renuévalo ahora para no perder el acceso al terminar los días de gracia.
             </div>
           )}
 
@@ -109,7 +118,9 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
                       <span className="text-xs text-slate-400 font-normal">/{active.billingInterval === "YEARLY" ? "año" : "mes"}</span>
                     </div>
                     <span className="text-xs text-slate-400 block">
-                      Próxima renovación: {formatInTimezone(active.currentPeriodEnd, academy.timezone, longDate)}
+                      {courtesy
+                        ? "Plan de cortesía sin vencimiento"
+                        : `${autoCharge ? "Se renueva" : "Vence"} el ${formatInTimezone(active.currentPeriodEnd, academy.timezone, longDate)}`}
                     </span>
                   </>
                 ) : (
@@ -120,13 +131,15 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
                 )}
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className={`text-xs font-mono flex items-center gap-1 ${active ? "text-emerald-400" : "text-amber-400"}`}>
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Estado: {active?.status ?? billingInfo.latestStatus ?? "inactivo"}
+                <span className={`text-xs flex items-center gap-1 ${active?.status === "active" ? "text-emerald-400" : "text-amber-400"}`}>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {statusLabel[active?.status ?? billingInfo.latestStatus ?? ""] ?? "Sin plan"}
                 </span>
-                {hasStripeCustomer && (
-                  <form action={openBillingPortalAction}>
+                {active && paidWithPayphone && (
+                  <form action={createCheckoutAction}>
+                    <input type="hidden" name="planId" value={active.planId} />
+                    <input type="hidden" name="billingInterval" value={active.billingInterval} />
                     <button type="submit" className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                      Gestionar <ArrowUpRight className="w-3.5 h-3.5" />
+                      <RefreshCw className="w-3.5 h-3.5" /> Renovar ahora
                     </button>
                   </form>
                 )}
@@ -175,12 +188,98 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
             </div>
           </div>
 
+          {/* Método de pago (Payphone) */}
+          {paidWithPayphone && (
+            <div className="mb-12 p-6 rounded-2xl bg-slate-900 border border-slate-800">
+              <h2 className="text-base font-bold text-white flex items-center gap-2 mb-1">
+                <CreditCard className="w-4 h-4 text-blue-400" /> Forma de pago
+              </h2>
+              {card && tokenization ? (
+                <div className="flex flex-wrap items-center justify-between gap-4 mt-3">
+                  <div>
+                    <p className="text-sm text-white font-semibold">
+                      {card.cardBrand || "Tarjeta"} terminada en {card.lastDigits?.replace(/\D/g, "") || "••••"}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {active?.autoRenew
+                        ? "Cobro automático activado: la cobraremos al vencer tu plan."
+                        : "Cobro automático desactivado: te avisaremos para renovar a mano."}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <form action={setAutoRenewAction}>
+                      <input type="hidden" name="enabled" value={active?.autoRenew ? "0" : "1"} />
+                      <button type="submit" className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white">
+                        {active?.autoRenew ? "Desactivar cobro automático" : "Activar cobro automático"}
+                      </button>
+                    </form>
+                    <form action={removeSavedCardAction}>
+                      <button type="submit" className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-red-600 text-xs font-semibold text-white flex items-center gap-1.5">
+                        <XCircle className="w-3.5 h-3.5" /> Quitar tarjeta
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 mt-1">
+                  Pagas cada {active?.billingInterval === "YEARLY" ? "año" : "mes"} con Payphone. Te avisaremos por el panel y por correo 7, 3 y 1 días antes de que venza tu plan.
+                  {tokenization && " Al renovar, puedes guardar tu tarjeta para que el cobro sea automático."}
+                </p>
+              )}
+            </div>
+          )}
+
+          {billingInfo.payments.length > 0 && (
+            <div className="mb-12 p-6 rounded-2xl bg-slate-900 border border-slate-800">
+              <h2 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+                <Receipt className="w-4 h-4 text-blue-400" /> Historial de pagos
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-800">
+                      <th className="py-2 font-semibold">Fecha</th>
+                      <th className="py-2 font-semibold">Concepto</th>
+                      <th className="py-2 font-semibold">Tarjeta</th>
+                      <th className="py-2 font-semibold text-right">Importe</th>
+                      <th className="py-2 font-semibold text-right">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {billingInfo.payments.map((p) => (
+                      <tr key={p.id} className="border-b border-slate-800/70">
+                        <td className="py-2.5 text-slate-300 whitespace-nowrap">{formatInTimezone(p.createdAt, academy.timezone, longDate)}</td>
+                        <td className="py-2.5 text-white">
+                          {p.kind === "TOPUP"
+                            ? "Créditos de IA"
+                            : `Plan ${SAAS_PLANS[p.planId ?? ""]?.name ?? p.planId} (${p.billingInterval === "YEARLY" ? "anual" : "mensual"})`}
+                          {p.method === "TOKEN" && <span className="text-xs text-slate-500"> · cobro automático</span>}
+                        </td>
+                        <td className="py-2.5 text-slate-400">{p.cardBrand ? `${p.cardBrand} ${p.lastDigits ?? ""}` : "—"}</td>
+                        <td className="py-2.5 text-right text-white tabular-nums">{usd(p.amountCents)}</td>
+                        <td className="py-2.5 text-right">
+                          {p.status === "APPROVED" ? (
+                            <span className="text-emerald-400 text-xs font-semibold">Aprobado</span>
+                          ) : (
+                            <span className="text-red-400 text-xs font-semibold" title={p.failureReason ?? undefined}>Rechazado</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-3">Precios en dólares con IVA incluido. Pagos procesados por Payphone.</p>
+            </div>
+          )}
+
           {/* SaaS Plans Selector with Monthly / Yearly Toggle */}
           <PricingPlans
             currentPlanId={active?.planId ?? null}
             currentInterval={requestedInterval ?? billingInfo.billingInterval}
             hasActiveSubscription={Boolean(active)}
             preselectedPlanId={requestedPlanId}
+            tokenizationEnabled={tokenization}
           />
         </main>
       </div>

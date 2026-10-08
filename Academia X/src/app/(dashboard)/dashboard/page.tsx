@@ -91,7 +91,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <div className="text-3xl font-bold text-white mb-1">${stats.monthlyRevenue}</div>
-              <span className="text-xs text-emerald-400 font-medium">Estimado Stripe</span>
+              <span className="text-xs text-emerald-400 font-medium">Estimado</span>
             </div>
           </div>
 

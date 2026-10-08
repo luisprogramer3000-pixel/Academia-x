@@ -94,7 +94,7 @@ describe("AI Credit Automation, Scheduling & Background Job Engine — Step 4.4.
     await prisma.subscription.create({
       data: {
         tenantId: tenantAId,
-        stripeSubscriptionId: "sub_auto_a",
+        externalId: "sub_auto_a",
         planId: "PRO",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

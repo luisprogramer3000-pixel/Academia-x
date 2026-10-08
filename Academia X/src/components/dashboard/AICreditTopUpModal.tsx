@@ -64,7 +64,7 @@ export function AICreditTopUpModal({
         return;
       }
 
-      // 2. Stripe: redirigir al Checkout hospedado. Los créditos se acreditan vía webhook.
+      // 2. Payphone: ir al formulario de pago. Los créditos se acreditan al confirmar el pago.
       if (/^https?:\/\//.test(checkoutRes.checkoutUrl)) {
         window.location.href = checkoutRes.checkoutUrl;
         return;

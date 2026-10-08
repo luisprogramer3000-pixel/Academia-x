@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/purge-trash",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-renewals",
+      "schedule": "15 * * * *"
     }
   ]
 }

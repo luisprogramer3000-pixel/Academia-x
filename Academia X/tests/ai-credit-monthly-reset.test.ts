@@ -85,7 +85,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     await prisma.subscription.create({
       data: {
         tenantId: tenantAId,
-        stripeSubscriptionId: "sub_pro_123",
+        externalId: "sub_pro_123",
         planId: "PRO",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -102,7 +102,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     await prisma.subscription.create({
       data: {
         tenantId: tenantAId,
-        stripeSubscriptionId: "sub_academy_123",
+        externalId: "sub_academy_123",
         planId: "ACADEMY",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -127,7 +127,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     await prisma.subscription.create({
       data: {
         tenantId: tenantAId,
-        stripeSubscriptionId: "sub_pro_student",
+        externalId: "sub_pro_student",
         planId: "PRO",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -361,7 +361,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
     const walletBefore = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
     expect(walletBefore?.monthlyTeacherAllowance).toBe(150);
 
-    await BillingService.createCheckoutSession(tenantAId, "PRO");
+    await BillingService.applySubscriptionPayment({ tenantId: tenantAId, planId: "PRO", billingInterval: "MONTHLY" });
 
     const walletAfter = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
     expect(walletAfter?.monthlyTeacherAllowance).toBe(800);
@@ -370,8 +370,8 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
 
   // 22. Downgrade de plan
   it("22. Debe actualizar las cuotas al realizar un Downgrade de plan (PRO -> STARTER)", async () => {
-    await BillingService.createCheckoutSession(tenantAId, "PRO");
-    await BillingService.createCheckoutSession(tenantAId, "STARTER");
+    await BillingService.applySubscriptionPayment({ tenantId: tenantAId, planId: "PRO", billingInterval: "MONTHLY" });
+    await BillingService.applySubscriptionPayment({ tenantId: tenantAId, planId: "STARTER", billingInterval: "MONTHLY" });
 
     const wallet = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
     expect(wallet?.monthlyTeacherAllowance).toBe(150);
@@ -387,7 +387,7 @@ describe("AI Credit Monthly Reset, Rollover & Plan Synchronization Engine — St
       idempotencyKey: "topup_purchased_test_23",
     });
 
-    await BillingService.createCheckoutSession(tenantAId, "ACADEMY");
+    await BillingService.applySubscriptionPayment({ tenantId: tenantAId, planId: "ACADEMY", billingInterval: "MONTHLY" });
 
     const wallet = await prisma.aICreditWallet.findUnique({ where: { tenantId: tenantAId } });
     expect(wallet?.purchasedTeacherCredits).toBe(150);

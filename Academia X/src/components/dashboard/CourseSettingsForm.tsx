@@ -203,7 +203,7 @@ export function CourseSettingsForm({ courseId, initial }: CourseSettingsFormProp
                   className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm font-mono focus:outline-none focus:border-blue-500"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Opcional: PayPal, Stripe, Hotmart… El alumno verá el botón &quot;Pagar en línea&quot;.
+                  Opcional: link de pago de Payphone, PayPal, Hotmart… El alumno verá el botón &quot;Pagar en línea&quot;.
                 </p>
               </div>
 

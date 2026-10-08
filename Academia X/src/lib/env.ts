@@ -20,14 +20,13 @@ export function validateProductionEnv(): EnvValidationResult {
     NEXT_PUBLIC_APP_HOST: process.env.NEXT_PUBLIC_APP_HOST,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   };
 
   const criticalProductionSecrets = [
     "DATABASE_URL",
     "JWT_SECRET",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
+    "PAYPHONE_TOKEN",
+    "PAYPHONE_STORE_ID",
     "CRON_SECRET",
   ];
 
@@ -69,14 +68,12 @@ export function validateProductionEnv(): EnvValidationResult {
     "NEXT_PUBLIC_APP_HOST",
     "RESEND_API_KEY",
     "EMAIL_FROM",
-    "STRIPE_PRICE_STARTER_MONTHLY",
-    "STRIPE_PRICE_STARTER_YEARLY",
-    "STRIPE_PRICE_PRO_MONTHLY",
-    "STRIPE_PRICE_PRO_YEARLY",
-    "STRIPE_PRICE_ACADEMY_MONTHLY",
-    "STRIPE_PRICE_ACADEMY_YEARLY",
   ];
   const warnings = recommended.filter((key) => !process.env[key]);
+  // Cobro automático: sin la contraseña de codificación no se puede cobrar la tarjeta guardada
+  if (process.env.PAYPHONE_TOKENIZATION_ENABLED === "true" && !process.env.PAYPHONE_CODING_PASSWORD) {
+    warnings.push("PAYPHONE_CODING_PASSWORD (tokenización activada sin la contraseña de codificación de Payphone)");
+  }
   // Sin Supabase Storage, los archivos subidos van al disco del servidor y un redespliegue puede borrarlos
   if (isProduction && process.env.STORAGE_DRIVER !== "local" && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     warnings.push("SUPABASE_SERVICE_ROLE_KEY (archivos subidos en disco local: se pierden al redesplegar)");

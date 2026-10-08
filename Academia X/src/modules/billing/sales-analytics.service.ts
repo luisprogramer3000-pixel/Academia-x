@@ -5,14 +5,14 @@ import { ACCESS_GRANTING_STATUSES, PAST_DUE_GRACE_DAYS } from "./billing.service
 /**
  * Ventas de la plataforma para el administrador (/dashboard/admin/sales).
  *
- * Lee la tabla Subscription, que los webhooks de Stripe mantienen al día, así
- * que no hace falta llamar a la API de Stripe para ver el estado. Cada academia
- * cuenta por su suscripción más reciente (la misma regla que da acceso).
+ * Lee las tablas Subscription y Payment (pagos con Payphone confirmados por la
+ * aplicación). Cada academia cuenta por su suscripción más reciente (la misma
+ * regla que da acceso).
  * Las suscripciones internas (cortesía, sub_internal_*) y las simuladas de
  * desarrollo (sub_simulated_*) dan acceso pero no suman ingresos.
  */
 
-export type SaleKind = "stripe" | "internal" | "simulated";
+export type SaleKind = "payphone" | "internal" | "simulated";
 export type SaleState = "active" | "trialing" | "past_due" | "canceling" | "canceled" | "expired";
 
 export interface SaleRow {
@@ -24,6 +24,8 @@ export interface SaleRow {
   planId: string;
   planName: string;
   interval: "MONTHLY" | "YEARLY";
+  /** Cobro automático con tarjeta guardada activo */
+  autoCharge: boolean;
   /** Lo que se cobra en cada renovación (USD) */
   amount: number;
   /** Equivalente mensual (anual / 12) para el MRR */
@@ -33,7 +35,6 @@ export interface SaleRow {
   kind: SaleKind;
   currentPeriodEnd: string;
   createdAt: string;
-  stripeUrl: string | null;
 }
 
 export interface MonthPoint {
@@ -46,10 +47,10 @@ export interface MonthPoint {
 
 const DAY = 24 * 60 * 60 * 1000;
 
-function kindOf(stripeSubscriptionId: string | null): SaleKind {
-  if (stripeSubscriptionId?.startsWith("sub_internal_")) return "internal";
-  if (!stripeSubscriptionId || stripeSubscriptionId.startsWith("sub_simulated_")) return "simulated";
-  return "stripe";
+function kindOf(externalId: string | null): SaleKind {
+  if (externalId?.startsWith("pp_")) return "payphone";
+  if (externalId?.startsWith("sub_internal_")) return "internal";
+  return "simulated";
 }
 
 function stateOf(s: { status: string; currentPeriodEnd: Date; cancelAtPeriodEnd: boolean }, now: number): SaleState {
@@ -77,23 +78,18 @@ function lastMonths(count: number): MonthPoint[] {
   });
 }
 
-function stripeDashboardUrl(subscriptionId: string): string {
-  const test = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_test") || (process.env.STRIPE_SECRET_KEY || "").startsWith("rk_test");
-  return `https://dashboard.stripe.com/${test ? "test/" : ""}subscriptions/${subscriptionId}`;
-}
-
 export class SalesAnalyticsService {
   static async getOverview() {
     const now = Date.now();
     const yearAgo = new Date(now - 366 * DAY);
 
-    const [subscriptions, tenantsTotal, tenantsRecent, topUps, owners] = await Promise.all([
+    const [subscriptions, tenantsTotal, tenantsRecent, topUps, owners, payments] = await Promise.all([
       prisma.subscription.findMany({
         orderBy: { updatedAt: "desc" },
         select: {
           id: true, tenantId: true, planId: true, billingInterval: true, status: true, currentPeriodEnd: true,
-          cancelAtPeriodEnd: true, createdAt: true, stripeSubscriptionId: true,
-          tenant: { select: { name: true, slug: true } },
+          cancelAtPeriodEnd: true, createdAt: true, externalId: true, autoRenew: true,
+          tenant: { select: { name: true, slug: true, paymentCard: { select: { id: true } } } },
         },
       }),
       prisma.tenant.count(),
@@ -106,6 +102,11 @@ export class SalesAnalyticsService {
         where: { role: "OWNER" },
         orderBy: { createdAt: "asc" },
         select: { tenantId: true, user: { select: { email: true } } },
+      }),
+      // Lo cobrado de verdad con Payphone (planes y créditos), últimos 12 meses
+      prisma.payment.findMany({
+        where: { status: "APPROVED", createdAt: { gte: yearAgo } },
+        select: { amountCents: true, createdAt: true, kind: true },
       }),
     ]);
 
@@ -121,7 +122,7 @@ export class SalesAnalyticsService {
       const plan: PlanConfig | undefined = SAAS_PLANS[s.planId?.toUpperCase()];
       const pricing = plan?.pricing[s.billingInterval];
       const amount = pricing ? pricing.amountCents / 100 : 0;
-      const kind = kindOf(s.stripeSubscriptionId);
+      const kind = kindOf(s.externalId);
       rows.push({
         id: s.id,
         tenantId: s.tenantId,
@@ -138,12 +139,12 @@ export class SalesAnalyticsService {
         kind,
         currentPeriodEnd: s.currentPeriodEnd.toISOString(),
         createdAt: s.createdAt.toISOString(),
-        stripeUrl: kind === "stripe" && s.stripeSubscriptionId ? stripeDashboardUrl(s.stripeSubscriptionId) : null,
+        autoCharge: kind === "payphone" && s.autoRenew && Boolean(s.tenant.paymentCard),
       });
     }
 
     const live = (r: SaleRow) => r.state === "active" || r.state === "trialing" || r.state === "past_due" || r.state === "canceling";
-    const paying = rows.filter((r) => live(r) && r.kind === "stripe" && r.state !== "trialing");
+    const paying = rows.filter((r) => live(r) && r.kind === "payphone" && r.state !== "trialing");
     const mrr = paying.reduce((acc, r) => acc + r.monthly, 0);
 
     const byPlan = Object.values(SAAS_PLANS).map((p) => {
@@ -152,7 +153,7 @@ export class SalesAnalyticsService {
         id: p.id,
         name: p.name,
         count: inPlan.length,
-        mrr: inPlan.filter((r) => r.kind === "stripe" && r.state !== "trialing").reduce((acc, r) => acc + r.monthly, 0),
+        mrr: inPlan.filter((r) => r.kind === "payphone" && r.state !== "trialing").reduce((acc, r) => acc + r.monthly, 0),
       };
     });
 
@@ -186,9 +187,15 @@ export class SalesAnalyticsService {
       if (point) point.value += amount;
     }
 
+    const collected = lastMonths(12);
+    for (const p of payments) {
+      const point = collected.find((m) => m.key === p.createdAt.toISOString().slice(0, 7));
+      if (point) point.value += p.amountCents / 100;
+    }
+
     const in7Days = now + 7 * DAY;
     const renewingSoon = rows
-      .filter((r) => r.kind === "stripe" && (r.state === "active" || r.state === "canceling") && new Date(r.currentPeriodEnd).getTime() <= in7Days)
+      .filter((r) => r.kind === "payphone" && (r.state === "active" || r.state === "canceling") && new Date(r.currentPeriodEnd).getTime() <= in7Days)
       .sort((a, b) => a.currentPeriodEnd.localeCompare(b.currentPeriodEnd));
 
     return {
@@ -203,12 +210,16 @@ export class SalesAnalyticsService {
         courtesy: rows.filter((r) => live(r) && r.kind === "internal").length,
         topUpTotal,
         newThisMonth: newSubs[newSubs.length - 1].value,
+        collectedThisMonth: collected[collected.length - 1].value,
+        collected12m: collected.reduce((acc, m) => acc + m.value, 0),
+        autoChargeCount: rows.filter((r) => live(r) && r.autoCharge).length,
       },
       byPlan,
       stateCounts,
       newSubs,
       newAcademies,
       topUpRevenue,
+      collected,
       renewingSoon,
     };
   }

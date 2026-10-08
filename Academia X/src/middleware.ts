@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
 
   // Una sola dirección pública: mentorstudioglobal.com → www.mentorstudioglobal.com.
   // Así la sesión (cookie de un solo dominio) no se parte entre las dos.
-  // /api queda fuera: Stripe y los cron no siguen redirecciones.
+  // /api queda fuera: Payphone y los cron no siguen redirecciones.
   const requestHost = (request.headers.get("host") || "").split(":")[0].toLowerCase();
   const canonical = canonicalHost();
   if (

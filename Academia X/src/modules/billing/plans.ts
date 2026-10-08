@@ -11,7 +11,6 @@ export interface PlanPricing {
   currency: string;
   equivalentMonthlyPrice?: number; // Para anual: 23.20, 63.20, 159.20
   annualSavings?: number; // Para anual: 69.60, 189.60, 477.60
-  stripePriceEnvKey: string;
 }
 
 export interface PlanConfig {
@@ -52,7 +51,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         price: 29,
         amountCents: 2900,
         currency: "USD",
-        stripePriceEnvKey: "STRIPE_PRICE_STARTER_MONTHLY",
       },
       YEARLY: {
         price: 278.4,
@@ -60,7 +58,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         currency: "USD",
         equivalentMonthlyPrice: 23.2,
         annualSavings: 69.6,
-        stripePriceEnvKey: "STRIPE_PRICE_STARTER_YEARLY",
       },
     },
   },
@@ -81,7 +78,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         price: 79,
         amountCents: 7900,
         currency: "USD",
-        stripePriceEnvKey: "STRIPE_PRICE_PRO_MONTHLY",
       },
       YEARLY: {
         price: 758.4,
@@ -89,7 +85,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         currency: "USD",
         equivalentMonthlyPrice: 63.2,
         annualSavings: 189.6,
-        stripePriceEnvKey: "STRIPE_PRICE_PRO_YEARLY",
       },
     },
   },
@@ -110,7 +105,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         price: 199,
         amountCents: 19900,
         currency: "USD",
-        stripePriceEnvKey: "STRIPE_PRICE_ACADEMY_MONTHLY",
       },
       YEARLY: {
         price: 1910.4,
@@ -118,7 +112,6 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
         currency: "USD",
         equivalentMonthlyPrice: 159.2,
         annualSavings: 477.6,
-        stripePriceEnvKey: "STRIPE_PRICE_ACADEMY_YEARLY",
       },
     },
   },

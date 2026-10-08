@@ -91,7 +91,6 @@ export function NewCourseForm() {
             className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
           >
             <option value="EXTERNAL">Enlace Externo (Manual)</option>
-            <option value="STRIPE_CONNECT" disabled>Stripe Integrado (Próximamente)</option>
           </select>
         </div>
 
@@ -101,7 +100,7 @@ export function NewCourseForm() {
             type="url"
             name="paymentLink"
             defaultValue={v.paymentLink}
-            placeholder="https://paypal.me/... o link de Stripe"
+            placeholder="https://paypal.me/... o link de pago de Payphone"
             className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500 transition-colors"
           />
         </div>

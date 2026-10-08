@@ -3,7 +3,7 @@
 import { TOPUP_PACKAGES } from "@/modules/ai/ai.topup-catalog";
 import { CreditPurchaseService } from "@/modules/billing/credit-purchase.service";
 import { requireTenantAccess, OWNER_ONLY, STAFF_ROLES } from "@/lib/session";
-import { isMockPaymentsMode } from "@/lib/stripe";
+import { isMockPaymentsMode } from "@/lib/payphone";
 import { prisma } from "@/lib/db";
 
 /**
@@ -56,9 +56,9 @@ export async function createTopUpCheckoutAction(
  */
 export async function fulfillTopUpPurchaseAction(providerPaymentId: string) {
   try {
-    // En producción los créditos se otorgan EXCLUSIVAMENTE vía webhook de Stripe.
+    // En producción los créditos se otorgan EXCLUSIVAMENTE al confirmar el pago con Payphone.
     if (!isMockPaymentsMode()) {
-      return { success: false, error: "FULFILLMENT_VIA_WEBHOOK_ONLY" };
+      return { success: false, error: "FULFILLMENT_VIA_PAYPHONE_ONLY" };
     }
     if (!providerPaymentId) {
       return { success: false, error: "PAYMENT_ID_REQUIRED" };

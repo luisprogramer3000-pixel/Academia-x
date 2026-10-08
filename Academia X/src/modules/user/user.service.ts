@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { cryptoNativeToken } from "@/lib/utils";
 import { sendEmail, EmailTemplates } from "@/lib/email";
-import { getAppUrl } from "@/lib/stripe";
+import { getAppUrl } from "@/lib/app-url";
 import { hashPassword, verifyPassword, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { assertCanAddMember } from "@/modules/billing/entitlements";
 

@@ -12,6 +12,8 @@ interface PricingPlansProps {
   hasActiveSubscription?: boolean;
   /** Plan que el cliente eligió en la landing y llega por la URL */
   preselectedPlanId?: string;
+  /** Payphone aprobó la tokenización: se ofrece guardar la tarjeta (con consentimiento) */
+  tokenizationEnabled?: boolean;
 }
 
 export function PricingPlans({
@@ -19,8 +21,11 @@ export function PricingPlans({
   currentInterval = "MONTHLY",
   hasActiveSubscription = false,
   preselectedPlanId,
+  tokenizationEnabled = false,
 }: PricingPlansProps) {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(currentInterval);
+  // Consentimiento explícito para guardar la tarjeta y cobrarla al vencer (exigido por Payphone)
+  const [saveCard, setSaveCard] = useState(true);
   const isYearly = billingInterval === "YEARLY";
 
   const formatPrice = (price: number, yearly: boolean) => {
@@ -35,7 +40,7 @@ export function PricingPlans({
         <div>
           <h2 className="text-2xl font-bold text-white">Selecciona o Cambia Tu Plan</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Elige la modalidad que mejor se adapte a tu academia. Cancela o cambia en cualquier momento.
+            Pago seguro con Payphone (tarjeta de crédito o débito). Precios en USD con IVA incluido.
           </p>
         </div>
 
@@ -80,7 +85,7 @@ export function PricingPlans({
           const periodSuffix = isYearly ? "/año" : "/mes";
 
           const buttonLabel = isCurrent
-            ? `Plan Activo (${isYearly ? "Anual" : "Mensual"})`
+            ? `Renovar por adelantado (${isYearly ? "Anual" : "Mensual"})`
             : hasActiveSubscription
             ? `Cambiar a ${p.name} (${isYearly ? "Anual" : "Mensual"})`
             : p.id === "PRO"
@@ -156,12 +161,12 @@ export function PricingPlans({
               <form action={createCheckoutAction}>
                 <input type="hidden" name="planId" value={p.id} />
                 <input type="hidden" name="billingInterval" value={billingInterval} />
+                <input type="hidden" name="saveCard" value={tokenizationEnabled && saveCard ? "1" : "0"} />
                 <button
                   type="submit"
-                  disabled={isCurrent}
                   className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
                     isCurrent
-                      ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                      ? "bg-slate-800 hover:bg-slate-700 text-slate-200"
                       : p.id === "PRO"
                       ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 font-bold"
                       : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30"
@@ -173,6 +178,22 @@ export function PricingPlans({
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-6 space-y-3 text-xs text-slate-400">
+        {tokenizationEnabled && (
+          <label className="flex items-start gap-2.5 cursor-pointer max-w-3xl">
+            <input type="checkbox" checked={saveCard} onChange={(e) => setSaveCard(e.target.checked)} className="mt-0.5 w-4 h-4 accent-blue-600" />
+            <span>
+              Autorizo a Mentor Studio Global a guardar mi tarjeta de forma segura con Payphone y a cobrarla automáticamente al
+              vencer cada periodo del plan. Puedo desactivar el cobro automático o quitar la tarjeta cuando quiera desde Facturación.
+            </span>
+          </label>
+        )}
+        <p>
+          Renovar el mismo plan suma un periodo completo a tu fecha de vencimiento. Cambiar de plan o de modalidad lo activa desde hoy.
+          Al pulsar te llevamos al formulario seguro de Payphone; al terminar vuelves aquí.
+        </p>
       </div>
     </div>
   );

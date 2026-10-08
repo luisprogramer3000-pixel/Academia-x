@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  AlertTriangle, ArrowUpRight, BadgeDollarSign, Ban, CalendarClock, CheckCircle2, Clock, CreditCard, Download,
+  AlertTriangle, BadgeDollarSign, Ban, CalendarClock, CheckCircle2, Clock, CreditCard, Download,
   FileText, Gift, Library, LineChart, Search, ShieldCheck, Sparkles, TrendingUp, Users, XCircle,
 } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -106,7 +106,7 @@ export default async function AdminSalesPage({ searchParams }: { searchParams: P
               </p>
               <h1 className="text-3xl font-extrabold text-white">Ventas y biblioteca</h1>
               <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-                Suscripciones, ingresos y crecimiento de Mentor Studio Global, sincronizados desde Stripe. Y la moderación de la Biblioteca de la plataforma.
+                Suscripciones, ingresos y crecimiento de Mentor Studio Global, con los pagos confirmados por Payphone. Y la moderación de la Biblioteca de la plataforma.
               </p>
             </div>
             <nav className="flex flex-wrap gap-2 text-xs font-semibold">
@@ -124,15 +124,15 @@ export default async function AdminSalesPage({ searchParams }: { searchParams: P
               <Kpi icon={BadgeDollarSign} label="Ingreso mensual (MRR)" value={usd(kpis.mrr)} hint={`Anual estimado (ARR): ${usd(kpis.arr)}`} />
               <Kpi icon={CreditCard} label="Academias que pagan" value={kpis.payingAcademies.toLocaleString("es")} hint={`Ingreso medio: ${usd(kpis.arpa, 2)} / mes`} />
               <Kpi icon={TrendingUp} label="Altas este mes" value={kpis.newThisMonth.toLocaleString("es")} hint={`${kpis.tenantsTotal.toLocaleString("es")} academias registradas`} />
-              <Kpi icon={Sparkles} label="Créditos IA vendidos" value={usd(kpis.topUpTotal)} hint="Paquetes extra, total histórico" />
+              <Kpi icon={Sparkles} label="Cobrado este mes" value={usd(kpis.collectedThisMonth)} hint={`Últimos 12 meses: ${usd(kpis.collected12m)} · créditos IA: ${usd(kpis.topUpTotal)}`} />
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6">
               <Panel title="Nuevas suscripciones por mes" subtitle="Primera suscripción de cada academia · últimos 12 meses">
                 <MonthlyBars data={sales.newSubs} unit="altas" />
               </Panel>
-              <Panel title="Ventas de créditos IA por mes" subtitle="Paquetes extra pagados · USD · últimos 12 meses">
-                <MonthlyBars data={sales.topUpRevenue} currency />
+              <Panel title="Cobrado por mes" subtitle="Pagos aprobados por Payphone (planes y créditos IA) · USD con IVA · últimos 12 meses">
+                <MonthlyBars data={sales.collected} currency />
               </Panel>
             </div>
 
@@ -250,7 +250,7 @@ export default async function AdminSalesPage({ searchParams }: { searchParams: P
                       <th className="py-2.5 pr-4 font-semibold">Estado</th>
                       <th className="py-2.5 pr-4 font-semibold">Renueva / vence</th>
                       <th className="py-2.5 pr-4 font-semibold">Alta</th>
-                      <th className="py-2.5 font-semibold"><span className="sr-only">Stripe</span></th>
+                      <th className="py-2.5 font-semibold text-right">Cobro</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -265,7 +265,7 @@ export default async function AdminSalesPage({ searchParams }: { searchParams: P
                           <p className="text-xs text-slate-500">{r.interval === "YEARLY" ? "Anual" : "Mensual"}</p>
                         </td>
                         <td className="py-3 pr-4 text-right tabular-nums">
-                          {r.kind === "stripe" ? (
+                          {r.kind === "payphone" ? (
                             <>
                               <span className="text-white font-semibold">{usd(r.amount, 2)}</span>
                               <p className="text-xs text-slate-500">{r.interval === "YEARLY" ? `${usd(r.monthly, 2)}/mes` : "por mes"}</p>
@@ -280,10 +280,8 @@ export default async function AdminSalesPage({ searchParams }: { searchParams: P
                         <td className="py-3 pr-4 text-slate-300 whitespace-nowrap">{new Date(r.currentPeriodEnd).getUTCFullYear() >= 2090 ? "Sin vencimiento" : date(r.currentPeriodEnd)}</td>
                         <td className="py-3 pr-4 text-slate-400 whitespace-nowrap">{date(r.createdAt)}</td>
                         <td className="py-3 text-right">
-                          {r.stripeUrl && (
-                            <a href={r.stripeUrl} target="_blank" rel="noopener noreferrer" title="Abrir en Stripe" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-blue-300">
-                              Stripe <ArrowUpRight className="w-3.5 h-3.5" />
-                            </a>
+                          {r.kind === "payphone" && (
+                            <span className="text-xs text-slate-400 whitespace-nowrap">{r.autoCharge ? "Automático" : "Manual"}</span>
                           )}
                         </td>
                       </tr>

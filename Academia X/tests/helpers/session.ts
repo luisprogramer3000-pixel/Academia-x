@@ -39,7 +39,7 @@ export async function loginAs(
       await prisma.subscription.create({
         data: {
           tenantId,
-          stripeSubscriptionId: `sub_test_${tenantId}`,
+          externalId: `sub_test_${tenantId}`,
           planId: plan,
           status: "active",
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -51,15 +51,4 @@ export async function loginAs(
 
 export function logout() {
   jar().delete(SESSION_COOKIE_NAME);
-}
-
-/** IDs fijos de eventos Stripe usados por los tests (se limpian para que la idempotencia no afecte re-ejecuciones) */
-export const TEST_STRIPE_EVENT_IDS = [
-  "evt_tampered", "evt_dedup_interval_test", "evt_test_dedup", "evt_unknown_info", "evt_valid_sandbox_e2e_1",
-  "evt_upgrade_academy", "evt_tampered_sig", "evt_dedup_delivery", "evt_topup_completed_test",
-  "evt_topup_dedup_test", "evt_tenant_a", "evt_cancel_e2e", "evt_test_valid_signature_1",
-];
-
-export async function resetTestStripeEvents() {
-  await prisma.stripeEvent.deleteMany({ where: { id: { in: TEST_STRIPE_EVENT_IDS } } });
 }

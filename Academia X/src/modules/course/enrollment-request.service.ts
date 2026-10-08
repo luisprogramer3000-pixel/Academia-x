@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { sendEmail, EmailTemplates } from "@/lib/email";
-import { getAppUrl } from "@/lib/stripe";
+import { getAppUrl } from "@/lib/app-url";
 
 /**
  * Inscripción a cursos de pago: el alumno envía una solicitud (con comprobante

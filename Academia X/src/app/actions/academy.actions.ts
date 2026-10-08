@@ -9,7 +9,7 @@ import { setSession, requireTenantAccess, OWNER_ONLY, AuthError } from "@/lib/se
 import { checkRateLimit } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 import { sendEmail, EmailTemplates } from "@/lib/email";
-import { getAppUrl } from "@/lib/stripe";
+import { getAppUrl } from "@/lib/app-url";
 import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 import { assertPlanCapability, requireActiveSubscription, PlanLimitError } from "@/modules/billing/entitlements";
 

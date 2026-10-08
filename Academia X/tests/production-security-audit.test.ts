@@ -5,16 +5,14 @@ import { verifySessionToken, createSessionToken } from "@/lib/auth";
 import { checkRateLimit, resetRateLimitStore } from "@/lib/rate-limit";
 import { getAIAdapter, MockAIAdapter } from "@/modules/ai/ai.adapter";
 import { GET as cronHandler } from "@/app/api/cron/ai-credit-reset/route";
-import { POST as stripeWebhookHandler } from "@/app/api/webhooks/stripe/route";
-import { BillingService, SAAS_PLANS, getStripePriceId } from "@/modules/billing/billing.service";
+import { POST as payphoneNotificationHandler } from "@/app/api/payphone/NotificacionPago/route";
+import { BillingService, SAAS_PLANS } from "@/modules/billing/billing.service";
 import { AICreditEngine, AICreditError } from "@/modules/ai/ai.credit-engine";
-import { generateStripeTestSignature } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 
 describe("Production Security, Legal & Hostinger Readiness Suite — Step 6.8", () => {
   const originalEnv = { ...process.env };
-  const testSecret = "whsec_step_6_8_security_audit_test_secret_123456";
   const testCronSecret = "cron_secret_step_6_8_hostinger_test_token_998877";
 
   const tenantAId = "tenant_sec_audit_a";
@@ -26,8 +24,6 @@ describe("Production Security, Legal & Hostinger Readiness Suite — Step 6.8", 
     process.env = { ...originalEnv };
     resetRateLimitStore();
 
-    process.env.STRIPE_WEBHOOK_SECRET = testSecret;
-    process.env.STRIPE_SECRET_KEY = "sk_test_mock_sandbox_key";
     process.env.CRON_SECRET = testCronSecret;
 
     // Limpieza de BD
@@ -180,27 +176,27 @@ describe("Production Security, Legal & Hostinger Readiness Suite — Step 6.8", 
     expect(validRes.status).toBe(200);
   });
 
-  // 7. Stripe Webhook HMAC Signature Security
-  it("7. /api/webhooks/stripe rechaza peticiones con firmas inválidas o ausentes", async () => {
-    const rawBody = JSON.stringify({ type: "customer.subscription.updated", data: {} });
+  // 7. Notificación de Payphone: datos inválidos se rechazan y nada se aplica sin confirmar
+  it("7. /api/payphone/NotificacionPago rechaza datos inválidos y no aplica pagos desconocidos", async () => {
+    const bad = await payphoneNotificationHandler(
+      new NextRequest("http://localhost:3000/api/payphone/NotificacionPago", { method: "POST", body: "no es json" })
+    );
+    expect(await bad.json()).toEqual({ Response: false, ErrorCode: "111" });
 
-    // Sin firma -> HTTP 400
-    const reqNoSig = new Request("http://localhost:3000/api/webhooks/stripe", {
-      method: "POST",
-      body: rawBody,
-    });
-    const resNoSig = await stripeWebhookHandler(reqNoSig);
-    expect(resNoSig.status).toBe(400);
+    const missing = await payphoneNotificationHandler(
+      new NextRequest("http://localhost:3000/api/payphone/NotificacionPago", { method: "POST", body: JSON.stringify({ Amount: 100 }) })
+    );
+    expect(await missing.json()).toEqual({ Response: false, ErrorCode: "444" });
 
-    // Con firma válida -> HTTP 200
-    const validSignature = generateStripeTestSignature({ rawBody, secret: testSecret });
-    const reqValid = new Request("http://localhost:3000/api/webhooks/stripe", {
-      method: "POST",
-      headers: { "stripe-signature": validSignature },
-      body: rawBody,
-    });
-    const resValid = await stripeWebhookHandler(reqValid);
-    expect(resValid.status).toBe(200);
+    // Un pago que no es nuestro se reconoce (para que Payphone no reintente) pero no activa nada
+    const unknown = await payphoneNotificationHandler(
+      new NextRequest("http://localhost:3000/api/payphone/NotificacionPago", {
+        method: "POST",
+        body: JSON.stringify({ TransactionId: 999, ClientTransactionId: "SDESCONOCIDO000", StatusCode: 3, Amount: 7900 }),
+      })
+    );
+    expect(await unknown.json()).toEqual({ Response: true, ErrorCode: "000" });
+    expect(await BillingService.getActiveSubscription(tenantAId).then((a) => a?.externalId ?? null)).not.toBe(`pp_${tenantAId}`);
   });
 
   // 8. Multi-Tenant AI Credit Isolation

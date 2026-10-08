@@ -95,7 +95,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantProId,
-        stripeSubscriptionId: "sub_pro_cron",
+        externalId: "sub_pro_cron",
         planId: "PRO",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -109,7 +109,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantAcademyId,
-        stripeSubscriptionId: "sub_academy_cron",
+        externalId: "sub_academy_cron",
         planId: "ACADEMY",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -140,7 +140,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantProId,
-        stripeSubscriptionId: "sub_pro_roll",
+        externalId: "sub_pro_roll",
         planId: "PRO",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -164,7 +164,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantAcademyId,
-        stripeSubscriptionId: "sub_acad_roll",
+        externalId: "sub_acad_roll",
         planId: "ACADEMY",
         status: "active",
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -240,7 +240,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantProId,
-        stripeSubscriptionId: "sub_pro_monthly",
+        externalId: "sub_pro_monthly",
         planId: "PRO",
         status: "active",
         billingInterval: "MONTHLY",
@@ -276,7 +276,7 @@ describe("Paso 6.6 — Cron Jobs, Background Processes & AI Credit Renewal Engin
     await prisma.subscription.create({
       data: {
         tenantId: tenantYearlyId,
-        stripeSubscriptionId: "sub_pro_yearly_cron",
+        externalId: "sub_pro_yearly_cron",
         planId: "PRO",
         status: "active",
         billingInterval: "YEARLY",

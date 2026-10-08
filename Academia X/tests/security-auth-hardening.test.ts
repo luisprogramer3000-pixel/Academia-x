@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { middleware } from "@/middleware";
-import { isMockPaymentsMode } from "@/lib/stripe";
-import { getStripePriceId, resolvePlanFromPriceId } from "@/modules/billing/billing.service";
+import { isMockPaymentsMode, encryptCardHolder } from "@/lib/payphone";
+import { seal, open } from "@/lib/secret-box";
 import { SAAS_PLANS } from "@/modules/billing/plans";
 
 const originalEnv = { ...process.env };
@@ -80,31 +80,40 @@ describe("Middleware: enrutado multi-tenant por host", () => {
 });
 
 describe("Pagos: el modo simulado nunca se activa en producción", () => {
-  it("modo simulado solo en desarrollo sin clave de Stripe", () => {
-    delete process.env.STRIPE_SECRET_KEY;
+  it("modo simulado solo en desarrollo sin credenciales de Payphone", () => {
+    delete process.env.PAYPHONE_TOKEN;
+    delete process.env.PAYPHONE_STORE_ID;
     (process.env as any).NODE_ENV = "development";
     expect(isMockPaymentsMode()).toBe(true);
 
-    process.env.STRIPE_SECRET_KEY = "sk_test_123";
+    process.env.PAYPHONE_TOKEN = "token_test";
+    process.env.PAYPHONE_STORE_ID = "store_test";
     expect(isMockPaymentsMode()).toBe(false);
   });
 
-  it("en producción sin STRIPE_SECRET_KEY lanza error en lugar de regalar planes", () => {
-    delete process.env.STRIPE_SECRET_KEY;
+  it("en producción sin credenciales de Payphone lanza error en lugar de regalar planes", () => {
+    delete process.env.PAYPHONE_TOKEN;
+    delete process.env.PAYPHONE_STORE_ID;
     (process.env as any).NODE_ENV = "production";
-    expect(() => isMockPaymentsMode()).toThrow(/STRIPE_SECRET_KEY/);
+    expect(() => isMockPaymentsMode()).toThrow(/PAYPHONE_TOKEN/);
   });
 
-  it("en producción exige los Price IDs configurados", () => {
-    (process.env as any).NODE_ENV = "production";
-    delete process.env.STRIPE_PRICE_PRO_MONTHLY;
-    expect(() => getStripePriceId("PRO", "MONTHLY")).toThrow(/STRIPE_PRICE_PRO_MONTHLY/);
+  it("el token de la tarjeta se guarda cifrado y no se puede alterar", () => {
+    process.env.JWT_SECRET = "x".repeat(40);
+    const sealed = seal("ctoken_secreto");
+    expect(sealed).not.toContain("ctoken_secreto");
+    expect(open(sealed)).toBe("ctoken_secreto");
+    const parts = sealed.split(":");
+    parts[3] = Buffer.from("otro").toString("base64");
+    expect(() => open(parts.join(":"))).toThrow();
   });
 
-  it("resuelve plan e intervalo a partir del Price ID de Stripe", () => {
-    process.env.STRIPE_PRICE_ACADEMY_YEARLY = "price_real_academy_year";
-    expect(resolvePlanFromPriceId("price_real_academy_year")).toEqual({ planId: "ACADEMY", billingInterval: "YEARLY" });
-    expect(resolvePlanFromPriceId("price_desconocido")).toBeNull();
+  it("el titular se cifra como pide Payphone (AES-256-CBC, IV en ceros, Base64)", () => {
+    process.env.PAYPHONE_CODING_PASSWORD = "0123456789abcdef0123456789abcdef";
+    const a = encryptCardHolder("Juan Pérez");
+    expect(a).toMatch(/^[A-Za-z0-9+/]+=*$/);
+    // Sin IV aleatorio: el mismo nombre da siempre el mismo resultado
+    expect(encryptCardHolder("Juan Pérez")).toBe(a);
   });
 });
 

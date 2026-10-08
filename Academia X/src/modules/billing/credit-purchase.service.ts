@@ -3,17 +3,12 @@ import { getTopUpPackage } from "@/modules/ai/ai.topup-catalog";
 import { AICreditEngine, AICreditError } from "@/modules/ai/ai.credit-engine";
 import { NotificationService } from "@/modules/notifications/notification.service";
 import { MockPaymentProvider } from "./mock-payment-provider";
-import { StripePaymentProvider } from "./stripe-payment-provider";
-import { isMockPaymentsMode } from "@/lib/stripe";
+import { isMockPaymentsMode } from "@/lib/payphone";
 
 export class CreditPurchaseService {
-  /**
-   * Stripe en producción; proveedor simulado solo en desarrollo sin STRIPE_SECRET_KEY.
-   */
-  private static getPaymentProvider() {
-    return isMockPaymentsMode()
-      ? { name: "mock", provider: new MockPaymentProvider() }
-      : { name: "stripe", provider: new StripePaymentProvider() };
+  /** Payphone en producción; simulado solo en desarrollo sin credenciales de Payphone. */
+  private static providerName() {
+    return isMockPaymentsMode() ? "mock" : "payphone";
   }
 
   /**
@@ -71,7 +66,7 @@ export class CreditPurchaseService {
         priceAmount: pkg.price,
         currency: pkg.currency,
         status: "PENDING",
-        provider: this.getPaymentProvider().name,
+        provider: this.providerName(),
         idempotencyKey,
         metadata: {
           packageName: pkg.name,
@@ -80,17 +75,28 @@ export class CreditPurchaseService {
       },
     });
 
-    // Iniciar Checkout Session en el proveedor de pagos
-    const checkoutResult = await this.getPaymentProvider().provider.createCheckoutSession({
-      tenantId: input.tenantId,
-      userId: input.userId,
-      packageId: pkg.id,
-      packageName: pkg.name,
-      customerEmail: input.customerEmail,
-      amount: pkg.price,
-      currency: pkg.currency,
-      idempotencyKey: purchase.id,
-    });
+    // Formulario de pago de Payphone (o simulado en desarrollo). Import diferido:
+    // el servicio de Payphone también usa este módulo para acreditar la compra.
+    const checkoutResult =
+      this.providerName() === "mock"
+        ? await new MockPaymentProvider().createCheckoutSession({
+            tenantId: input.tenantId,
+            userId: input.userId,
+            packageId: pkg.id,
+            amount: pkg.price,
+            currency: pkg.currency,
+            idempotencyKey: purchase.id,
+          })
+        : await import("./payphone-payment.service").then(async ({ PayphonePaymentService }) => {
+            const started = await PayphonePaymentService.startTopupPayment({
+              tenantId: input.tenantId,
+              userId: input.userId,
+              purchaseId: purchase.id,
+              amountCents: Math.round(pkg.price * 100),
+              packageName: pkg.name,
+            });
+            return { providerPaymentId: started.clientTransactionId, checkoutUrl: started.redirectUrl };
+          });
 
     // Actualizar providerPaymentId en la compra
     await prisma.aICreditPurchase.update({
