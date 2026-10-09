@@ -31,6 +31,7 @@ import { saveTeacherPlanAction } from "@/app/actions/course.actions";
 import { LessonReader, type LessonBlock as ReaderBlock } from "@/components/lesson/LessonReader";
 import { TeacherPlanPanel } from "./TeacherPlanPanel";
 import { LessonImagePicker } from "./LessonImagePicker";
+import { cleanTitle, stripStrayImageUrls } from "@/components/lesson/lesson-blocks";
 
 const fieldLabel = "block text-xs font-medium text-slate-400 mb-1";
 
@@ -86,6 +87,25 @@ export interface LessonBlock {
   explanation?: string;
   /** Solo para bloques de tipo mindmap */
   mindMap?: { center: string; branches: Array<{ label: string; children: string[] }> };
+  /** Medida de la imagen de una sección de texto */
+  imageSize?: "auto" | "small" | "medium" | "large" | "full";
+}
+
+const IMAGE_SIZES: Array<[NonNullable<LessonBlock["imageSize"]>, string, string]> = [
+  ["auto", "Automática", "Según el espacio: poco texto → a todo el ancho; mucho texto → columna grande al lado"],
+  ["small", "Pequeña", "Columna estrecha al lado del texto"],
+  ["medium", "Mediana", "Columna al lado del texto"],
+  ["large", "Grande", "Mitad del ancho, acompaña al texto al leer"],
+  ["full", "Ancho completo", "Debajo del texto, a todo el ancho"],
+];
+
+/** Dirección de una imagen arrastrada (desde la biblioteca, otra pestaña o la propia lección). */
+function droppedImageUrl(e: React.DragEvent): string | null {
+  const raw = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+  const url = raw.split(/\s+/).find((x) => /^(https?:\/\/|\/api\/uploads\/)/.test(x));
+  if (url && (/\/api\/uploads\//.test(url) || /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(url))) return url;
+  const html = e.dataTransfer.getData("text/html");
+  return html.match(/<img[^>]+src="([^"]+)"/i)?.[1] ?? null;
 }
 
 interface LessonBlockEditorProps {
@@ -224,13 +244,16 @@ export function LessonBlockEditor({
     setSaving(true);
     setMessage(null);
     try {
-      const contentJson = JSON.stringify({ blocks });
+      // Limpieza: direcciones de imágenes pegadas en el texto y "###" en los subtítulos
+      const clean = blocks.map((b) => (b.type === "text" ? { ...b, title: b.title ? cleanTitle(b.title) : b.title, content: b.content ? stripStrayImageUrls(b.content) : b.content } : b));
+      setBlocks(clean);
+      const contentJson = JSON.stringify({ blocks: clean });
       await updateLessonContentAction(lessonId, contentJson);
       
       const formData = new FormData();
       if (liveUrl) formData.set("liveUrl", liveUrl);
       await updateLessonSettingsAction(lessonId, formData);
-      setSavedSnapshot(JSON.stringify(blocks));
+      setSavedSnapshot(JSON.stringify(clean));
 
       setMessage({ type: "success", text: "¡Contenido de la lección guardado exitosamente!" });
     } catch (err: any) {
@@ -568,6 +591,24 @@ export function LessonBlockEditor({
                             </button>
                           </div>
                         )}
+                        {block.url && (
+                          <div className="mb-3">
+                            <span className="block text-[11px] text-slate-500 mb-1">Medida de la imagen</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {IMAGE_SIZES.map(([size, label, hint]) => (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  title={hint}
+                                  onClick={() => updateBlock(block.id, { imageSize: size })}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${(block.imageSize ?? "auto") === size ? "bg-blue-600/20 border-blue-500 text-white" : "border-slate-700 text-slate-400 hover:text-white"}`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
                       </div>
                     </div>
@@ -665,6 +706,18 @@ export function LessonBlockEditor({
                       <textarea
                         rows={6}
                         value={block.content || ""}
+                        onDrop={(e) => {
+                          // Una imagen soltada en el texto pasa a ser la imagen de la sección (no su dirección pegada en el texto)
+                          const url = droppedImageUrl(e);
+                          if (url) {
+                            e.preventDefault();
+                            updateBlock(block.id, { url });
+                            setMessage({ type: "success", text: "Imagen añadida a la sección. Elige su medida debajo del texto y pulsa Guardar." });
+                          } else if (e.dataTransfer.files.length) {
+                            e.preventDefault();
+                            setMessage({ type: "error", text: "Para subir una imagen desde tu computadora usa el botón «Subir» de la imagen de la sección." });
+                          }
+                        }}
                         onChange={(e) => updateBlock(block.id, { content: e.target.value })}
                         placeholder="Escribe el texto explicativo de la lección..."
                         className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-sans leading-relaxed"

@@ -5,7 +5,7 @@ import { MindMapView } from "@/components/shared/MindMapView";
 import { safeExternalUrl } from "@/lib/utils";
 import { checkQuizAnswerAction, submitQuizAttemptAction } from "@/app/actions/quiz.actions";
 import { LessonProse } from "./LessonProse";
-import type { LessonBlock } from "./lesson-blocks";
+import { cleanTitle, stripStrayImageUrls, type ImageSize, type LessonBlock } from "./lesson-blocks";
 import { DialogueView } from "./DialogueView";
 import { CheckCircle2, Clock, Download, ListChecks, Loader2, PencilLine, RotateCcw, XCircle } from "lucide-react";
 
@@ -68,7 +68,7 @@ export function LessonReader({
     return blocks
       .map((b) => {
         if (b.type === "quiz") return { id: b.id, label: b.title || `Actividad ${activity + 1}`, detail: "", kind: "activity" as const, n: ++activity };
-        if ((b.type === "text" || b.type === "mindmap") && b.title) return { id: b.id, label: b.title, detail: "", kind: "section" as const, n: ++section };
+        if ((b.type === "text" || b.type === "mindmap") && b.title) return { id: b.id, label: cleanTitle(b.title), detail: "", kind: "section" as const, n: ++section };
         return null;
       })
       .filter(Boolean) as Array<{ id: string; label: string; detail: string; kind: "section" | "activity"; n: number }>;
@@ -191,7 +191,7 @@ export function LessonReader({
                 <p className="text-sm font-bold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: accent }}>
                   <span className="text-2xl">{b.emoji}</span> {b.label}
                 </p>
-                <h2 className="text-4xl sm:text-5xl font-black leading-tight" style={{ color: accent }}>{b.title}</h2>
+                <h2 className="text-4xl sm:text-5xl font-black leading-tight" style={{ color: accent }}>{cleanTitle(b.title)}</h2>
                 {b.content && <p className="text-lg text-slate-500 mt-4 leading-relaxed">{b.content}</p>}
               </header>
             );
@@ -225,7 +225,7 @@ export function LessonReader({
               <section key={b.id} id={anchor} className="scroll-mt-16">
                 {b.title && (
                   <h3 className="text-2xl sm:text-3xl font-bold pb-3 mb-6 border-b-2 leading-tight" style={{ color: accent, borderColor: `${accent}55` }}>
-                    {b.title}
+                    {cleanTitle(b.title)}
                   </h3>
                 )}
                 <TextWithImage block={b} accent={accent} />
@@ -243,7 +243,7 @@ export function LessonReader({
                     <span className="w-9 h-9 rounded-xl text-white text-base font-black flex items-center justify-center shrink-0" style={{ background: accent }}>
                       {sectionNumber}
                     </span>
-                    {b.title}
+                    {cleanTitle(b.title)}
                   </h2>
                 )}
                 <TextWithImage block={b} accent={accent} />
@@ -278,7 +278,7 @@ export function LessonReader({
                     <span className="w-9 h-9 rounded-xl text-white text-base font-black flex items-center justify-center shrink-0" style={{ background: accent }}>
                       {sectionNumber}
                     </span>
-                    {b.title}
+                    {cleanTitle(b.title)}
                   </h2>
                 )}
                 <div className="rounded-2xl bg-slate-900 p-5">
@@ -564,16 +564,47 @@ function VideoEmbed({ url, title }: { url?: string; title?: string }) {
 }
 
 /** Texto de una sección; si trae ilustración (p. ej. un concepto clave), va al lado del texto. */
+/**
+ * Medida de la imagen de una sección. En "auto" se decide por el espacio que
+ * deja el texto: poco texto → imagen a todo el ancho (al lado quedaría un hueco);
+ * texto medio → columna lateral; texto largo → columna ancha que acompaña al leer.
+ */
+function resolveImageSize(block: LessonBlock): Exclude<ImageSize, "auto"> {
+  if (block.imageSize && block.imageSize !== "auto") return block.imageSize;
+  const words = (block.content?.match(/\S+/g) ?? []).length;
+  if (words < 35) return "full";
+  if (words <= 150) return "medium";
+  return "large";
+}
+
+const SIDE_COLUMNS: Record<"small" | "medium" | "large", string> = {
+  small: "md:grid-cols-[minmax(0,1fr)_240px]",
+  medium: "md:grid-cols-[minmax(0,1fr)_minmax(0,380px)]",
+  large: "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
+};
+
 function TextWithImage({ block, accent }: { block: LessonBlock; accent: string }) {
   const src = safeExternalUrl(block.url);
-  if (!src) return block.content ? <LessonProse text={block.content} accent={accent} /> : null;
+  const text = block.content ? stripStrayImageUrls(block.content) : "";
+  if (!src) return text ? <LessonProse text={text} accent={accent} /> : null;
+  const size = resolveImageSize(block);
+  // La imagen entera, sin recortes (los esquemas con rótulos se cortaban)
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={cleanTitle(block.title) || "Ilustración del concepto"} className={`w-full h-auto object-contain ${size === "full" ? "max-h-[560px]" : "max-h-[640px]"}`} loading="lazy" />
+  );
+  if (size === "full") {
+    return (
+      <div className="space-y-5">
+        {text && <LessonProse text={text} accent={accent} />}
+        <figure className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 flex justify-center">{img}</figure>
+      </div>
+    );
+  }
   return (
-    <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6 items-start">
-      <div className="min-w-0">{block.content && <LessonProse text={block.content} accent={accent} />}</div>
-      <figure className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 md:order-last order-first">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={block.title || "Ilustración del concepto"} className="w-full aspect-video object-cover" loading="lazy" />
-      </figure>
+    <div className={`grid ${SIDE_COLUMNS[size]} gap-6 items-start`}>
+      <div className="min-w-0">{text && <LessonProse text={text} accent={accent} />}</div>
+      <figure className={`rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 md:order-last order-first ${size === "large" ? "md:sticky md:top-20" : ""}`}>{img}</figure>
     </div>
   );
 }
