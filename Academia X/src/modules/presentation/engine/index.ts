@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { DesignMode, LessonContent, PresentationPlan, PresentationQuality, ResolvedDesignSystem, ResolvedImage, ResolvedSlide, SlidePlan } from "./types";
+import type { DesignMode, LessonContent, PresentationPlan, PresentationQuality, ResolvedDesignSystem, ResolvedImage, ResolvedSlide, SlidePlan, VisualAssetRequest } from "./types";
 import { PRESENTATION_ENGINE_VERSION } from "./types";
 import type { DeckTheme } from "../presentation.themes";
 import { extractLessonContent, type ExtractInput } from "./planner/extract";
@@ -48,6 +48,8 @@ export interface GeneratePresentationInput {
   };
   /** Cuántas imágenes puede generar (créditos aprobados por el profesor) */
   imageBudget?: number;
+  /** Solo genera imágenes para estos usos (p. ej. la básica: solo las tarjetas de vocabulario) */
+  imagePurposes?: VisualAssetRequest["purpose"][];
   onProgress?: (stage: GenerationStage, percent: number) => void;
 }
 
@@ -139,7 +141,7 @@ export async function generatePresentation(input: GeneratePresentationInput): Pr
 
     // 3. Recursos visuales
     progress("GENERATING_ASSETS", 40);
-    const assetPlan = planAssets(plan, input.images.generate ? input.imageBudget ?? 0 : 0);
+    const assetPlan = planAssets(plan, input.images.generate ? input.imageBudget ?? 0 : 0, input.imagePurposes);
     let generated = new Map<string, string>();
     if (assetPlan.toGenerate.length && input.images.generate) {
       const style = { imageStyle: template?.dna.imageStyle.type ?? (content.tone === "kids" ? "illustration" : "illustration"), tone: content.tone, language: content.language };

@@ -245,7 +245,7 @@ export function extractLessonContent(input: ExtractInput): LessonContent {
         break;
       case "flashcards":
         for (const c of b.cards ?? []) {
-          if (c.front?.trim()) content.vocabulary.push({ id: semanticId("VOCAB", c.front), term: stripMarkdown(c.front), meaning: stripMarkdown(c.back ?? ""), emoji: emojiFor(`${c.front} ${c.back}`) });
+          if (c.front?.trim()) content.vocabulary.push({ id: semanticId("VOCAB", c.front), term: stripMarkdown(c.front), meaning: stripMarkdown(c.back ?? ""), emoji: emojiFor(c.front) ?? emojiFor(`${c.front} ${c.back}`) });
         }
         break;
       case "dialogue":

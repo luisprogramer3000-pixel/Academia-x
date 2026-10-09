@@ -48,6 +48,7 @@ export function PresentationWizard({
   const [summary, setSummary] = useState<GenerationSummary | null>(null);
   const [quality, setQuality] = useState<"basic" | "ai">("basic");
   const [aiImages, setAiImages] = useState(0);
+  const [vocabPhotos, setVocabPhotos] = useState(false);
   const [mode, setMode] = useState<DesignMode>("preset");
   const [preset, setPreset] = useState("marca");
   const [file, setFile] = useState<File | null>(null);
@@ -104,6 +105,9 @@ export function PresentationWizard({
     fd.set("quality", format === "pptx" ? quality : "basic");
     if (quality === "ai" && format === "pptx") {
       fd.set("imageCount", String(aiImages));
+      fd.set("idempotencyKey", crypto.randomUUID());
+    } else if (format === "pptx" && vocabPhotos) {
+      fd.set("vocabPhotos", "1");
       fd.set("idempotencyKey", crypto.randomUUID());
     }
     fd.set("design", mode);
@@ -209,6 +213,15 @@ export function PresentationWizard({
               <span className="block text-xs text-slate-400 mt-1">La IA la diseña: índice, tarjetas, tablas, columnas, pasos guiados, debate, quiz con ✓/✕ y relacionar columnas.</span>
             </button>
           </div>
+          {quality === "basic" && format === "pptx" && (
+            <label className="mt-3 flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={vocabPhotos} onChange={(e) => setVocabPhotos(e.target.checked)} className="mt-0.5 accent-blue-500" />
+              <span>
+                Fotos en las tarjetas de vocabulario · <strong className="text-white">1 crédito por foto</strong>
+                <span className="block text-slate-500">Cada palabra con su foto. Las que ya tienen imagen en la lección no se cobran (máx. 12). Sin esto, cada tarjeta lleva su icono.</span>
+              </span>
+            </label>
+          )}
           {quality === "ai" && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs text-slate-400 mr-1">Fotos realistas (vocabulario, ejemplos, lectura):</span>
@@ -482,7 +495,7 @@ export function PresentationWizard({
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {busy
               ? quality === "ai" && format === "pptx" ? "La IA está diseñando… (hasta 1–2 min)" : "Generando…"
-              : `Crear ${format === "pptx" ? "PowerPoint" : "PDF"}${quality === "ai" && format === "pptx" ? ` · ${2 + aiImages} créditos` : " · gratis"}`}
+              : `Crear ${format === "pptx" ? "PowerPoint" : "PDF"}${quality === "ai" && format === "pptx" ? ` · ${2 + aiImages} créditos` : format === "pptx" && vocabPhotos ? " · fotos de vocabulario: 1 crédito c/u" : " · gratis"}`}
           </button>
         </div>
       </div>

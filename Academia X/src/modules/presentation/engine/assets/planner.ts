@@ -22,7 +22,7 @@ const PRIMARY = new Set<VisualAssetRequest["purpose"]>(["hero", "concept", "exam
 /** Prioridad de generación: portada, lectura, vocabulario, ejemplos, conceptos, actividades. */
 const PURPOSE_PRIORITY: Record<VisualAssetRequest["purpose"], number> = { hero: 1, vocabulary: 0.85, example: 0.8, concept: 0.75, activity: 0.6, decoration: 0 };
 
-export function planAssets(plan: PresentationPlan, generateBudget: number): AssetPlan {
+export function planAssets(plan: PresentationPlan, generateBudget: number, purposes?: VisualAssetRequest["purpose"][]): AssetPlan {
   const requests = plan.slides.flatMap((s) => s.visualAssetRequests);
   const reservedUrls = new Set(requests.filter((r) => r.preferredUrl && PRIMARY.has(r.purpose)).map((r) => r.preferredUrl!));
 
@@ -36,11 +36,27 @@ export function planAssets(plan: PresentationPlan, generateBudget: number): Asse
     missing.push(r);
   }
   missing.sort((a, b) => Math.max(b.importance, PURPOSE_PRIORITY[b.purpose]) - Math.max(a.importance, PURPOSE_PRIORITY[a.purpose]));
-  return {
-    reservedUrls,
-    toGenerate: missing.slice(0, Math.max(0, generateBudget)),
-    toSearch: missing.slice(Math.max(0, generateBudget), Math.max(0, generateBudget) + 4),
-  };
+
+  // Tarjetas de vocabulario: cada diapositiva se completa entera (todas con foto) o
+  // no se gasta en ella; una tarjeta con foto y el resto con iconos se ve descuidado.
+  // Van justo después de la portada.
+  const budget = Math.max(0, generateBudget);
+  const allowed = (r: VisualAssetRequest) => !purposes || purposes.includes(r.purpose);
+  const chosen: VisualAssetRequest[] = missing.filter((r) => r.purpose === "hero" && allowed(r)).slice(0, budget);
+  const taken = new Set(chosen);
+  for (const slide of plan.slides) {
+    if (slide.pedagogicalRole !== "vocabulary") continue;
+    const need = missing.filter((r) => r.purpose === "vocabulary" && !taken.has(r) && slide.visualAssetRequests.some((s) => normalize(s.semanticQuery) === normalize(r.semanticQuery)));
+    if (need.length && allowed(need[0]) && chosen.length + need.length <= budget) need.forEach((r) => (chosen.push(r), taken.add(r)));
+  }
+  for (const r of missing) {
+    if (chosen.length >= budget) break;
+    if (taken.has(r) || r.purpose === "vocabulary" || !allowed(r)) continue;
+    chosen.push(r);
+    taken.add(r);
+  }
+  const rest = missing.filter((r) => !taken.has(r));
+  return { reservedUrls, toGenerate: chosen, toSearch: rest.slice(0, 4) };
 }
 
 /** Instrucción para el generador: fotografía realista (como los materiales profesionales del profesor). */

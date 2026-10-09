@@ -87,6 +87,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ lesson
             idempotencyKey: String(form.get("idempotencyKey") || crypto.randomUUID()).slice(0, 100),
           }
         : undefined,
+      // Básica: fotos solo para las tarjetas de vocabulario (1 crédito por foto generada)
+      vocabPhotos: quality !== "ai" && form.get("vocabPhotos") === "1"
+        ? { idempotencyKey: String(form.get("idempotencyKey") || crypto.randomUUID()).slice(0, 100) }
+        : undefined,
     });
   }
   const ai = quality === "ai"
@@ -301,7 +305,11 @@ interface V2Options {
   templateMode?: DesignMode;
   design: DesignSpec;
   ai?: { imageCount: number; idempotencyKey: string };
+  vocabPhotos?: { idempotencyKey: string };
 }
+
+/** Máximo de fotos de vocabulario en la básica (las tarjetas que ya tienen foto de la lección no se cobran). */
+const MAX_VOCAB_PHOTOS = 12;
 
 const isZip = (b: Uint8Array) => b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 
@@ -391,6 +399,15 @@ async function respondV2(lessonId: string, opts: V2Options) {
     }
   }
 
+  if (opts.vocabPhotos) {
+    try {
+      await requireActiveSubscription(auth.tenantId);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Tu plan no permite generar imágenes." }, { status: 402 });
+    }
+  }
+  const vocabOnly = !planner && opts.vocabPhotos;
+
   let result: GeneratePresentationResult;
   try {
     result = await generatePresentation({
@@ -411,9 +428,12 @@ async function respondV2(lessonId: string, opts: V2Options) {
       images: {
         load: loadImage,
         searchLibrary: librarySearch(auth.userId),
-        generate: planner && opts.ai?.imageCount ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey }) : undefined,
+        generate: planner && opts.ai?.imageCount
+          ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey })
+          : vocabOnly ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: `vocab-${vocabOnly.idempotencyKey}` }) : undefined,
       },
-      imageBudget: opts.ai?.imageCount ?? 0,
+      imageBudget: vocabOnly ? MAX_VOCAB_PHOTOS : opts.ai?.imageCount ?? 0,
+      imagePurposes: vocabOnly ? ["vocabulary"] : undefined,
     });
     await planner?.finish(result.plan.metadata.planner === "llm");
   } catch (error) {

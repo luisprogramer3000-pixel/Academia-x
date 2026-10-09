@@ -1,7 +1,8 @@
 import type { LayoutDef } from "../types";
 import { assetFor, blocksOf, countFit, items } from "../types";
 import { box, columns, grid, inset } from "../geometry";
-import { STEP_EMOJI } from "../../icons";
+import { emojiFor, STEP_EMOJI } from "../../icons";
+import { normalize } from "../../text";
 
 /** Tarjetas: objetivos, conceptos agrupados, pasos, vocabulario y resumen. */
 
@@ -103,6 +104,12 @@ function vocabularyGrid(id: string, maxItems: number): LayoutDef {
       const list = items(ctx.plan).slice(0, maxItems);
       const cols = list.length <= 3 ? list.length : list.length === 4 ? 4 : 3;
       const cells = grid(box(0.05, 0.24, 0.9, 0.68), list.length, cols, 0.025, 0.035);
+      // Todas las tarjetas con foto o todas con su icono: nunca mezcladas
+      const found = list.map((it) => {
+        const a = assetFor(ctx, it.term);
+        return a && a.request.purpose === "vocabulary" && (normalize(a.request.label ?? a.request.semanticQuery) === normalize(it.term) || normalize(a.request.semanticQuery) === normalize(it.term)) ? a : undefined;
+      });
+      const allPhotos = found.every((a) => a?.kind === "image");
       list.forEach((it, i) => {
         const c = cells[i];
         const tone = d.colors.tones[i % d.colors.tones.length];
@@ -110,8 +117,9 @@ function vocabularyGrid(id: string, maxItems: number): LayoutDef {
         const on = b.card(c, { group: g });
         const labelH = Math.min(0.1, c.h * 0.3);
         const visual = inset(box(c.x, c.y, c.w, c.h - labelH - (it.detail && c.h > 0.4 ? 0.07 : 0)), 0.015, 0.02);
-        const asset = assetFor(ctx, it.term);
-        if (!(asset && b.visual(asset, visual, { group: g, circle: tone.soft }))) b.icon(it.emoji ?? "🔤", visual, { circle: tone.soft, group: g });
+        const asset = found[i];
+        const icon = emojiFor(it.term) ?? it.emoji ?? (asset?.kind === "emoji" ? asset.emoji : undefined) ?? "🔤";
+        if (!(allPhotos && asset && b.visual(asset, visual, { group: g, circle: tone.soft }))) b.icon(icon, visual, { circle: tone.soft, group: g });
         const labelY = c.y + c.h - labelH - (it.detail && c.h > 0.4 ? 0.07 : 0);
         b.shape("roundRect", box(c.x + 0.015, labelY, c.w - 0.03, labelH - 0.012), tone.strong, { radius: d.radius.small, group: g });
         b.text("subtitle", it.term, box(c.x + 0.015, labelY, c.w - 0.03, labelH - 0.012), {
