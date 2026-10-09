@@ -381,6 +381,7 @@ function Activity({
         )}
       </div>
       <div className="p-6 sm:p-8">
+        <ExerciseImage block={block} />
         <p className="text-lg sm:text-xl font-bold text-slate-900 mb-5 leading-snug">{block.question}</p>
         <div className="space-y-2.5">
           {block.options!.map((opt, i) => {
@@ -447,6 +448,16 @@ const DIFFICULTY_STYLE: Record<string, string> = {
 };
 
 /** Ejercicio abierto: el alumno escribe su respuesta y la compara con la respuesta modelo. */
+/** Imagen de apoyo de un ejercicio (la que el profesor le asignó en el editor). */
+function ExerciseImage({ block }: { block: LessonBlock }) {
+  const src = safeExternalUrl(block.url);
+  if (!src) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={block.title || "Imagen del ejercicio"} className="w-full max-h-80 object-contain rounded-2xl bg-slate-50 mb-4" loading="lazy" />
+  );
+}
+
 function PracticeCard({ anchor, block, accent }: { anchor: string; block: LessonBlock; accent: string }) {
   const [text, setText] = useState("");
   const [shown, setShown] = useState(false);
@@ -460,6 +471,7 @@ function PracticeCard({ anchor, block, accent }: { anchor: string; block: Lesson
           <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${DIFFICULTY_STYLE[block.difficulty] ?? DIFFICULTY_STYLE.Medio}`}>{block.difficulty}</span>
         )}
       </div>
+      <ExerciseImage block={block} />
       <p className="text-lg sm:text-xl font-bold text-slate-900 leading-snug whitespace-pre-line mb-4">{block.question}</p>
       <textarea
         value={text}

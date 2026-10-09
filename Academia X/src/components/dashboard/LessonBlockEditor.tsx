@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { updateLessonContentAction, updateLessonSettingsAction } from "@/app/actions/course.actions";
 import {
   Type,
@@ -33,6 +33,38 @@ import { TeacherPlanPanel } from "./TeacherPlanPanel";
 import { LessonImagePicker } from "./LessonImagePicker";
 
 const fieldLabel = "block text-xs font-medium text-slate-400 mb-1";
+
+/** Botón "+" entre bloques: añade texto, imagen o ejercicio justo en ese punto. */
+function InsertHere({ open, onToggle, onAdd }: { open: boolean; onToggle: () => void; onAdd: (type: LessonBlock["type"]) => void }) {
+  const opts: Array<[LessonBlock["type"], string]> = [
+    ["text", "📝 Texto / concepto"],
+    ["image", "🖼️ Imagen"],
+    ["quiz", "❓ Quiz"],
+    ["practice", "✏️ Ejercicio abierto"],
+    ["video", "🎬 Video"],
+  ];
+  return (
+    <div className="flex flex-col items-center -my-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        title="Añadir un bloque aquí"
+        className={`px-3 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${open ? "bg-blue-600 border-blue-500 text-white" : "bg-slate-950 border-slate-800 text-slate-500 hover:text-white hover:border-slate-600"}`}
+      >
+        {open ? "× Cerrar" : "+ Añadir aquí"}
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-wrap justify-center gap-2">
+          {opts.map(([type, label]) => (
+            <button key={type} type="button" onClick={() => onAdd(type)} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-blue-500 text-xs text-slate-200">
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 const fieldInput =
   "w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500";
 
@@ -102,24 +134,55 @@ export function LessonBlockEditor({
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(parseInitialBlocks()));
   const [teacherPlan, setTeacherPlan] = useState<TeacherPlan | null>(initialTeacherPlan ?? null);
 
-  const addBlock = (type: LessonBlock["type"]) => {
+  const addBlock = (type: LessonBlock["type"], at?: number) => {
     const newBlock: LessonBlock = {
       id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       type,
       title: type === "video" ? "Video de la Lección" : type === "resource" ? "Material Descargable" : "",
       content: type === "text" ? "Escribe aquí la teoría o contenido explicativo de la lección..." : "",
       url: type === "video" ? "https://www.youtube.com/watch?v=dQw4w9WgXcQ" : "",
-      question: type === "quiz" ? "¿Cuál de las siguientes frases expresa una hipótesis en el pasado?" : "",
+      question: type === "quiz" ? "¿Cuál de las siguientes frases expresa una hipótesis en el pasado?" : type === "practice" ? "Escribe aquí el enunciado del ejercicio." : "",
       options: type === "quiz" ? ["Si hubiera sabido...", "Si sé...", "Cuando supe...", "Sabiendo que..."] : [],
       correctOptionIndex: 0,
     };
-    setBlocks((prev) => [...prev, newBlock]);
-    // La barra está arriba y el bloque se añade al final: llevar al profesor hasta él
+    setBlocks((prev) => (at === undefined ? [...prev, newBlock] : [...prev.slice(0, at), newBlock, ...prev.slice(at)]));
+    setInsertAt(null);
+    // Llevar al profesor hasta el bloque nuevo
     setTimeout(() => document.getElementById(newBlock.id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   };
 
   const removeBlock = (id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
+  };
+
+  const [insertAt, setInsertAt] = useState<number | null>(null);
+
+  /** Mueve un bloque a la posición `to` (índice en la lista sin ese bloque) y lo enseña. */
+  const moveBlockTo = (index: number, to: number) => {
+    const updated = [...blocks];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(Math.max(0, Math.min(updated.length, to)), 0, moved);
+    setBlocks(updated);
+    setTimeout(() => document.getElementById(moved.id)?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  };
+
+  // Capítulos de la lección (Reto, Teoría, Lectura, Ejercicios…) para "Mover a…"
+  const chapters = blocks.map((b, i) => ({ b, i })).filter(({ b }) => b.type === "chapter");
+
+  /** Destino al final de un capítulo (antes del siguiente), en la lista sin el bloque que se mueve. */
+  const endOfChapter = (chapterIndex: number, movingIndex: number) => {
+    const next = blocks.findIndex((b, i) => i > chapterIndex && b.type === "chapter");
+    const end = next < 0 ? blocks.length : next;
+    return movingIndex < end ? end - 1 : end;
+  };
+
+  /** La imagen suelta pasa a ser la imagen de la sección de texto de arriba. */
+  const attachImageToPrevious = (index: number) => {
+    const img = blocks[index];
+    const prevIndex = blocks.slice(0, index).map((b) => b.type).lastIndexOf("text");
+    if (prevIndex < 0 || !img.url) return;
+    setBlocks((prev) => prev.filter((b) => b.id !== img.id).map((b, i) => (i === prevIndex ? { ...b, url: img.url } : b)));
+    setMessage({ type: "success", text: `Imagen unida a la sección «${blocks[prevIndex].title || "de texto"}». Pulsa Guardar.` });
   };
 
   const moveBlock = (index: number, direction: "up" | "down") => {
@@ -391,8 +454,11 @@ export function LessonBlockEditor({
           <div className="space-y-4">
             {blocks.length > 0 ? (
               blocks.map((block, idx) => (
+                <Fragment key={block.id}>
+                {idx === 0 && (
+                  <InsertHere open={insertAt === 0} onToggle={() => setInsertAt(insertAt === 0 ? null : 0)} onAdd={(type) => addBlock(type, 0)} />
+                )}
                 <div
-                  key={block.id}
                   id={block.id}
                   className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all space-y-4 relative group"
                 >
@@ -426,6 +492,24 @@ export function LessonBlockEditor({
                     </div>
 
                     <div className="flex items-center gap-1">
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "start") moveBlockTo(idx, 0);
+                          else if (v === "end") moveBlockTo(idx, blocks.length - 1);
+                          else if (v) moveBlockTo(idx, endOfChapter(Number(v), idx));
+                        }}
+                        title="Mover este bloque a otra parte de la lección"
+                        className="max-w-[150px] mr-1 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300"
+                      >
+                        <option value="">Mover a…</option>
+                        <option value="start">Al inicio</option>
+                        {chapters.filter(({ i }) => i !== idx).map(({ b, i }) => (
+                          <option key={b.id} value={i}>{`${b.emoji ?? "📂"} ${b.label ? `${b.label}: ` : ""}${b.title ?? "Capítulo"}`.slice(0, 60)}</option>
+                        ))}
+                        <option value="end">Al final</option>
+                      </select>
                       <button
                         onClick={() => moveBlock(idx, "up")}
                         disabled={idx === 0}
@@ -472,6 +556,19 @@ export function LessonBlockEditor({
                       <div>
                         <label className={fieldLabel}>Respuesta modelo (el alumno la ve al pulsar el botón)</label>
                         <textarea rows={2} value={block.answer || ""} onChange={(e) => updateBlock(block.id, { answer: e.target.value })} className={fieldInput} />
+                      </div>
+                      <div>
+                        <label className={fieldLabel}>Imagen del ejercicio (opcional: se muestra encima del enunciado)</label>
+                        {block.url && (
+                          <div className="mb-2 flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={block.url} alt="Imagen del ejercicio" className="h-20 rounded-lg object-cover" />
+                            <button type="button" onClick={() => updateBlock(block.id, { url: undefined })} className="text-xs text-slate-400 hover:text-red-400">
+                              Quitar imagen
+                            </button>
+                          </div>
+                        )}
+                        <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
                       </div>
                     </div>
                   )}
@@ -532,6 +629,15 @@ export function LessonBlockEditor({
                         <p className="text-xs text-slate-400">Elige la imagen de este bloque.</p>
                       )}
                       <LessonImagePicker onPick={(img) => updateBlock(block.id, { url: img.url, title: block.title || img.title })} />
+                      {block.url && blocks.slice(0, idx).some((b) => b.type === "text") && (
+                        <button
+                          type="button"
+                          onClick={() => attachImageToPrevious(idx)}
+                          className="text-xs font-semibold text-pink-300 hover:text-pink-200"
+                        >
+                          ↖ Unir esta imagen a la sección de arriba (se mostrará junto a su texto)
+                        </button>
+                      )}
                       <div>
                         <label className={fieldLabel}>Pie de imagen (opcional)</label>
                         <input
@@ -564,7 +670,7 @@ export function LessonBlockEditor({
                         className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-sans leading-relaxed"
                       />
                       <div className="mt-3">
-                        <label className={fieldLabel}>Imagen de la sección (se muestra al lado del texto)</label>
+                        <label className={fieldLabel}>Imagen de este concepto / sección (se muestra junto al texto)</label>
                         {block.url && (
                           <div className="mb-2 flex items-center gap-3">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -699,9 +805,28 @@ export function LessonBlockEditor({
                         <label className={fieldLabel}>Explicación (el alumno la ve al comprobar)</label>
                         <textarea rows={2} value={block.explanation || ""} onChange={(e) => updateBlock(block.id, { explanation: e.target.value })} className={fieldInput} />
                       </div>
+                      <div>
+                        <label className={fieldLabel}>Imagen del ejercicio (opcional: se muestra encima del enunciado)</label>
+                        {block.url && (
+                          <div className="mb-2 flex items-center gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={block.url} alt="Imagen del ejercicio" className="h-20 rounded-lg object-cover" />
+                            <button type="button" onClick={() => updateBlock(block.id, { url: undefined })} className="text-xs text-slate-400 hover:text-red-400">
+                              Quitar imagen
+                            </button>
+                          </div>
+                        )}
+                        <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
+                      </div>
                     </div>
                   )}
                 </div>
+                <InsertHere
+                  open={insertAt === idx + 1}
+                  onToggle={() => setInsertAt(insertAt === idx + 1 ? null : idx + 1)}
+                  onAdd={(type) => addBlock(type, idx + 1)}
+                />
+                </Fragment>
               ))
             ) : (
               <div className="p-12 rounded-3xl bg-slate-900 border border-slate-800 text-center text-slate-400">
