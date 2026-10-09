@@ -26,6 +26,7 @@ import {
   normalizeAiDeck,
 } from "@/modules/presentation/ai-deck.schema";
 import OpenAI from "openai";
+import { SELF_CONTAINED_RULE } from "./exercise-integrity";
 
 export interface CourseGenParams {
   topic: string;
@@ -791,7 +792,7 @@ Genera entre ${params.modulesCount || 4} y ${(params.modulesCount || 4) + 2} mó
   }
 
   async generateQuiz(params: QuizGenParams): Promise<QuizGenOutput> {
-    const systemPrompt = `Eres un evaluador pedagógico. Genera un quiz de preguntas de opción múltiple en formato JSON con las claves: "title" (string), "questions" (array de objetos con "question", "options" [array de 4 opciones], "correctAnswerIndex" [número de 0 a 3], "explanation"). Idioma: ${params.language || "es"}.`;
+    const systemPrompt = `Eres un evaluador pedagógico. Genera un quiz de preguntas de opción múltiple en formato JSON con las claves: "title" (string), "questions" (array de objetos con "question", "options" [array de 4 opciones], "correctAnswerIndex" [número de 0 a 3], "explanation"). Idioma: ${params.language || "es"}. ${SELF_CONTAINED_RULE}`;
     const userPrompt = `Tema: ${params.topic}. Nivel: ${params.level || "B1"}. Cantidad de preguntas: ${params.questionCount || 3}.`;
 
     const result = await this.callChatCompletion([

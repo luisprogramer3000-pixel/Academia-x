@@ -20,6 +20,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { uploadMaterialFile } from "@/lib/upload-material";
+import { missingMaterial } from "@/modules/ai/exercise-integrity";
 import { LessonAIPanel } from "./LessonAIPanel";
 import { PresentationDownload } from "./PresentationDownload";
 import { ClassAgentWizard, TeacherPlan } from "./ClassAgentWizard";
@@ -395,6 +396,16 @@ export function LessonBlockEditor({
                   id={block.id}
                   className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all space-y-4 relative group"
                 >
+                  {(block.type === "quiz" || block.type === "practice") && (() => {
+                    // Ejercicio que pide un material que no trae ("lee el siguiente párrafo" sin párrafo)
+                    const hasReading = blocks.some((x) => x.type === "text" && (x.content?.length ?? 0) > 400);
+                    const problem = missingMaterial(block.question || "", { readingAvailable: hasReading });
+                    return problem ? (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs">
+                        <strong>Este ejercicio no se puede resolver:</strong> {problem}. Escribe el texto completo dentro del enunciado (después de dos puntos) o elimina el ejercicio antes de publicar.
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 text-xs font-mono font-bold">

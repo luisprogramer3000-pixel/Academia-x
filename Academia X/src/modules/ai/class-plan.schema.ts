@@ -16,6 +16,7 @@ import {
   VOCABULARY_RULES,
 } from "./reading-guidance";
 import { classStructureFor, methodologyStructureFor } from "./class-structure";
+import { SELF_CONTAINED_RULE } from "./exercise-integrity";
 
 export interface ClassPlanParams {
   topic: string;
@@ -123,6 +124,7 @@ export function buildClassPlanSystemPrompt(p: ClassPlanParams): string {
   return [
     "Eres un diseñador instruccional experto que prepara planes de clase listos para impartir.",
     "Entregas la clase organizada en MOMENTOS con minutos asignados y los MATERIALES que el profesor usará en cada momento.",
+    SELF_CONTAINED_RULE,
     "",
     `Asignatura: ${p.subject}. Grado/nivel: ${p.grade}. Duración total: ${p.durationMinutes} minutos.`,
     `Metodología: ${p.methodology}. Idioma de toda la salida: ${p.language}.`,

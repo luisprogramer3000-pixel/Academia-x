@@ -1,6 +1,7 @@
 import type { LessonGenParams } from "./ai.adapter";
 import { exerciseRules, isProductionLevel, readingRules, SUMMARY_RULES, VOCABULARY_RULES } from "./reading-guidance";
 import { classStructureFor } from "./class-structure";
+import { SELF_CONTAINED_RULE } from "./exercise-integrity";
 
 /**
  * Prompt de contenido de lección, compartido por todos los proveedores.
@@ -12,6 +13,7 @@ export function buildLessonContentSystemPrompt(lang: string, level = ""): string
   return `Eres un profesor experto en diseño pedagógico de cursos online. Generas el contenido COMPLETO de una lección que el alumno leerá como UN SOLO DOCUMENTO CONTINUO, con actividades intercaladas entre las explicaciones (como Duolingo, Khan Academy o Brilliant).
 
 REGLAS OBLIGATORIAS:
+- ${SELF_CONTAINED_RULE}
 - Entre 14 y 17 bloques. Nunca menos de 14.
 - SIEMPRE incluye una lectura de comprensión (pasos 8-10 del orden).
 - Solo estos tipos de bloque (nombres exactos):

@@ -1,5 +1,6 @@
 import { normalizeMaterial, type ClassMaterialKind, type ClassPlanMaterial } from "./class-plan.schema";
 import { bilingualRules, CONSISTENCY_RULES, DIALOGUE_RULES, readingRules, VOCABULARY_RULES } from "./reading-guidance";
+import { SELF_CONTAINED_RULE } from "./exercise-integrity";
 
 /**
  * Herramientas IA sueltas: cada una genera UN material listo para usar
@@ -112,6 +113,7 @@ export function buildMaterialSystemPrompt(p: MaterialGenParams): string {
     tool.instructions(p.count, p.grade),
     "",
     "Reglas: contenido real y concreto sobre el tema, nada de marcadores de posición. En preguntas de opción múltiple \"correctIndex\" es el índice correcto y \"answer\" repite su texto; en abiertas \"options\" va vacío y \"correctIndex\" es -1.",
+    SELF_CONTAINED_RULE,
     "En los \"body\" puedes usar formato ligero: párrafos separados por línea en blanco, listas con \"- \", tablas con pipes y **negrita**.",
     CONSISTENCY_RULES,
     DIALOGUE_RULES(p.grade),

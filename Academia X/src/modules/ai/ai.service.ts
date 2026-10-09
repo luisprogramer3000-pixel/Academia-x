@@ -23,6 +23,7 @@ import { ClassPlanParams, ClassPlanOutput, type ClassPlanMaterial } from "./clas
 import type { MaterialGenParams, MaterialGenOutput } from "./material-tools";
 import type { AiDeckParams, AiDeckOutput } from "@/modules/presentation/ai-deck.schema";
 import { generateClassImage, editClassImage, ImageQuality } from "./image.adapter";
+import { classAgentRefs, classPlanRefs, ensureSelfContained, lessonGenRefs, materialToolRefs, quizRefs } from "./exercise-refs";
 import { saveGeneratedImage } from "@/lib/uploads";
 
 export interface GenerateCourseDraftInput extends CourseGenParams {
@@ -399,6 +400,8 @@ export class AIService {
         language: input.language,
         lessonTitle: input.lessonTitle,
       });
+      // Ningún ejercicio sin el material que pide ("lee el siguiente párrafo" sin párrafo)
+      await ensureSelfContained(lessonGenRefs(aiOutput), AIService.jsonAsk(adapter), { topic: input.topic || input.lessonTitle || "", level: input.level, language: input.language });
 
       const updatedContent = JSON.stringify({
         aiGenerated: true,
@@ -524,6 +527,7 @@ export class AIService {
         language: input.language || "es",
         questionCount: input.questionCount,
       });
+      await ensureSelfContained(quizRefs(aiOutput), AIService.jsonAsk(adapter), { topic: input.topic, level: input.level, language: input.language });
 
       // 3. Registrar AIUsage
       try {
@@ -904,6 +908,7 @@ export class AIService {
         methodology: input.methodology,
         imageCount: input.imageCount,
       });
+      await ensureSelfContained(classAgentRefs(aiOutput), AIService.jsonAsk(adapter), { topic: input.topic, level: input.level, language: input.language });
 
       try {
         await prisma.aIUsage.create({
@@ -1105,6 +1110,14 @@ export class AIService {
       }
     }
     return { imagesGenerated, imageErrors };
+  }
+
+  /**
+   * Llamada JSON genérica al proveedor activo (la misma del planificador de
+   * presentaciones). La usa el control de calidad de ejercicios para reparar.
+   */
+  static jsonAsk(adapter: ReturnType<typeof getAIAdapter>) {
+    return async (system: string, user: string) => (await adapter.generatePresentationPlan({ system, user })).raw;
   }
 
   /**
@@ -1348,6 +1361,7 @@ export class AIService {
       const aiOutput = await adapter.generateClassPlan(params);
       // Los modelos pequeños a veces dejan materiales sin generar: se completan aparte (incluido en el precio de la clase)
       await AIService.completeMissingMaterials(adapter, aiOutput, params);
+      await ensureSelfContained(classPlanRefs(aiOutput), AIService.jsonAsk(adapter), { topic: params.topic, level: params.grade, language: params.language });
 
       try {
         await prisma.aIUsage.create({
@@ -1398,6 +1412,7 @@ export class AIService {
     try {
       const { tenantId: _t, userId: _u, idempotencyKey: _k, ...params } = input;
       const aiOutput = await adapter.generateMaterial(params);
+      await ensureSelfContained(materialToolRefs(aiOutput.material), AIService.jsonAsk(adapter), { topic: params.topic, level: params.grade, language: params.language });
 
       try {
         await prisma.aIUsage.create({

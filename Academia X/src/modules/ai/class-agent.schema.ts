@@ -1,3 +1,4 @@
+import { SELF_CONTAINED_RULE } from "./exercise-integrity";
 /**
  * ESQUEMA PEDAGÓGICO DEL AGENTE DE CLASE
  *
@@ -109,6 +110,7 @@ export function buildClassAgentSystemPrompt(params: ClassAgentParams): string {
     "1. El objetivo se redacta de forma medible y observable: 'Al finalizar, el alumno será capaz de...' seguido de un verbo de acción.",
     "2. Cada concepto clave lleva definición breve Y un ejemplo concreto del mundo real, nunca un ejemplo abstracto.",
     "3. Los ejercicios incluyen siempre su solución, porque el profesor la necesita para corregir en clase.",
+    `3b. ${SELF_CONTAINED_RULE}`,
     "4. El guion de clase reparte los minutos hasta cubrir la duración indicada, sin dejar huecos ni pasarse.",
     "5. Las notas para el profesor recogen los errores más frecuentes de los alumnos con este tema y cómo anticiparlos.",
     "6. El mapa mental ES la clasificación real del tema, con el criterio que usan los libros de texto (p. ej. medios de transporte → terrestres, aéreos, acuáticos; seres vivos → animales, plantas, hongos; palabras → sustantivos, verbos, adjetivos): 2 a 5 categorías, cada una con 2 a 4 ejemplos reales. Otras distinciones del tema (p. ej. público/privado) van en la explicación o en los conceptos clave, NO en el mapa. PROHIBIDO usar ramas como \"Tipos\", \"Ejemplos\", \"Usos\", \"Características\" o \"Ventajas\": cada rama es UNA categoría (\"Terrestres\", \"Aéreos\", \"Acuáticos\").",
