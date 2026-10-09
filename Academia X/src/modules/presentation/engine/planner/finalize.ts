@@ -1,6 +1,7 @@
 import type { LessonContent, PedagogicalRole, PresentationPlan, SlideContentBlock, SlidePlan } from "../types";
 import { labels } from "../i18n";
 import { emojiFor } from "../icons";
+import { applyChallenge } from "./challenge";
 import { condense, mentions, seededRandom, similarity } from "../text";
 
 /**
@@ -160,6 +161,8 @@ function expansions(content: LessonContent, existing: SlidePlan[]): SlidePlan[] 
 
 export function finalizePlan(plan: PresentationPlan, content: LessonContent | undefined, opts: { targetSlides?: number }): PresentationPlan {
   let slides = plan.slides.filter((s) => s.title || s.mainIdea || s.contentBlocks.length);
+  // Antes de proyectar: el reto completo (o nada) y ninguna actividad sin su material
+  if (content) slides = applyChallenge(slides, content);
 
   // 1. Progresión: orden estable por fase pedagógica
   slides = slides.map((s, i) => ({ s, i })).sort((a, b) => PHASE[a.s.pedagogicalRole] - PHASE[b.s.pedagogicalRole] || a.i - b.i).map((x) => x.s);

@@ -53,6 +53,9 @@ const RE = {
   vocabulary: /^(vocabulario|vocabulary|palabras clave|key words|glosario|glossary)/i,
   summary: /^(resumen|conclusi[oó]n|summary|conclusion|recap|repaso)/i,
   reading: /(lectura|reading|comprensi[oó]n lectora|texto de lectura|cuento|story|art[ií]culo)/i,
+  challenge: /\b(reto|challenge|misi[oó]n|mission|situaci[oó]n[- ]problema|caso pr[aá]ctico)\b/i,
+  mission: /^(tu |la |your )?(misi[oó]n|mission|tarea|task|objetivo del reto)/i,
+  clues: /^(pistas?|clues?|hints?|datos)/i,
 };
 
 /** Ramas de un mapa que no son categorías de una clasificación ("Tipos", "Ejemplos", "Usos"…). */
@@ -132,6 +135,7 @@ export function extractLessonContent(input: ExtractInput): LessonContent {
     exercises: [],
     dialogues: [],
     readings: [],
+    challenges: [],
     grammar: [],
     images: [],
     homework: plan.homework || undefined,
@@ -148,16 +152,61 @@ export function extractLessonContent(input: ExtractInput): LessonContent {
   let n = 0;
   // Capítulo en curso: dentro de "Lectura de comprensión" los textos son la lectura y las preguntas, de comprensión
   let reading: LessonContent["readings"][number] | null = null;
+  // Capítulo "Reto práctico": sus textos, imagen, diálogo y preguntas forman una unidad
+  let challenge: NonNullable<LessonContent["challenges"]>[number] | null = null;
   for (const b of input.blocks) {
     n++;
     const title = stripMarkdown(b.title ?? "").trim();
     const body = b.content ?? "";
     if (b.type === "chapter") {
+      challenge = !RE.reading.test(`${b.label ?? ""} ${title}`) && RE.challenge.test(`${b.label ?? ""} ${title}`)
+        ? { id: semanticId("CHALLENGE", title || `${content.challenges!.length + 1}`), title: title || "Reto", scenario: [], clues: [], dialogue: [], questions: [] }
+        : null;
+      if (challenge) {
+        content.challenges!.push(challenge);
+        reading = null;
+        continue;
+      }
       reading = RE.reading.test(`${b.label ?? ""} ${title}`)
         ? { id: semanticId("READING", title || `${content.readings.length + 1}`), title: title || "Lectura", paragraphs: [], questions: [], tasks: [] }
         : null;
       if (reading) content.readings.push(reading);
       continue;
+    }
+    if (challenge) {
+      if (b.type === "text" && body.trim()) {
+        if (RE.clues.test(title)) {
+          // "1. El lugar está lleno de libros. 2. Está cerca de una fuente…" (numeradas en una línea)
+          const inline = /(?:^|\s)\d+[.)]\s/.test(body) ? body.split(/(?:^|\s)\d+[.)]\s+/).map((x) => x.trim()).filter(Boolean) : [];
+          const items = inline.length >= 2 ? inline : listItems(body);
+          challenge.clues.push(...(items.length ? items : sentences(body)).map((x) => stripMarkdown(x).replace(/^\d+[.)]\s*/, "").trim()).filter(Boolean));
+        } else if (RE.mission.test(title)) {
+          challenge.mission = stripMarkdown(body).trim();
+        } else {
+          challenge.scenario.push(...paragraphsOf(body));
+        }
+        if (b.url && !challenge.imageUrl) challenge.imageUrl = b.url;
+        continue;
+      }
+      if (b.type === "image" && b.url) {
+        if (!challenge.imageUrl) challenge.imageUrl = b.url;
+        continue;
+      }
+      if (b.type === "dialogue" && b.lines?.length) {
+        challenge.dialogue.push(...b.lines.map((l) => ({ speaker: l.speaker, text: l.text })));
+        continue;
+      }
+      if (b.type === "quiz" && b.question && (b.options?.length ?? 0) >= 2) {
+        challenge.questions.push({
+          id: semanticId("CHALLENGE_Q", `${challenge.questions.length + 1}`),
+          question: stripMarkdown(b.question),
+          options: b.options!.map((o) => stripMarkdown(o)).slice(0, 4),
+          correctIndex: Math.max(0, Math.min((b.options?.length ?? 1) - 1, b.correctOptionIndex ?? 0)),
+          explanation: b.explanation,
+        });
+        continue;
+      }
+      if (b.type === "practice") continue;
     }
     if (!reading && b.type === "text" && RE.reading.test(title) && body.trim()) {
       content.readings.push({ id: semanticId("READING", title), title, paragraphs: paragraphsOf(body), questions: [], tasks: [], imageUrl: b.url });

@@ -1,0 +1,614 @@
+{
+ "title": "Lugares de la Ciudad",
+ "blocks": [
+  {
+   "id": "intro",
+   "type": "text",
+   "title": "Lo que vas a aprender",
+   "content": "Explorar los diferentes lugares de la ciudad, aprender sus nombres, funciones y cómo describirlos. Los estudiantes realizarán actividades prácticas para identificar y utilizar el vocabulario relacionado con lugares urbanos.\n\n- Identificar y nombrar lugares comunes de la ciudad.\n- Describir funciones y características de diferentes lugares urbanos.\n- Aplicar el vocabulario aprendido en situaciones comunicativas."
+  },
+  {
+   "id": "m1_chapter",
+   "type": "chapter",
+   "title": "Misterio en la Ciudad",
+   "content": "Resolver un misterio urbano usando pistas sobre diferentes lugares.",
+   "label": "Reto práctico",
+   "emoji": "🧩"
+  },
+  {
+   "id": "m1_s0",
+   "type": "text",
+   "title": "El escenario",
+   "content": "En una ciudad vibrante, un grupo de amigos necesita encontrar un lugar específico donde se ha perdido un objeto valioso."
+  },
+  {
+   "id": "m1_img0",
+   "type": "image",
+   "url": "/api/uploads/class-images/ai-cmuy9beyg0002bg7k5tb1zsuy-4ae5ed6d0ffd7582.jpg",
+   "title": "El escenario",
+   "content": "Un grupo de jóvenes en una plaza de la ciudad, rodeados de edificios altos y una fuente en el centro."
+  },
+  {
+   "id": "m1_dlg0",
+   "type": "dialogue",
+   "title": "El escenario",
+   "lines": [
+    {
+     "text": "¿Dónde creen que podríamos encontrarlo?",
+     "speaker": "Lucía"
+    },
+    {
+     "text": "Tal vez está en la biblioteca, cerca de la plaza.",
+     "speaker": "Mateo"
+    },
+    {
+     "text": "O quizás en el café donde siempre vamos.",
+     "speaker": "Aisha"
+    },
+    {
+     "text": "No olvidemos revisar el parque, es un buen lugar para esconder cosas.",
+     "speaker": "Kenji"
+    }
+   ]
+  },
+  {
+   "id": "m1_s1",
+   "type": "text",
+   "title": "Tu misión",
+   "content": "Usa las pistas disponibles para deducir en qué lugar de la ciudad está escondido el objeto."
+  },
+  {
+   "id": "m1_s2",
+   "type": "text",
+   "title": "Pistas",
+   "content": "1. El lugar está lleno de libros. 2. Está cerca de una fuente y rodeado de árboles."
+  },
+  {
+   "id": "m1_q0",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Dónde crees que está escondido el objeto?",
+   "options": [
+    "En el parque",
+    "En el café",
+    "En la biblioteca",
+    "En el cine"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "La pista menciona libros y una fuente cercana, lo cual coincide con la biblioteca."
+  },
+  {
+   "id": "m1_q1",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "¿Qué lugar mencionó Aisha?",
+   "options": [
+    "El parque",
+    "El café",
+    "El cine",
+    "La biblioteca"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "Aisha mencionó ir al café donde suelen reunirse."
+  },
+  {
+   "id": "m2_chapter",
+   "type": "chapter",
+   "title": "Teoría de los Lugares Urbanos",
+   "content": "Conceptos y vocabulario clave sobre lugares en la ciudad.",
+   "label": "Teoría",
+   "emoji": "📘"
+  },
+  {
+   "id": "m2_s0",
+   "type": "text",
+   "title": "Vocabulario de lugares",
+   "content": "Los lugares de la ciudad son espacios con funciones específicas.",
+   "url": "/api/uploads/class-images/lib-cmuy9beyg0002bg7k5tb1zsuy-5063fc19f01e62c0.png"
+  },
+  {
+   "id": "m2_q0",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "Completa: 'Voy a la ____ para leer.'",
+   "options": [
+    "biblioteca",
+    "parque",
+    "café",
+    "cine"
+   ],
+   "correctOptionIndex": 0,
+   "explanation": "La biblioteca es el lugar adecuado para leer."
+  },
+  {
+   "id": "m2_s1",
+   "type": "text",
+   "title": "Biblioteca",
+   "content": "Una biblioteca es un lugar donde se pueden leer y tomar prestados libros.\n\n- Ejemplo: 'Voy a la biblioteca para estudiar.'\n- Ejemplo: 'La biblioteca está cerca de mi casa.'\n- Ejemplo: 'En la biblioteca hay silencio.'"
+  },
+  {
+   "id": "m2_img1",
+   "type": "image",
+   "url": "/api/uploads/class-images/ai-cmuy9beyg0002bg7k5tb1zsuy-d407938cf36d6907.jpg",
+   "title": "Biblioteca",
+   "content": "Jóvenes estudiantes (Mateo, Lucía) conversando con naturalidad. Situación: Biblioteca. Una biblioteca es un lugar donde se pueden leer y tomar prestados libros."
+  },
+  {
+   "id": "m2_q1",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Cuál es un espacio verde para relajarse?",
+   "options": [
+    "Biblioteca",
+    "Parque",
+    "Café",
+    "Cine"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "Un parque es un espacio verde para relajarse."
+  },
+  {
+   "id": "m5_q0",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "¿Dónde puedes encontrar una gran cantidad de libros?",
+   "options": [
+    "Café",
+    "Parque",
+    "Biblioteca",
+    "Cine"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "La biblioteca es el lugar donde se encuentran muchos libros."
+  },
+  {
+   "id": "m2_dlg1",
+   "type": "dialogue",
+   "title": "Biblioteca",
+   "lines": [
+    {
+     "text": "Me gusta ir a la biblioteca los sábados.",
+     "speaker": "Mateo"
+    },
+    {
+     "text": "Yo también, es un lugar tranquilo.",
+     "speaker": "Lucía"
+    },
+    {
+     "speaker": "Mateo",
+     "text": ""
+    },
+    {
+     "speaker": "Lucía",
+     "text": ""
+    }
+   ]
+  },
+  {
+   "id": "m2_q2",
+   "type": "practice",
+   "difficulty": "Difícil",
+   "question": "Transforma: 'Trabajo en el parque.' a un lugar para tomar bebidas.",
+   "answer": "Trabajo en el café.",
+   "explanation": "El café es el lugar donde se pueden tomar bebidas."
+  },
+  {
+   "id": "m5_q1",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "Selecciona el lugar ideal para un picnic.",
+   "options": [
+    "Biblioteca",
+    "Cine",
+    "Parque",
+    "Café"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "El parque es un espacio ideal para hacer un picnic."
+  },
+  {
+   "id": "m2_s2",
+   "type": "text",
+   "title": "Parque",
+   "content": "Un parque es un espacio verde donde la gente puede pasear y relajarse.\n\n- Ejemplo: 'El parque está lleno de árboles.'\n- Ejemplo: 'Vamos al parque a jugar.'\n- Ejemplo: 'El parque está cerca de mi casa.'"
+  },
+  {
+   "id": "m5_q2",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Qué lugar es conocido por proyectar películas?",
+   "options": [
+    "Café",
+    "Parque",
+    "Biblioteca",
+    "Cine"
+   ],
+   "correctOptionIndex": 3,
+   "explanation": "El cine es conocido por proyectar películas."
+  },
+  {
+   "id": "m2_dlg2",
+   "type": "dialogue",
+   "title": "Parque",
+   "lines": [
+    {
+     "text": "¿Vamos al parque después de clase?",
+     "speaker": "Aisha"
+    },
+    {
+     "text": "¡Claro, me encanta caminar allí!",
+     "speaker": "Kenji"
+    }
+   ]
+  },
+  {
+   "id": "m2_s3",
+   "type": "text",
+   "title": "Café",
+   "content": "Un café es un lugar donde se pueden tomar bebidas y conversar.\n\n- Ejemplo: 'Nos vemos en el café a las 5.'\n- Ejemplo: 'El café tiene un ambiente acogedor.'\n- Ejemplo: 'Trabajo en el café los fines de semana.'"
+  },
+  {
+   "id": "m5_q3",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "Completa: 'Nos vemos en el ____ para discutir el proyecto.'",
+   "options": [
+    "Parque",
+    "Café",
+    "Biblioteca",
+    "Cine"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "El café es un lugar común para discutir proyectos."
+  },
+  {
+   "id": "m2_dlg3",
+   "type": "dialogue",
+   "title": "Café",
+   "lines": [
+    {
+     "text": "¿Te apetece un café esta tarde?",
+     "speaker": "Lucía"
+    },
+    {
+     "text": "Sí, sería genial ponernos al día.",
+     "speaker": "Mateo"
+    }
+   ]
+  },
+  {
+   "id": "m5_q4",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Cuál de estos es un espacio ideal para estudiar?",
+   "options": [
+    "Cine",
+    "Biblioteca",
+    "Parque",
+    "Café"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "La biblioteca es el lugar ideal para estudiar."
+  },
+  {
+   "id": "m2_s4",
+   "type": "text",
+   "title": "Errores comunes",
+   "content": "Confundir 'biblioteca' con 'librería', o usar 'parque' para referirse a un 'patio'.\n\n- Error: 'Voy a la librería a estudiar.'\n- Corrección: 'Voy a la biblioteca a estudiar.'"
+  },
+  {
+   "id": "m5_q5",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Qué lugar suele tener una terraza para disfrutar al aire libre?",
+   "options": [
+    "Cine",
+    "Parque",
+    "Café",
+    "Biblioteca"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "El café suele tener una terraza para disfrutar al aire libre."
+  },
+  {
+   "id": "m2_s5",
+   "type": "text",
+   "title": "Resumen",
+   "content": "Los lugares urbanos tienen funciones específicas y son parte de la vida diaria.\n\n- Bibliotecas para leer\n- Parques para pasear\n- Cafés para socializar"
+  },
+  {
+   "id": "m3_chapter",
+   "type": "chapter",
+   "title": "Un Día en la Ciudad",
+   "content": "Crónica de un día explorando diferentes lugares de la ciudad.",
+   "label": "Lectura de comprensión",
+   "emoji": "📖"
+  },
+  {
+   "id": "m3_s0",
+   "type": "text",
+   "title": "Un Día en la Ciudad",
+   "content": "Hoy decidí explorar mi ciudad. Comencé por la mañana en la biblioteca, un lugar tranquilo donde me gusta leer y estudiar. Después, caminé hacia el parque, que estaba lleno de familias disfrutando del buen clima. Al mediodía, decidí almorzar en un café cercano que tiene una terraza encantadora. Finalmente, terminé mi día en el cine, viendo una película con amigos. Cada lugar en la ciudad tiene su propio encanto y función, haciendo que la vida aquí sea diversa y emocionante."
+  },
+  {
+   "id": "m3_img0",
+   "type": "image",
+   "url": "/api/uploads/class-images/ai-cmuy9beyg0002bg7k5tb1zsuy-4cdb174c60d3e292.jpg",
+   "title": "Un Día en la Ciudad",
+   "content": "Una ilustración de una ciudad con personas en una biblioteca, un parque, un café y un cine."
+  },
+  {
+   "id": "m3_s1",
+   "type": "text",
+   "title": "Vocabulario de la lectura",
+   "content": "| Palabra o expresión | Tipo | Significado | Ejemplo en contexto |\n|---------------------|------|------------|---------------------|\n| biblioteca          | sust. | Lugar para leer libros | Voy a la biblioteca cada semana. |\n| café                | sust. | Lugar para tomar bebidas | Nos vemos en el café por la tarde. |\n| cine                | sust. | Lugar para ver películas | El cine está lleno los fines de semana. |\n| parque              | sust. | Espacio verde para pasear | El parque es ideal para relajarme. |\n| explorar            | verbo | Visitar lugares nuevos | Me gusta explorar la ciudad durante el fin de semana. |\n| caminar             | verbo | Andar a pie | Camino al trabajo todos los días. |\n| encanto             | sust. | Atractivo especial | El encanto de la ciudad es inigualable. |\n| diverso             | adj.  | Variado, diferente | La ciudad es un lugar diverso. |\n| función             | sust. | Propósito de algo | Cada lugar tiene su función. |\n| terraza             | sust. | Espacio al aire libre de un café o restaurante | La terraza está llena en verano. |"
+  },
+  {
+   "id": "m3_q0",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Cuál es la idea principal del texto?",
+   "options": [
+    "La vida en una ciudad pequeña",
+    "Un día explorando lugares urbanos",
+    "Un festival en el parque",
+    "El crecimiento de la ciudad"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "El texto describe un día visitando diferentes lugares de la ciudad."
+  },
+  {
+   "id": "m3_q1",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "¿Dónde almorzó el protagonista?",
+   "options": [
+    "En el parque",
+    "En el café",
+    "En la biblioteca",
+    "En el cine"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "El texto menciona que almorzó en un café cercano."
+  },
+  {
+   "id": "m3_q2",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Qué lugar visitó el protagonista primero?",
+   "options": [
+    "El parque",
+    "La biblioteca",
+    "El cine",
+    "El café"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "El protagonista comenzó su día en la biblioteca."
+  },
+  {
+   "id": "m3_q3",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Qué significa 'explorar' en este contexto?",
+   "options": [
+    "Descansar",
+    "Visitar lugares nuevos",
+    "Trabajar",
+    "Leer"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "Explorar se refiere a visitar lugares nuevos."
+  },
+  {
+   "id": "m3_q4",
+   "type": "practice",
+   "difficulty": "Difícil",
+   "question": "¿Te gustaría pasar un día como el del protagonista? ¿Por qué?",
+   "answer": "Sí, porque me gusta visitar diferentes lugares de la ciudad y disfrutar de su diversidad.",
+   "explanation": "Responde según tu opinión personal, considerando la actividad descrita."
+  },
+  {
+   "id": "m3_q5",
+   "type": "practice",
+   "difficulty": "Difícil",
+   "question": "¿Qué lugares de tu ciudad se parecen a los descritos en la lectura?",
+   "answer": "En mi ciudad, hay un parque similar al del texto, y también disfruto del café local.",
+   "explanation": "Compara lugares de tu ciudad con los del texto, usando el vocabulario aprendido."
+  },
+  {
+   "id": "block_1791567407230_3499",
+   "type": "image",
+   "title": "",
+   "content": "",
+   "url": "/api/uploads/class-images/lib-cmuy9beyg0002bg7k5tb1zsuy-ccfc361e1a977ff7.png",
+   "question": "",
+   "options": [],
+   "correctOptionIndex": 0
+  },
+  {
+   "id": "m4_chapter",
+   "type": "chapter",
+   "title": "Practicando Lugares Urbanos",
+   "content": "Ejercicios para reforzar el vocabulario de lugares en la ciudad.",
+   "label": "Ejercicios",
+   "emoji": "📝"
+  },
+  {
+   "id": "m4_q0",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "Completa: 'Nos vemos en el ____ para tomar un café.'",
+   "options": [
+    "cine",
+    "parque",
+    "café",
+    "biblioteca"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "El café es el lugar adecuado para tomar un café."
+  },
+  {
+   "id": "m4_q1",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "Elige la opción correcta: 'En el ____ hay muchos libros.'",
+   "options": [
+    "café",
+    "parque",
+    "biblioteca",
+    "cine"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "La biblioteca es el lugar donde hay muchos libros."
+  },
+  {
+   "id": "m4_q2",
+   "type": "practice",
+   "difficulty": "Medio",
+   "question": "Transforma la oración: 'Voy al parque.' a un lugar para ver películas.",
+   "answer": "Voy al cine.",
+   "explanation": "El cine es el lugar donde se pueden ver películas."
+  },
+  {
+   "id": "m4_q3",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "¿Verdadero o Falso? 'El parque es un lugar cerrado.'",
+   "options": [
+    "Verdadero",
+    "Falso"
+   ],
+   "correctOptionIndex": 1,
+   "explanation": "El parque es un espacio abierto, no cerrado."
+  },
+  {
+   "id": "m4_q4",
+   "type": "practice",
+   "difficulty": "Medio",
+   "question": "Corrige el error: 'Voy a la librería para estudiar.'",
+   "answer": "Voy a la biblioteca para estudiar.",
+   "explanation": "Se debe usar 'biblioteca' para el lugar donde se estudia."
+  },
+  {
+   "id": "m4_q5",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "Completa: 'El ____ tiene una terraza muy bonita.'",
+   "options": [
+    "biblioteca",
+    "cine",
+    "parque",
+    "café"
+   ],
+   "correctOptionIndex": 3,
+   "explanation": "Un café puede tener una terraza bonita."
+  },
+  {
+   "id": "m4_q6",
+   "type": "practice",
+   "difficulty": "Difícil",
+   "question": "Escribe una oración describiendo un lugar de tu ciudad.",
+   "answer": "El parque central de mi ciudad es muy amplio y tiene muchos árboles.",
+   "explanation": "Describe un lugar de tu ciudad usando el vocabulario aprendido."
+  },
+  {
+   "id": "m4_q7",
+   "type": "quiz",
+   "difficulty": "Medio",
+   "question": "Completa: 'El ____ es perfecto para relajarse.'",
+   "options": [
+    "café",
+    "biblioteca",
+    "parque",
+    "cine"
+   ],
+   "correctOptionIndex": 2,
+   "explanation": "El parque es un lugar ideal para relajarse."
+  },
+  {
+   "id": "m4_q8",
+   "type": "practice",
+   "difficulty": "Difícil",
+   "question": "Escribe dos oraciones sobre lo que haces en la biblioteca.",
+   "answer": "En la biblioteca, leo libros de historia. También, estudio para mis exámenes.",
+   "explanation": "Usa el vocabulario y estructura aprendidos para describir actividades en la biblioteca."
+  },
+  {
+   "id": "m4_q9",
+   "type": "quiz",
+   "difficulty": "Fácil",
+   "question": "¿Qué lugar visitarías para ver una película?",
+   "options": [
+    "café",
+    "parque",
+    "biblioteca",
+    "cine"
+   ],
+   "correctOptionIndex": 3,
+   "explanation": "El cine es el lugar apropiado para ver películas."
+  },
+  {
+   "id": "m6_chapter",
+   "type": "chapter",
+   "title": "Tarjetas de Lugares Urbanos",
+   "content": "Tarjetas de vocabulario sobre lugares en la ciudad.",
+   "label": "Repaso",
+   "emoji": "🃏"
+  },
+  {
+   "id": "m6_cards",
+   "type": "flashcards",
+   "title": "Tarjetas de Lugares Urbanos",
+   "cards": [
+    {
+     "back": "Lugar para leer libros. Ejemplo: 'Voy a la biblioteca cada semana.'",
+     "front": "Biblioteca"
+    },
+    {
+     "back": "Lugar para tomar bebidas. Ejemplo: 'Nos vemos en el café por la tarde.'",
+     "front": "Café"
+    },
+    {
+     "back": "Lugar para ver películas. Ejemplo: 'El cine está lleno los fines de semana.'",
+     "front": "Cine"
+    },
+    {
+     "back": "Espacio verde para pasear. Ejemplo: 'El parque es ideal para relajarme.'",
+     "front": "Parque"
+    },
+    {
+     "back": "Visitar lugares nuevos. Ejemplo: 'Me gusta explorar la ciudad durante el fin de semana.'",
+     "front": "Explorar"
+    },
+    {
+     "back": "Andar a pie. Ejemplo: 'Camino al trabajo todos los días.'",
+     "front": "Caminar"
+    },
+    {
+     "back": "Atractivo especial. Ejemplo: 'El encanto de la ciudad es inigualable.'",
+     "front": "Encanto"
+    },
+    {
+     "back": "Variado, diferente. Ejemplo: 'La ciudad es un lugar diverso.'",
+     "front": "Diverso"
+    },
+    {
+     "back": "Propósito de algo. Ejemplo: 'Cada lugar tiene su función.'",
+     "front": "Función"
+    },
+    {
+     "back": "Espacio al aire libre de un café o restaurante. Ejemplo: 'La terraza está llena en verano.'",
+     "front": "Terraza"
+    },
+    {
+     "back": "Tienda de libros. Ejemplo: 'Compro mis libros en la librería.'",
+     "front": "Librería"
+    },
+    {
+     "back": "Espacio al aire libre en casas o escuelas. Ejemplo: 'Jugamos en el patio de la escuela.'",
+     "front": "Patio"
+    }
+   ]
+  }
+ ]
+}

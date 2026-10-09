@@ -74,6 +74,20 @@ export interface LessonImageRef {
   conceptId?: string;
 }
 
+/** Reto práctico (situación-problema): escenario, misión, pistas, imagen y preguntas. */
+export interface LessonChallenge {
+  id: string;
+  title: string;
+  /** Párrafos del escenario */
+  scenario: string[];
+  mission?: string;
+  clues: string[];
+  imageUrl?: string;
+  dialogue: Array<{ speaker: string; text: string }>;
+  /** Preguntas que solo se entienden con el escenario */
+  questions: LessonQuiz[];
+}
+
 export interface LessonReading {
   id: string;
   title: string;
@@ -112,6 +126,8 @@ export interface LessonContent {
   dialogues: LessonDialogue[];
   /** Lecturas de comprensión (de la lección o compuestas con sus ejemplos) */
   readings: LessonReading[];
+  /** Retos prácticos de la lección (se proyectan completos o no se proyectan) */
+  challenges?: LessonChallenge[];
   grammar: Array<{ id: string; title: string; formula: string; examples: string[] }>;
   images: LessonImageRef[];
   homework?: string;
