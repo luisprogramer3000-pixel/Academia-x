@@ -22,7 +22,7 @@ import { ClassAgentParams, ClassAgentOutput } from "./class-agent.schema";
 import { ClassPlanParams, ClassPlanOutput, type ClassPlanMaterial } from "./class-plan.schema";
 import type { MaterialGenParams, MaterialGenOutput } from "./material-tools";
 import type { AiDeckParams, AiDeckOutput } from "@/modules/presentation/ai-deck.schema";
-import { generateClassImage, ImageQuality } from "./image.adapter";
+import { generateClassImage, editClassImage, ImageQuality } from "./image.adapter";
 import { saveGeneratedImage } from "@/lib/uploads";
 
 export interface GenerateCourseDraftInput extends CourseGenParams {
@@ -1105,6 +1105,52 @@ export class AIService {
       }
     }
     return { imagesGenerated, imageErrors };
+  }
+
+  /**
+   * Foto de una diapositiva (presentación "foto + texto"). Cobra una imagen
+   * (realista = alta calidad, 2 créditos; económica = estándar, 1 crédito) o,
+   * con `edit`, modifica la foto anterior (1 crédito). Si falla, devuelve los
+   * créditos. Devuelve la URL guardada en Storage.
+   */
+  static async generateDeckPhoto(input: {
+    tenantId: string;
+    userId?: string;
+    prompt: string;
+    quality: ImageQuality;
+    aspectRatio: "16:9" | "3:4";
+    idempotencyKey: string;
+    edit?: { instruction: string; reference: Buffer; referenceMime: string };
+  }): Promise<string> {
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+    const operation = input.edit || input.quality === "standard" ? AIOperation.IMAGE_GENERATION : AIOperation.IMAGE_GENERATION_HQ;
+    const credit = await AICreditEngine.consumeCredits({ tenantId: validTenantId, userId: validUserId, operation, idempotencyKey: input.idempotencyKey });
+    try {
+      const image = input.edit
+        ? await editClassImage(input.edit)
+        : await generateClassImage({ prompt: input.prompt, quality: input.quality, aspectRatio: input.aspectRatio, rawPrompt: true });
+      const url = await saveGeneratedImage(validTenantId, image.buffer, image.mimeType);
+      await prisma.aIUsage
+        .create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: operation === AIOperation.IMAGE_GENERATION_HQ ? "IMAGE_GENERATION_HQ" : "IMAGE_GENERATION",
+            provider: image.provider,
+            model: image.model,
+            promptTokens: 0,
+            completionTokens: 0,
+            estimatedCost: image.estimatedCost,
+            creditsUsed: credit.creditsUsed,
+            creditTransactionId: credit.transactionId || null,
+          },
+        })
+        .catch((err) => console.warn("Could not log AIUsage for deck photo:", err));
+      return url;
+    } catch (error) {
+      await AIService.executeAutoRefund(validTenantId, credit.transactionId, validUserId, operation, error, input.idempotencyKey);
+      throw error;
+    }
   }
 
   /**

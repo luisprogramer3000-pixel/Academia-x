@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Presentation, FileText, Download } from "lucide-react";
+import Link from "next/link";
+import { Presentation, FileText, Download, Images } from "lucide-react";
 import { PresentationWizard } from "./PresentationWizard";
 
 interface PresentationDownloadProps {
@@ -45,6 +46,14 @@ export function PresentationDownload({ lessonId, hasContent, hasUnsavedChanges, 
               <FileText className="w-4 h-4" /> PDF
             </button>
           </div>
+          <Link
+            href={`/dashboard/lessons/${lessonId}/presentacion-fotos`}
+            className="mt-3 w-full px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-500/40 text-sm font-bold text-amber-200 flex items-center justify-center gap-2 transition-colors"
+          >
+            <Images className="w-4 h-4" /> Nuevo: PowerPoint con fotos realistas
+            <span className="text-[11px] font-normal text-amber-200/70">· revisas el guion antes de pagar las fotos</span>
+          </Link>
+          {hasUnsavedChanges && <p className="text-[11px] text-amber-400 mt-2">Guarda la lección antes: el guion se escribe con lo guardado.</p>}
           <p className="text-[11px] text-slate-500 mt-3 flex items-start gap-1.5">
             <Download className="w-3 h-3 shrink-0 mt-0.5" />
             El PowerPoint es editable. Las preguntas incluyen una diapositiva con la respuesta, y tu guion va al final.

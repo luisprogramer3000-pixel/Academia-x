@@ -140,6 +140,7 @@ model Tenant {
   enrollmentRequests   EnrollmentRequest[]
   payments             Payment[]
   paymentCard          PaymentCard?
+  photoDecks           PhotoDeck[]
 }
 
 model Membership {
@@ -724,4 +725,25 @@ model AICreditPurchase {
 
   @@index([tenantId])
   @@index([tenantId, createdAt])
+}
+
+/// Presentación "foto + texto": la IA escribe el guion, el profesor lo revisa y
+/// después se genera una foto por diapositiva (cada una se puede regenerar sola).
+/// script = { title, slides: [{ id, type, title, text, items[], imagePrompt,
+///   photo: "realistic" | "economic", notes, imageUrl?, imageStatus? }] }
+model PhotoDeck {
+  id        String   @id @default(cuid())
+  tenantId  String
+  lessonId  String
+  userId    String?
+  title     String
+  /// SCRIPT (en revisión) | READY (con fotos)
+  status    String   @default("SCRIPT")
+  script    Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, lessonId, updatedAt])
 }
