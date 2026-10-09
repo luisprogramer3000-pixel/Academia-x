@@ -51,6 +51,7 @@ export default async function PhotoDeckPage({ params, searchParams }: { params: 
             initialDeck={deck ? { id: deck.id, script: deck.script } : null}
             initialCredits={wallet.teacherCredits.available}
             accent={academy.primaryColor || "#2563EB"}
+            academyName={academy.name}
           />
         </main>
       </div>

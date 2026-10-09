@@ -2,8 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowDown, ArrowUp, Camera, CheckCircle2, Download, ImagePlus, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, Wand2,
+  AlertTriangle, ArrowDown, ArrowUp, Camera, CheckCircle2, Download, Eye, ImagePlus, Loader2, Pencil, Plus, RefreshCw, Save, Sparkles, Trash2, Wand2,
 } from "lucide-react";
+import { deckPalette } from "@/modules/presentation/photo-deck/layout";
+import { SlidePreview } from "./SlidePreview";
 import {
   PHOTO_CHANGE_CREDITS, PHOTO_CREDITS, SCRIPT_CREDITS, SLIDE_TYPES, SLIDE_TYPE_LABELS, defaultPhotoFor, newSlideId, photosCost,
   type DeckScript, type ScriptSlide, type ScriptSlideType,
@@ -30,12 +32,17 @@ export function PhotoDeckStudio({
   initialDeck,
   initialCredits,
   accent,
+  academyName,
 }: {
   lessonId: string;
   initialDeck: { id: string; script: DeckScript } | null;
   initialCredits: number;
   accent: string;
+  academyName: string;
 }) {
+  const colors = useMemo(() => deckPalette(accent), [accent]);
+  // Con todas las fotos listas se abre directamente la vista previa
+  const [view, setView] = useState<"edit" | "preview">(initialDeck?.script.slides.every((s) => s.imageUrl) ? "preview" : "edit");
   const [deckId, setDeckId] = useState(initialDeck?.id ?? null);
   const [script, setScript] = useState<DeckScript | null>(initialDeck?.script ?? null);
   const [saved, setSaved] = useState(JSON.stringify(initialDeck?.script ?? null));
@@ -172,6 +179,7 @@ export function PhotoDeckStudio({
         ? { ok: false, text: `${queue.length - failed} fotos listas; ${failed} no se pudieron generar (no se cobraron). Puedes reintentarlas una a una.` }
         : { ok: true, text: "¡Fotos listas! Revisa cada diapositiva, cambia la que quieras y descarga el PowerPoint." }
     );
+    setView("preview");
   }
 
   async function download() {
@@ -259,6 +267,91 @@ export function PhotoDeckStudio({
         />
         <a href={`?nueva=1`} className="text-xs text-slate-400 hover:text-white underline">Empezar otra desde cero</a>
       </div>
+      <div className="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800">
+        {([["preview", Eye, "Vista previa de diapositivas"], ["edit", Pencil, "Editar guion"]] as const).map(([v, Icon, text]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${view === v ? "bg-amber-500 text-slate-950" : "text-slate-300 hover:text-white"}`}
+          >
+            <Icon className="w-4 h-4" /> {text}
+          </button>
+        ))}
+      </div>
+
+      {view === "preview" ? (
+        <div className="space-y-6">
+          <p className="text-xs text-slate-500">Así se verá cada diapositiva en el PowerPoint. Cambia la foto o edita el texto de la que no te guste antes de descargar.</p>
+          {script.slides.map((s, i) => {
+            const st = slideState[s.id] ?? {};
+            return (
+              <div key={s.id} className="p-3 sm:p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                <div className="relative">
+                  <SlidePreview slide={s} index={i + 1} colors={colors} academyName={academyName} />
+                  {st.busy && (
+                    <div className="absolute inset-0 rounded-xl bg-slate-950/60 flex items-center justify-center gap-2 text-sm text-white">
+                      <Loader2 className="w-5 h-5 animate-spin" /> Generando la foto…
+                    </div>
+                  )}
+                  {s.imageUrl && s.imageSource === "lesson" && !st.busy && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold shadow">Foto de la lección · gratis</span>
+                  )}
+                </div>
+                {st.error && <p className="text-xs text-red-400">{st.error}</p>}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-amber-400 mr-1">#{i + 1}</span>
+                  {s.imageUrl ? (
+                    <>
+                      <input
+                        value={st.instruction ?? ""}
+                        disabled={locked || st.busy}
+                        onChange={(e) => setSlide(s.id, { instruction: e.target.value })}
+                        placeholder="¿Qué cambiarías de la foto? Ej.: que sea una chica desayunando"
+                        className={`${input} flex-1 min-w-[220px] text-xs`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => photoFor(s, st.instruction)}
+                        disabled={locked || st.busy || !(st.instruction ?? "").trim() || credits < PHOTO_CHANGE_CREDITS}
+                        className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-white flex items-center gap-1.5"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" /> Cambiar foto ({PHOTO_CHANGE_CREDITS} cr)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => photoFor({ ...s, imageUrl: undefined })}
+                        disabled={locked || st.busy || credits < PHOTO_CREDITS[s.photo]}
+                        className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-white flex items-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> {s.imageSource === "lesson" ? "Foto con IA" : "Foto nueva"} ({PHOTO_CREDITS[s.photo]} cr)
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={async () => { if (dirty && !(await save(true))) return; await photoFor(scriptRef.current?.slides.find((x) => x.id === s.id) ?? s); }}
+                      disabled={locked || st.busy || credits < PHOTO_CREDITS[s.photo]}
+                      className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-semibold text-white flex items-center gap-1.5"
+                    >
+                      <ImagePlus className="w-3.5 h-3.5" /> Generar la foto ({PHOTO_CREDITS[s.photo]} cr)
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setView("edit"); setTimeout(() => document.getElementById(`slide-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}
+                    disabled={locked}
+                    className="ml-auto px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-1.5"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Editar texto
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+      <>
       <p className="text-xs text-slate-500">
         Escribe <strong className="text-slate-300">**así**</strong> las palabras que quieres resaltar con el color de tu academia. El texto aparece tal cual en el PowerPoint.
       </p>
@@ -266,7 +359,7 @@ export function PhotoDeckStudio({
       {script.slides.map((s, i) => {
         const st = slideState[s.id] ?? {};
         return (
-          <div key={s.id} className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 grid lg:grid-cols-[1fr_240px] gap-5">
+          <div key={s.id} id={`slide-${s.id}`} className="scroll-mt-6 p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 grid lg:grid-cols-[1fr_240px] gap-5">
             <div className="space-y-3 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-mono font-bold text-amber-400">#{i + 1}</span>
@@ -379,6 +472,8 @@ export function PhotoDeckStudio({
       <button type="button" onClick={addSlide} disabled={locked || script.slides.length >= 30} className="w-full py-3 rounded-2xl border border-dashed border-slate-700 text-sm text-slate-400 hover:text-white hover:border-slate-500 flex items-center justify-center gap-2">
         <Plus className="w-4 h-4" /> Añadir diapositiva
       </button>
+      </>
+      )}
 
       {/* Barra fija: guardar, generar fotos (con el costo) y descargar */}
       <div className="sticky bottom-4 z-20 p-3 sm:p-4 rounded-2xl bg-slate-900 border-2 border-amber-500/50 shadow-2xl flex flex-wrap items-center gap-3">
