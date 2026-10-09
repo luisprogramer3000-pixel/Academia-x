@@ -122,8 +122,12 @@ export class PhotoDeckService {
   static async saveScript(tenantId: string, deckId: string, input: unknown) {
     const deck = await getDeckOrThrow(tenantId, deckId);
     const parsed = deckScriptSchema.parse(input);
-    const previous = new Map((deck.script as unknown as DeckScript).slides.map((s) => [s.id, s.imageUrl]));
-    const slides = parsed.slides.map((s) => ({ ...s, imageUrl: s.imageUrl && previous.get(s.id) === s.imageUrl ? s.imageUrl : undefined }));
+    const previous = new Map((deck.script as unknown as DeckScript).slides.map((s) => [s.id, s]));
+    const slides = parsed.slides.map((s) => {
+      const before = previous.get(s.id);
+      const keep = Boolean(s.imageUrl && before?.imageUrl === s.imageUrl);
+      return { ...s, imageUrl: keep ? s.imageUrl : undefined, imageSource: keep ? before?.imageSource : undefined };
+    });
     const script: DeckScript = { title: parsed.title, slides };
     await prisma.photoDeck.update({
       where: { id: deck.id },
@@ -167,7 +171,7 @@ export class PhotoDeckService {
       const rows = await tx.$queryRaw<Array<{ script: unknown }>>`SELECT "script" FROM "PhotoDeck" WHERE "id" = ${deck.id} FOR UPDATE`;
       const latest = rows[0]?.script as DeckScript | undefined;
       if (!latest) return;
-      const slides = latest.slides.map((s) => (s.id === slide.id ? { ...s, imageUrl: url } : s));
+      const slides = latest.slides.map((s) => (s.id === slide.id ? { ...s, imageUrl: url, imageSource: "ai" as const } : s));
       await tx.photoDeck.update({
         where: { id: deck.id },
         data: { script: { ...latest, slides } as unknown as Prisma.InputJsonValue, status: slides.every((s) => s.imageUrl) ? "READY" : "SCRIPT" },

@@ -48,6 +48,8 @@ export const scriptSlideSchema = z.object({
   /** Notas del orador (respuestas de los ejercicios, indicaciones) */
   notes: z.string().max(4000).default(""),
   imageUrl: z.string().max(400).optional(),
+  /** "lesson": imagen que ya tenía la lección (gratis); "ai": foto generada */
+  imageSource: z.enum(["lesson", "ai"]).optional(),
 });
 export type ScriptSlide = z.infer<typeof scriptSlideSchema>;
 
@@ -64,6 +66,9 @@ export const defaultPhotoFor = (type: ScriptSlideType): PhotoQuality =>
   type === "reading" || type === "exercise" || type === "objectives" || type === "grammar" ? "economic" : "realistic";
 
 /** Créditos de las fotos que faltan por generar. */
+/** Imágenes que se pueden reutilizar sin generar (de la plataforma o https). */
+const reusable = (url?: string): url is string => Boolean(url && (url.startsWith("/api/uploads/") || /^https:\/\//.test(url)));
+
 export function photosCost(slides: ScriptSlide[]): number {
   return slides.filter((s) => !s.imageUrl).reduce((acc, s) => acc + PHOTO_CREDITS[s.photo], 0);
 }
@@ -170,6 +175,8 @@ function blocksToText(blocks: SlideContentBlock[]) {
  */
 export function planToScript(plan: PresentationPlan, content: LessonContent, target?: number): DeckScript {
   const slides: ScriptSlide[] = [];
+  /** Imágenes de la lección que el plan sugiere para cada diapositiva */
+  const suggested = new Map<string, string[]>();
   for (const s of [...plan.slides].sort((a, b) => a.order - b.order)) {
     const type = ROLE_TO_TYPE[s.pedagogicalRole];
     if (!type) continue;
@@ -188,8 +195,14 @@ export function planToScript(plan: PresentationPlan, content: LessonContent, tar
     }
 
     const notes = [...s.speakerNotes, ...(answers.length ? ["", "RESPUESTAS:", ...answers] : [])].filter((l, i, a) => l || a[i - 1]).join("\n");
+    const id = newSlideId();
+    suggested.set(id, [
+      ...s.visualAssetRequests.map((r) => r.preferredUrl),
+      ...s.contentBlocks.map((b) => (b.kind === "item" ? b.imageUrl : undefined)),
+      ...(type === "reading" ? content.readings.map((r) => r.imageUrl) : []),
+    ].filter(reusable));
     slides.push({
-      id: newSlideId(),
+      id,
       type,
       title: clean(type === "cover" ? plan.title || content.title : s.title).slice(0, 140),
       text: slideText.slice(0, 1600),
@@ -200,7 +213,39 @@ export function planToScript(plan: PresentationPlan, content: LessonContent, tar
     });
   }
   useRealComprehension(slides, content);
-  return { title: clean(plan.title || content.title).slice(0, 160), slides: target ? trimSlides(slides, target) : slides };
+  const kept = target ? trimSlides(slides, target) : slides;
+  return { title: clean(plan.title || content.title).slice(0, 160), slides: reuseLessonImages(kept, suggested, content) };
+}
+
+/**
+ * Las imágenes que ya tiene la lección se reutilizan antes de generar nada:
+ * primero la que el plan sugiere para cada diapositiva y después las que
+ * sobren, empezando por la portada. Solo las diapositivas que se quedan sin
+ * imagen cuestan créditos (y el profesor puede pedir una foto nueva si quiere).
+ */
+function reuseLessonImages(slides: ScriptSlide[], suggested: Map<string, string[]>, content: LessonContent): ScriptSlide[] {
+  const used = new Set<string>();
+  const out = slides.map((s) => {
+    const url = (suggested.get(s.id) ?? []).find((u) => !used.has(u));
+    if (!url) return s;
+    used.add(url);
+    return { ...s, imageUrl: url, imageSource: "lesson" as const };
+  });
+  const pool = [
+    ...content.images.map((i) => i.url),
+    ...content.concepts.map((c) => c.imageUrl),
+    ...content.vocabulary.map((v) => v.imageUrl),
+    ...content.readings.map((r) => r.imageUrl),
+  ].filter((u): u is string => reusable(u) && !used.has(u));
+  const leftovers = [...new Set(pool)];
+  // La portada primero; luego en orden
+  const order = [...out.keys()].sort((a, b) => Number(out[b].type === "cover") - Number(out[a].type === "cover") || a - b);
+  for (const i of order) {
+    if (!leftovers.length) break;
+    if (out[i].imageUrl) continue;
+    out[i] = { ...out[i], imageUrl: leftovers.shift(), imageSource: "lesson" };
+  }
+  return out;
 }
 
 /** "Lee el texto", "Subraya…": instrucciones genéricas, no preguntas sobre la lectura. */

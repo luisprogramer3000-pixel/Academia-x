@@ -52,6 +52,7 @@ export function PhotoDeckStudio({
   const dirty = JSON.stringify(script) !== saved;
   const pendingCost = script ? photosCost(script.slides) : 0;
   const missing = script ? script.slides.filter((s) => !s.imageUrl).length : 0;
+  const fromLesson = script ? script.slides.filter((s) => s.imageUrl && s.imageSource === "lesson").length : 0;
   const locked = busy === "photos";
   const setSlide = (id: string, patch: Partial<SlideState>) => setSlideState((st) => ({ ...st, [id]: { ...st[id], ...patch } }));
 
@@ -126,12 +127,12 @@ export function PhotoDeckStudio({
         method: "POST",
         body: JSON.stringify({ instruction, requestId: uid() }),
       });
-      update(slide.id, { imageUrl: res.imageUrl });
+      update(slide.id, { imageUrl: res.imageUrl, imageSource: "ai" });
       setSaved((prev) => {
         // La foto ya quedó guardada en el servidor: el guion local sigue "sin cambios"
         try {
           const p = JSON.parse(prev) as DeckScript;
-          return JSON.stringify({ ...p, slides: p.slides.map((x) => (x.id === slide.id ? { ...x, imageUrl: res.imageUrl } : x)) });
+          return JSON.stringify({ ...p, slides: p.slides.map((x) => (x.id === slide.id ? { ...x, imageUrl: res.imageUrl, imageSource: "ai" as const } : x)) });
         } catch {
           return prev;
         }
@@ -203,7 +204,7 @@ export function PhotoDeckStudio({
           {[
             ["1", "Guion con IA", `La IA escribe cada diapositiva con la clasificación real, la lectura y los ejercicios. ${SCRIPT_CREDITS} créditos.`],
             ["2", "Lo revisas", "Corriges títulos, textos y la descripción de cada foto. Gratis."],
-            ["3", "Fotos", `Realista ${PHOTO_CREDITS.realistic} cr (portada y conceptos) · económica ${PHOTO_CREDITS.economic} cr (lectura y ejercicios). Antes ves el total.`],
+            ["3", "Fotos", `Primero se usan las imágenes que ya tiene la lección (gratis). Las que falten: realista ${PHOTO_CREDITS.realistic} cr · económica ${PHOTO_CREDITS.economic} cr. Antes ves el total.`],
             ["4", "PowerPoint", `Foto + texto real editable y notas del orador. Cambiar una foto: ${PHOTO_CHANGE_CREDITS} cr.`],
           ].map(([n, t, d]) => (
             <div key={n} className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
@@ -324,6 +325,9 @@ export function PhotoDeckStudio({
                     <Camera className="w-6 h-6 opacity-60" /> Sin foto todavía
                   </div>
                 )}
+                {s.imageUrl && s.imageSource === "lesson" && !st.busy && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold shadow">De la lección · gratis</span>
+                )}
                 {st.busy && (
                   <div className="absolute inset-0 bg-slate-950/70 flex items-center justify-center gap-2 text-xs text-white">
                     <Loader2 className="w-4 h-4 animate-spin" /> Generando…
@@ -354,7 +358,7 @@ export function PhotoDeckStudio({
                     disabled={locked || st.busy || credits < PHOTO_CREDITS[s.photo]}
                     className="w-full px-3 py-1.5 rounded-lg text-[11px] text-slate-400 hover:text-white flex items-center justify-center gap-1"
                   >
-                    <RefreshCw className="w-3 h-3" /> Otra foto nueva ({PHOTO_CREDITS[s.photo]} cr)
+                    <RefreshCw className="w-3 h-3" /> {s.imageSource === "lesson" ? "Generar una foto con IA" : "Otra foto nueva"} ({PHOTO_CREDITS[s.photo]} cr)
                   </button>
                 </div>
               ) : (
@@ -385,9 +389,10 @@ export function PhotoDeckStudio({
             <span>
               Faltan <strong className="text-white">{missing}</strong> fotos ({counts.realistic} realistas + {counts.economic} económicas) ={" "}
               <strong className="text-amber-300">{pendingCost} créditos</strong> · tienes {credits}
+              {fromLesson > 0 && <> · <strong className="text-emerald-400">{fromLesson}</strong> imágenes de la lección (gratis)</>}
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="w-4 h-4" /> Todas las fotos listas · tienes {credits} créditos</span>
+            <span className="flex items-center gap-1.5 text-emerald-400"><CheckCircle2 className="w-4 h-4" /> Todas las fotos listas{fromLesson > 0 ? ` (${fromLesson} de la lección, gratis)` : ""} · tienes {credits} créditos</span>
           )}
           {message && <p className={`mt-1 ${message.ok ? "text-emerald-400" : "text-red-400"}`}>{message.text}</p>}
           {missing > 0 && pendingCost > credits && (
