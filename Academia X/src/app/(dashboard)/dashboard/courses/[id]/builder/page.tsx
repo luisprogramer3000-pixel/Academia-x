@@ -6,6 +6,10 @@ import { createModuleAction, createLessonAction, toggleCourseStatusAction } from
 import { CourseSettingsForm } from "@/components/dashboard/CourseSettingsForm";
 import { CourseLandingPanel } from "@/components/dashboard/CourseLandingPanel";
 import { CourseStructurePanel } from "@/components/dashboard/CourseStructurePanel";
+import { DevelopLessonsPanel } from "@/components/dashboard/DevelopLessonsPanel";
+import { isLessonEmpty } from "@/modules/course/lesson-develop.service";
+import { AICreditEngine } from "@/modules/ai/ai.credit-engine";
+import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Layers, Plus, BookOpen, Edit, Eye, ArrowLeft, CheckCircle2, Globe, FileText, Sparkles, ShieldCheck, AlertCircle } from "lucide-react";
@@ -23,7 +27,7 @@ const PAGE_TOOLS: PageTool[] = MATERIAL_TOOLS.filter((t) => t.id !== "rubrica").
 
 interface BuilderPageProps {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ generar?: string; publico?: string }>;
+  searchParams?: Promise<{ generar?: string; publico?: string; desarrollar?: string }>;
 }
 
 export default async function CourseBuilderPage({ params, searchParams }: BuilderPageProps) {
@@ -45,6 +49,19 @@ export default async function CourseBuilderPage({ params, searchParams }: Builde
 
   const isDraft = courseData.status === "DRAFT";
   const isLesson = courseData.contentType === "STANDALONE_LESSON";
+
+  // Lecciones sin contenido (p. ej. recién creadas por la estructura con IA)
+  const [lessonRows, wallet] = await Promise.all([
+    prisma.lesson.findMany({
+      where: { module: { courseId: courseData.id } },
+      orderBy: [{ module: { order: "asc" } }, { order: "asc" }],
+      select: { id: true, title: true, content: true, module: { select: { title: true } } },
+    }),
+    AICreditEngine.getTenantWalletSummary(tenantId),
+  ]);
+  const emptyLessons = lessonRows
+    .filter((l) => isLessonEmpty(l.content))
+    .map((l) => ({ id: l.id, title: l.title, moduleTitle: l.module.title }));
 
   // Lecciones sueltas no tienen builder — redirigir directamente al editor
   if (isLesson) {
@@ -278,6 +295,8 @@ export default async function CourseBuilderPage({ params, searchParams }: Builde
 
             {/* Sidebar Form: Agregar Módulo */}
             <div className="space-y-6">
+              <DevelopLessonsPanel lessons={emptyLessons} credits={wallet.teacherCredits.available} autoOpen={sp.desarrollar === "1"} />
+
               <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30">
                 <h3 className="font-bold text-white text-base mb-1 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-400" /> Generar módulos con IA

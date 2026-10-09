@@ -86,6 +86,8 @@ export function CourseStructurePanel({
     if (res.success) {
       setProposal(null);
       setOpen(false);
+      // Siguiente paso: escribir el contenido de cada lección (se abre el panel con el costo)
+      router.push(`/dashboard/courses/${courseId}/builder?desarrollar=1`);
       router.refresh();
     } else {
       setMessage({ type: "error", text: res.error || "No se pudo aplicar." });
