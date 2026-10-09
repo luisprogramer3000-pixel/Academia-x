@@ -34,7 +34,7 @@ export function AICopilotForm({ tenantId, tenantSlug, isExceeded, availableTeach
       const res = await generateCourseAIAction(formData);
 
       if (res.success && res.redirectUrl) {
-        router.push(`${res.redirectUrl}?tenant=${tenantSlug}`);
+        router.push(`${res.redirectUrl}${res.redirectUrl.includes("?") ? "&" : "?"}tenant=${tenantSlug}`);
       } else {
         setError(res.error || "Ocurrió un error al generar el borrador del curso.");
         setLoading(false);

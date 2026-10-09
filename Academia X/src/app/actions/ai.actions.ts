@@ -82,7 +82,8 @@ export async function generateCourseAIAction(formData: FormData) {
     return {
       success: true,
       courseId: course.id,
-      redirectUrl: `/dashboard/courses/${course.id}/builder`,
+      // El borrador trae solo los títulos: se abre el panel para desarrollar cada lección
+      redirectUrl: `/dashboard/courses/${course.id}/builder?desarrollar=1`,
     };
   } catch (error: any) {
     return { success: false, error: formatAIError(error) };

@@ -27,13 +27,19 @@ export class LessonDevelopError extends Error {
   }
 }
 
-/** true si la lección no tiene ningún bloque de contenido. */
+/** Bloque que deja el Copiloto IA al crear un curso: solo una frase de resumen, no es una clase. */
+const PLACEHOLDER_TITLE = "Resumen Generado por IA";
+
+/**
+ * true si la lección está por desarrollar: sin bloques, o solo con el resumen
+ * automático que el Copiloto IA pone al generar el curso.
+ */
 export function isLessonEmpty(content: string | null): boolean {
   if (!content) return true;
   try {
     const parsed = JSON.parse(content);
-    const blocks = Array.isArray(parsed?.blocks) ? parsed.blocks : Array.isArray(parsed) ? parsed : [];
-    return blocks.length === 0;
+    const blocks: Array<{ title?: string }> = Array.isArray(parsed?.blocks) ? parsed.blocks : Array.isArray(parsed) ? parsed : [];
+    return blocks.every((b) => b?.title === PLACEHOLDER_TITLE);
   } catch {
     return !content.trim();
   }
