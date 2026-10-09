@@ -16,7 +16,7 @@ import {
 } from "./ai.adapter";
 import { CourseService } from "@/modules/course/course.service";
 import { AICreditEngine } from "./ai.credit-engine";
-import { AIOperation } from "@prisma/client";
+import { AIOperation, Prisma } from "@prisma/client";
 import { getPlanAIConfig } from "./ai.config";
 import { ClassAgentParams, ClassAgentOutput } from "./class-agent.schema";
 import { ClassPlanParams, ClassPlanOutput, type ClassPlanMaterial } from "./class-plan.schema";
@@ -24,6 +24,8 @@ import type { MaterialGenParams, MaterialGenOutput } from "./material-tools";
 import type { AiDeckParams, AiDeckOutput } from "@/modules/presentation/ai-deck.schema";
 import { generateClassImage, editClassImage, ImageQuality } from "./image.adapter";
 import { classAgentRefs, classPlanRefs, ensureSelfContained, lessonGenRefs, materialToolRefs, quizRefs } from "./exercise-refs";
+import { researchCourseTopic, type ResearchBrief } from "./research";
+import { deepenTheoryIfThin, depthTarget } from "./class-depth";
 import { saveGeneratedImage } from "@/lib/uploads";
 
 export interface GenerateCourseDraftInput extends CourseGenParams {
@@ -1113,6 +1115,75 @@ export class AIService {
   }
 
   /**
+   * Investiga el tema del curso (una vez por curso) con fuentes profesionales
+   * y lo guarda en Course.researchBrief: todas las lecciones con IA se escriben
+   * sobre ese marco. Cobra como generar una lección (2 créditos) y lo devuelve
+   * si falla. Si el curso ya tiene investigación, la reutiliza sin cobrar.
+   */
+  static async researchCourse(input: { tenantId: string; userId?: string; courseId: string; force?: boolean }): Promise<ResearchBrief> {
+    const course = await prisma.course.findFirst({
+      where: { id: input.courseId, tenantId: input.tenantId },
+      select: {
+        id: true, title: true, description: true, level: true, language: true, researchBrief: true,
+        modules: { orderBy: { order: "asc" }, select: { title: true, lessons: { orderBy: { order: "asc" }, select: { title: true } } } },
+      },
+    });
+    if (!course) throw new Error("Curso no encontrado.");
+    const existing = course.researchBrief as unknown as ResearchBrief | null;
+    if (existing?.brief && !input.force) return existing;
+
+    const { validTenantId, validUserId } = await AIService.resolveTenantAndUser(input.tenantId, input.userId);
+    const idempotencyKey = `research:${course.id}:${new Date().toISOString().slice(0, 13)}`;
+    const credit = await AICreditEngine.consumeCredits({
+      tenantId: validTenantId,
+      userId: validUserId,
+      operation: AIOperation.LESSON_GENERATION,
+      idempotencyKey,
+      referenceId: course.id,
+    });
+    try {
+      const adapter = getAIAdapter();
+      const ask = AIService.jsonAsk(adapter);
+      const brief = await researchCourseTopic(
+        {
+          courseTitle: course.title,
+          description: course.description,
+          level: course.level,
+          language: course.language || "es",
+          outline: course.modules.flatMap((m) => [m.title, ...m.lessons.map((l) => `  ${l.title}`)]),
+        },
+        async (system, user) => {
+          const raw = (await ask(`${system}
+Devuelve solo JSON: { "marco": string }`, user)) as { marco?: unknown } | null;
+          if (typeof raw?.marco !== "string" || raw.marco.length < 200) throw new Error("La investigación llegó vacía.");
+          return raw.marco;
+        }
+      );
+      await prisma.course.update({ where: { id: course.id }, data: { researchBrief: brief as unknown as Prisma.InputJsonValue } });
+      await prisma.aIUsage
+        .create({
+          data: {
+            tenantId: validTenantId,
+            userId: validUserId,
+            feature: "COURSE_RESEARCH",
+            provider: brief.webSearch ? "openai-web-search" : adapter.providerName,
+            model: process.env.AI_MODEL_PREMIUM || adapter.modelName || "unknown",
+            promptTokens: 0,
+            completionTokens: 0,
+            estimatedCost: brief.estimatedCost,
+            creditsUsed: credit.creditsUsed,
+            creditTransactionId: credit.transactionId || null,
+          },
+        })
+        .catch(() => undefined);
+      return brief;
+    } catch (error) {
+      await AIService.executeAutoRefund(validTenantId, credit.transactionId, validUserId, AIOperation.LESSON_GENERATION, error, idempotencyKey);
+      throw error;
+    }
+  }
+
+  /**
    * Llamada JSON genérica al proveedor activo (la misma del planificador de
    * presentaciones). La usa el control de calidad de ejercicios para reparar.
    */
@@ -1282,6 +1353,35 @@ export class AIService {
    * con la herramienta equivalente, con el mismo nivel, idioma y modo bilingüe.
    * Si alguno falla, la clase se entrega igual con lo que haya.
    */
+  /** Si la práctica (m4) trae menos ejercicios de los que pide el nivel, se genera una hoja completa y se sustituye. */
+  static async topUpExercises(adapter: ReturnType<typeof getAIAdapter>, plan: ClassPlanOutput, p: ClassPlanParams) {
+    const target = depthTarget(p.grade).exercises;
+    const practice = plan.materials.find((m) => m.kind === "ejercicios");
+    if (practice && practice.questions.length >= target) return;
+    const theory = plan.materials.find((m) => m.kind === "resumen");
+    try {
+      const out = await adapter.generateMaterial({
+        toolId: "examen",
+        topic: p.topic,
+        grade: p.grade,
+        subject: p.subject,
+        language: p.language,
+        count: target,
+        context: [
+          p.research ? `Marco de referencia del curso:\n${p.research.slice(0, 2500)}` : "",
+          theory ? `Sé coherente con esta teoría:\n${theory.sections.map((s) => `${s.heading}: ${s.body}`).join("\n").slice(0, 3000)}` : "",
+          "Dificultad progresiva: completar huecos, elegir la forma correcta, verdadero/falso, transformar, detectar y corregir errores y producción libre.",
+        ].filter(Boolean).join("\n"),
+        nativeLanguage: p.nativeLanguage,
+      });
+      if (out.material.questions.length <= (practice?.questions.length ?? 0)) return;
+      if (practice) practice.questions = out.material.questions;
+      else plan.materials.push({ ...out.material, id: "m4", kind: "ejercicios" });
+    } catch (error) {
+      console.warn("[class-plan] No se pudieron completar los ejercicios:", error instanceof Error ? error.message : error);
+    }
+  }
+
   static async completeMissingMaterials(adapter: ReturnType<typeof getAIAdapter>, plan: ClassPlanOutput, p: ClassPlanParams) {
     const REQUIRED: Array<{ kind: ClassPlanMaterial["kind"]; tool: MaterialGenParams["toolId"]; count: number }> = [
       { kind: "reto", tool: "reto", count: 4 },
@@ -1361,6 +1461,9 @@ export class AIService {
       const aiOutput = await adapter.generateClassPlan(params);
       // Los modelos pequeños a veces dejan materiales sin generar: se completan aparte (incluido en el precio de la clase)
       await AIService.completeMissingMaterials(adapter, aiOutput, params);
+      // Profundidad según el nivel: teoría reescrita si quedó corta y ejercicios completados
+      await deepenTheoryIfThin(aiOutput, params, AIService.jsonAsk(adapter));
+      await AIService.topUpExercises(adapter, aiOutput, params);
       await ensureSelfContained(classPlanRefs(aiOutput), AIService.jsonAsk(adapter), { topic: params.topic, level: params.grade, language: params.language });
 
       try {

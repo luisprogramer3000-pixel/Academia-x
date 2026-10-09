@@ -185,6 +185,9 @@ model Course {
   certificateTemplate String       @default("CLASSIC")
   /// Landing de venta generada con IA: { headline, subheadline, benefits[], callToAction }
   landing             Json?
+  /// Investigación del tema (fuentes profesionales) en la que se basan las lecciones con IA:
+  /// { brief, sources: [{ title, url }], webSearch, generatedAt }
+  researchBrief       Json?
   imageUrl            String?
   createdAt           DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime     @updatedAt @db.Timestamptz(3)

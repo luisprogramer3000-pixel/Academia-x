@@ -11,6 +11,8 @@ export const maxDuration = 600;
 
 const schema = z.object({
   mode: z.enum(["full", "basic"]),
+  /** Imágenes por lección (0-4), solo en clase completa */
+  imageCount: z.number().int().min(0).max(4).default(0),
   /** Identificador de este intento: si se repite no se cobra dos veces */
   idempotencyKey: z.string().min(8).max(100),
 });
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ lesson
     await requireActiveSubscription(tenantId);
     const { lessonId } = await context.params;
     const body = schema.parse(await req.json());
-    return NextResponse.json(await developLesson({ tenantId, userId, lessonId, mode: body.mode, idempotencyKey: body.idempotencyKey }));
+    return NextResponse.json(await developLesson({ tenantId, userId, lessonId, mode: body.mode, idempotencyKey: body.idempotencyKey, imageCount: body.mode === "full" ? body.imageCount : 0 }));
   } catch (error) {
     if (error instanceof LessonDevelopError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof z.ZodError) return NextResponse.json({ error: "Datos no válidos." }, { status: 400 });

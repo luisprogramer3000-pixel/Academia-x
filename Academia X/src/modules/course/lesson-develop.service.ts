@@ -15,6 +15,10 @@ import { planToLessonBlocks, planToTeacherPlan } from "@/modules/resources/plan-
  */
 export type DevelopMode = "full" | "basic";
 export const DEVELOP_CREDITS: Record<DevelopMode, number> = { full: 6, basic: 2 };
+/** Imagen estándar por lección (Flux Schnell): 1 crédito cada una */
+export const IMAGE_CREDITS = 1;
+/** Investigación del tema, una vez por curso */
+export const RESEARCH_CREDITS = 2;
 
 const LANGUAGE_NAMES: Record<string, string> = {
   es: "Español", en: "Inglés", fr: "Francés", de: "Alemán", it: "Italiano", pt: "Portugués", zh: "Chino", ja: "Japonés",
@@ -45,14 +49,14 @@ export function isLessonEmpty(content: string | null): boolean {
   }
 }
 
-export async function developLesson(input: { tenantId: string; userId: string; lessonId: string; mode: DevelopMode; idempotencyKey: string }) {
+export async function developLesson(input: { tenantId: string; userId: string; lessonId: string; mode: DevelopMode; idempotencyKey: string; imageCount?: number }) {
   const lesson = await prisma.lesson.findFirst({
     where: { id: input.lessonId, module: { course: { tenantId: input.tenantId } } },
     select: {
       id: true,
       title: true,
       content: true,
-      module: { select: { title: true, course: { select: { id: true, title: true, level: true, language: true, description: true } } } },
+      module: { select: { title: true, course: { select: { id: true, title: true, level: true, language: true, description: true, researchBrief: true } } } },
     },
   });
   if (!lesson) throw new LessonDevelopError("Lección no encontrada.", 404);
@@ -81,6 +85,7 @@ export async function developLesson(input: { tenantId: string; userId: string; l
     return { lessonId: lesson.id, skipped: false as const };
   }
 
+  const research = (course.researchBrief as { brief?: string } | null)?.brief;
   const plan = await AIService.generateClassPlanAI({
     tenantId: input.tenantId,
     userId: input.userId,
@@ -94,7 +99,20 @@ export async function developLesson(input: { tenantId: string; userId: string; l
     language: languageName,
     competencies: [],
     context: context.slice(0, 2000),
+    research,
   });
+
+  // Imágenes solo si el profesor las pidió (1 crédito cada una; si fallan, la clase se entrega igual)
+  const imageCount = Math.max(0, Math.min(4, input.imageCount ?? 0));
+  if (imageCount) {
+    await AIService.attachPlanImages(plan, {
+      tenantId: input.tenantId,
+      userId: input.userId,
+      count: imageCount,
+      quality: "standard",
+      idempotencyKey: `${input.idempotencyKey}-img`,
+    }).catch((error) => console.warn("[develop-lesson] Imágenes:", error instanceof Error ? error.message : error));
+  }
 
   // Puede haber cambiado mientras la IA escribía: no se pisa contenido nuevo
   const fresh = await prisma.lesson.findUnique({ where: { id: lesson.id }, select: { content: true } });

@@ -51,14 +51,17 @@ export default async function CourseBuilderPage({ params, searchParams }: Builde
   const isLesson = courseData.contentType === "STANDALONE_LESSON";
 
   // Lecciones sin contenido (p. ej. recién creadas por la estructura con IA)
-  const [lessonRows, wallet] = await Promise.all([
+  const [lessonRows, wallet, researchRow] = await Promise.all([
     prisma.lesson.findMany({
       where: { module: { courseId: courseData.id } },
       orderBy: [{ module: { order: "asc" } }, { order: "asc" }],
       select: { id: true, title: true, content: true, module: { select: { title: true } } },
     }),
     AICreditEngine.getTenantWalletSummary(tenantId),
+    prisma.course.findUnique({ where: { id: courseData.id }, select: { researchBrief: true } }),
   ]);
+  const researchBrief = researchRow?.researchBrief as { brief?: string; sources?: Array<{ title: string; url: string }>; webSearch?: boolean } | null;
+  const research = researchBrief?.brief ? { sources: researchBrief.sources ?? [], webSearch: researchBrief.webSearch === true } : null;
   const emptyLessons = lessonRows
     .filter((l) => isLessonEmpty(l.content))
     .map((l) => ({ id: l.id, title: l.title, moduleTitle: l.module.title }));
@@ -295,7 +298,7 @@ export default async function CourseBuilderPage({ params, searchParams }: Builde
 
             {/* Sidebar Form: Agregar Módulo */}
             <div className="space-y-6">
-              <DevelopLessonsPanel lessons={emptyLessons} credits={wallet.teacherCredits.available} autoOpen={sp.desarrollar === "1"} />
+              <DevelopLessonsPanel courseId={courseData.id} research={research} lessons={emptyLessons} credits={wallet.teacherCredits.available} autoOpen={sp.desarrollar === "1"} />
 
               <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30">
                 <h3 className="font-bold text-white text-base mb-1 flex items-center gap-2">

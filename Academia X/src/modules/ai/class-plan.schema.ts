@@ -17,6 +17,7 @@ import {
 } from "./reading-guidance";
 import { classStructureFor, methodologyStructureFor } from "./class-structure";
 import { SELF_CONTAINED_RULE } from "./exercise-integrity";
+import { depthRules } from "./class-depth";
 
 export interface ClassPlanParams {
   topic: string;
@@ -31,6 +32,8 @@ export interface ClassPlanParams {
   nativeLanguage?: string;
   /** Id de la metodología (activo, 5e, invertida…) para cargar su documento */
   methodologyId?: string;
+  /** Marco de referencia investigado del curso (fuentes profesionales) */
+  research?: string;
 }
 
 export type ClassMaterialKind = "reto" | "resumen" | "ejercicios" | "quiz" | "flashcards" | "lectura" | "rubrica";
@@ -131,6 +134,10 @@ export function buildClassPlanSystemPrompt(p: ClassPlanParams): string {
     "Competencias y aprendizajes a trabajar:",
     competencies,
     p.context ? `Contexto que pide el docente: ${p.context}` : "",
+    p.research
+      ? `\nMARCO DE REFERENCIA INVESTIGADO (fuentes profesionales del tema; básate en él para los conceptos, contenidos, tipos de tareas y criterios, sin inventar datos fuera de él):\n${p.research.slice(0, 5000)}`
+      : "",
+    depthRules(p.grade),
     // Bilingüe arriba del todo: con instrucciones largas, el modelo tiende a ignorar lo que va al final
     p.nativeLanguage ? `\n⚠️ REQUISITO PRINCIPAL — ${bilingualRules(p.nativeLanguage)}` : "",
     "",
