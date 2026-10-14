@@ -51,3 +51,7 @@ next-env.d.ts
 
 # Originales de la Biblioteca: se suben a Supabase/MongoDB con scripts/import-library-pptx.ts
 /public/archivos de power point para la biblioteca/
+
+# Archivos comprimidos de despliegue
+*.zip
+
