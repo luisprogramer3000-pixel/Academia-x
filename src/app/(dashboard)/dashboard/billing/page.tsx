@@ -269,7 +269,10 @@ export default async function BillingDashboardPage({ searchParams }: BillingPage
                   </tbody>
                 </table>
               </div>
-              <p className="text-[11px] text-slate-500 mt-3">Precios en dólares con IVA incluido. Pagos procesados por Payphone.</p>
+              <p className="text-[11px] text-slate-500 mt-3">
+                Precios en dólares con IVA incluido. Pagos procesados por Payphone. Consulta la{" "}
+                <a href="/refunds" target="_blank" className="underline hover:text-slate-300">Política de Reembolsos</a>.
+              </p>
             </div>
           )}
 

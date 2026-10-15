@@ -16,8 +16,15 @@ export const STAFF_ROLES: AcademyRole[] = ["OWNER", "TEACHER"];
 export const OWNER_ONLY: AcademyRole[] = ["OWNER"];
 
 export class AuthError extends Error {
-  constructor(public code: "UNAUTHORIZED" | "FORBIDDEN", message?: string) {
-    super(message || (code === "UNAUTHORIZED" ? "Debes iniciar sesión para continuar." : "No tienes permisos para realizar esta acción."));
+  constructor(public code: "UNAUTHORIZED" | "FORBIDDEN" | "EMAIL_UNVERIFIED", message?: string) {
+    super(
+      message ||
+        (code === "UNAUTHORIZED"
+          ? "Debes iniciar sesión para continuar."
+          : code === "EMAIL_UNVERIFIED"
+            ? "Confirma tu correo electrónico para continuar. Revisa tu bandeja de entrada."
+            : "No tienes permisos para realizar esta acción.")
+    );
     this.name = "AuthError";
   }
 }
@@ -46,15 +53,37 @@ export interface TenantContext {
   };
 }
 
+/** Estado de la cuenta que decide si un token sigue valiendo (memorizado durante la petición). */
+const loadSessionUser = cache((userId: string) =>
+  prisma.user.findUnique({ where: { id: userId }, select: { sessionVersion: true, deletedAt: true, emailVerifiedAt: true } })
+);
+
+/**
+ * Sesión firmada y aún vigente: la firma no basta, también se comprueba que la
+ * cuenta exista, no esté eliminada y que no se haya cerrado la sesión en todos
+ * los dispositivos (sessionVersion) desde que se emitió el token.
+ */
 export async function getSession(): Promise<TokenPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const payload = await verifySessionToken(token);
+  if (!payload?.userId) return null;
+  const user = await loadSessionUser(payload.userId);
+  if (!user || user.deletedAt || user.sessionVersion !== (payload.sv ?? 0)) return null;
+  return payload;
+}
+
+/** true si el usuario de la sesión ya confirmó su email. */
+export async function isSessionEmailVerified(userId: string): Promise<boolean> {
+  const user = await loadSessionUser(userId);
+  return Boolean(user?.emailVerifiedAt);
 }
 
 export async function setSession(payload: TokenPayload): Promise<void> {
-  const token = await createSessionToken(payload);
+  // La versión de sesión se lee siempre de la base de datos, nunca del llamador
+  const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { sessionVersion: true } });
+  const token = await createSessionToken({ ...payload, sv: user?.sessionVersion ?? 0 });
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
@@ -81,7 +110,7 @@ const loadMembership = cache((userId: string, tenantId: string) =>
       tenant: {
         select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, language: true, timezone: true },
       },
-      user: { select: { id: true, email: true, name: true, globalRole: true } },
+      user: { select: { id: true, email: true, name: true, globalRole: true, emailVerifiedAt: true } },
     },
   })
 );
@@ -104,6 +133,10 @@ async function resolveTenantContext(allowedRoles?: AcademyRole[]): Promise<Tenan
 
   const isSuperAdmin = membership.user.globalRole === "SUPER_ADMIN";
   const role = membership.role as AcademyRole;
+
+  if (!membership.user.emailVerifiedAt && !isSuperAdmin) {
+    throw new AuthError("EMAIL_UNVERIFIED");
+  }
 
   if (allowedRoles && !allowedRoles.includes(role) && !isSuperAdmin) {
     throw new AuthError("FORBIDDEN");
@@ -153,6 +186,7 @@ export async function getDashboardContext(
     ctx = await resolveTenantContext(allowedRoles);
   } catch (error) {
     if (error instanceof AuthError) {
+      if (error.code === "EMAIL_UNVERIFIED") redirect("/confirmar-email");
       if (error.code === "FORBIDDEN") redirect("/campus");
       redirect("/login");
     }

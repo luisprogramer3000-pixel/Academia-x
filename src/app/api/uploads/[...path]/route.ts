@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import { getSession } from "@/lib/session";
+import { prisma } from "@/lib/db";
 import { isSafeFileName, isUploadFolder, openUpload, tenantOfFile } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -57,12 +58,16 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ path: 
     const owningTenantId = tenantOfFile(fileName);
     const session = await getSession();
     const staffOnly = folder === "payment-proofs";
-    if (
-      !session ||
-      !owningTenantId ||
-      session.tenantId !== owningTenantId ||
-      (staffOnly && session.academyRole !== "OWNER" && session.academyRole !== "TEACHER")
-    ) {
+    // La membresía y el rol se leen de la base de datos, no del token: si a alguien
+    // lo quitan de la academia, deja de ver sus archivos en ese mismo momento.
+    const membership =
+      session?.userId && owningTenantId && session.tenantId === owningTenantId
+        ? await prisma.membership.findUnique({
+            where: { userId_tenantId: { userId: session.userId, tenantId: owningTenantId } },
+            select: { role: true },
+          })
+        : null;
+    if (!membership || (staffOnly && membership.role !== "OWNER" && membership.role !== "TEACHER")) {
       // 404 y no 403: así no se revela si el archivo existe
       return notFound();
     }

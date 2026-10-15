@@ -147,6 +147,24 @@ export const EmailTemplates = {
     };
   },
 
+  verifyEmail(params: { url: string; academyName?: string | null }) {
+    const title = "Confirma tu correo electrónico";
+    const intro = params.academyName
+      ? `<p>Gracias por registrarte en <strong>${escapeHtml(params.academyName)}</strong>.</p>`
+      : `<p>Gracias por registrarte en Mentor Studio Global.</p>`;
+    return {
+      subject: title,
+      html: layout(
+        title,
+        `${intro}
+         <p>Para activar tu cuenta, confirma que este correo es tuyo. El enlace caduca en 48 horas.</p>
+         <p>Si no creaste esta cuenta, ignora este mensaje.</p>`,
+        { label: "Confirmar mi correo", url: params.url }
+      ),
+      text: `${title}: ${params.url} (caduca en 48 horas). Si no creaste esta cuenta, ignora este mensaje.`,
+    };
+  },
+
   passwordReset(params: { url: string }) {
     const title = "Restablece tu contraseña";
     return {

@@ -37,7 +37,7 @@ export default function TermsPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-            Última actualización: 16 de Agosto de 2026. Al utilizar o registrarte en **Mentor Studio Global**, aceptas estos términos que rigen la relación entre la plataforma, los administradores de academias y los estudiantes.
+            Última actualización: 15 de Octubre de 2026. Al utilizar o registrarte en **Mentor Studio Global**, aceptas estos términos que rigen la relación entre la plataforma, los administradores de academias y los estudiantes.
           </p>
         </div>
 
@@ -72,7 +72,8 @@ export default function TermsPage() {
               3. Facturación, Planes SaaS y Modalidades de Pago
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Mentor Studio Global ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Payphone. Los precios están expresados en dólares e incluyen IVA. Las tarifas se pagan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente. Si el cliente lo autoriza expresamente al pagar, la tarjeta se guarda de forma tokenizada en Payphone y se cobra automáticamente al vencer cada periodo; el cobro automático puede desactivarse o la tarjeta eliminarse en cualquier momento desde Facturación.
+              Mentor Studio Global ofrece planes de suscripción (Starter, Professional VIP y Academy Executive) bajo modalidades de facturación mensual y anual (con 20% de descuento). El procesamiento de pagos se efectúa de forma segura a través de Payphone. Los precios están expresados en dólares e incluyen IVA. Las tarifas se pagan por adelantado y no son reembolsables una vez iniciado el periodo correspondiente, salvo en los casos previstos en nuestra{" "}
+              <Link href="/refunds" className="underline font-semibold">Política de Reembolsos</Link>. Si el cliente lo autoriza expresamente al pagar, la tarjeta se guarda de forma tokenizada en Payphone y se cobra automáticamente al vencer cada periodo; el cobro automático puede desactivarse o la tarjeta eliminarse en cualquier momento desde Facturación.
             </p>
           </div>
 
@@ -102,6 +103,10 @@ export default function TermsPage() {
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
               El usuario puede cancelar su suscripción en cualquier momento desde el panel de facturación. La cancelación surtirá efecto al finalizar el ciclo de facturación en curso, manteniendo el acceso a las funciones del plan hasta dicha fecha. La cancelación no destruye la billetera virtual ni elimina créditos Top-Up adquiridos.
+            </p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              Los alumnos y profesores pueden eliminar su cuenta en cualquier momento desde <strong>Mi cuenta</strong>. El dueño de una academia puede
+              solicitar la baja de la academia y de su cuenta a soporte; la atenderemos en un máximo de 15 días.
             </p>
           </div>
         </div>

@@ -420,6 +420,11 @@ export default function Home() {
               © 2026 Mentor Studio Global — Virtual Language & Knowledge Suite. Todos los derechos reservados.
             </p>
           </div>
+          <nav className="max-w-7xl mx-auto px-6 mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold">
+            <a href="/terms" className="hover:text-gold-custom transition-colors">Términos y Condiciones</a>
+            <a href="/privacy" className="hover:text-gold-custom transition-colors">Política de Privacidad</a>
+            <a href="/refunds" className="hover:text-gold-custom transition-colors">Política de Reembolsos</a>
+          </nav>
         </footer>
       </div>
     </div>

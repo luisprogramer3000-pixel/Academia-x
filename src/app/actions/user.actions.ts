@@ -15,6 +15,7 @@ import {
 } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { assertCanAddMember, PlanLimitError } from "@/modules/billing/entitlements";
+import { markEmailVerified, sendVerificationEmail } from "@/modules/user/email-verification";
 
 const inviteUserSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email no válido"),
@@ -28,10 +29,19 @@ const enrollStudentSchema = z.object({
 
 const passwordSchema = z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(128);
 
+/** Casilla obligatoria de aceptación de Términos y Política de Privacidad */
+const termsSchema = z.literal("on", { errorMap: () => ({ message: "Debes aceptar los Términos y la Política de Privacidad." }) });
+
+/** Deja constancia de la aceptación de los términos (solo la primera vez). */
+async function recordTermsAcceptance(userId: string) {
+  await prisma.user.updateMany({ where: { id: userId, termsAcceptedAt: null }, data: { termsAcceptedAt: new Date() } });
+}
+
 const acceptInviteSchema = z.object({
   token: z.string().min(1, "Token de invitación requerido"),
   name: z.string().trim().min(2, "El nombre es requerido").max(80),
   password: passwordSchema,
+  acceptTerms: termsSchema,
 });
 
 const publicRegisterSchema = z.object({
@@ -39,6 +49,7 @@ const publicRegisterSchema = z.object({
   name: z.string().trim().min(2, "Nombre de al menos 2 caracteres").max(80),
   email: z.string().trim().toLowerCase().email("Email inválido"),
   password: passwordSchema,
+  acceptTerms: termsSchema,
 });
 
 export async function inviteUserAction(formData: FormData): Promise<void> {
@@ -119,6 +130,7 @@ export async function acceptInvitationAction(formData: FormData) {
       token: formData.get("token") as string,
       name: formData.get("name") as string,
       password: (formData.get("password") as string) || "",
+      acceptTerms: formData.get("acceptTerms"),
     });
 
     const rateLimit = await checkRateLimit({ key: `accept_invite:${validated.token}`, limit: 5, windowMs: 60_000 });
@@ -127,6 +139,9 @@ export async function acceptInvitationAction(formData: FormData) {
     }
 
     const result = await UserService.acceptInvitation(validated);
+    // El enlace de la invitación llegó a ese correo: queda confirmado
+    await markEmailVerified(result.user.id);
+    await recordTermsAcceptance(result.user.id);
     await startSessionForMembership(result.user.id, result.tenant.id);
 
     return {
@@ -151,22 +166,21 @@ export async function publicRegisterStudentAction(formData: FormData) {
       name: formData.get("name") as string,
       email: formData.get("email") as string,
       password: (formData.get("password") as string) || "",
+      acceptTerms: formData.get("acceptTerms"),
     });
 
-    // Rate Limiting para registros públicos
-    const rateLimit = await checkRateLimit({
-      key: `public_register:${validated.tenantId}:${validated.email}`,
-      limit: 3,
-      windowMs: 60_000,
-    });
+    // Mismo contador que el login: si el email ya existe, aquí también se comprueba su
+    // contraseña, así que no puede servir para probar contraseñas saltándose ese límite
+    // (antes la clave incluía la academia y bastaba con cambiar de academia).
+    const rateLimit = await checkRateLimit({ key: `auth_login:${validated.email}`, limit: 5, windowMs: 60_000 });
     if (!rateLimit.success) {
       return {
         success: false,
-        error: "Demasiadas solicitudes de registro. Por favor intente nuevamente en un minuto.",
+        error: "Demasiados intentos. Por favor intenta nuevamente en un minuto.",
       };
     }
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: validated.tenantId }, select: { id: true } });
+    const tenant = await prisma.tenant.findUnique({ where: { id: validated.tenantId }, select: { id: true, name: true } });
     if (!tenant) {
       return { success: false, error: "Academia no encontrada." };
     }
@@ -177,6 +191,11 @@ export async function publicRegisterStudentAction(formData: FormData) {
       password: validated.password,
     });
 
+    await recordTermsAcceptance(result.user.id);
+    // Cuenta nueva: se pide confirmar el correo (las ya verificadas no reciben nada)
+    if (!result.user.emailVerifiedAt) {
+      await sendVerificationEmail(result.user.id, tenant.name).catch(() => undefined);
+    }
     await startSessionForMembership(result.user.id, validated.tenantId);
     revalidatePath("/dashboard/students");
 

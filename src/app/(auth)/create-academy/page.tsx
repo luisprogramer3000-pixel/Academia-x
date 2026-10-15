@@ -16,6 +16,7 @@ function CreateAcademyContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -99,18 +100,24 @@ function CreateAcademyContent() {
       return;
     }
 
+    if (!acceptTerms) {
+      setError("Debes aceptar los Términos, la Política de Privacidad y la Política de Reembolsos.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     const body = new FormData();
     Object.entries(formData).forEach(([key, val]) => body.append(key, val));
+    body.append("acceptTerms", "on");
 
     try {
       const res = await createAcademyAction(body);
 
       if (res.success && res.data) {
-        const queryString = searchParams.toString();
-        router.push(`/dashboard/billing?welcome=1${queryString ? `&${queryString}` : ""}`);
+        // Primero hay que confirmar el correo; el enlace del email lleva luego a Facturación
+        router.push("/confirmar-email");
       } else {
         setError(res.error || "Ocurrió un error al crear la academia");
         setLoading(false);
@@ -374,6 +381,24 @@ function CreateAcademyContent() {
                     <Sparkles className="w-5 h-5 text-white/80" />
                   </div>
                 </div>
+
+                <label className="flex items-start gap-3 mt-4 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={(e) => {
+                      setAcceptTerms(e.target.checked);
+                      setError(null);
+                    }}
+                    className="mt-0.5 w-4 h-4 accent-amber-500"
+                  />
+                  <span>
+                    Acepto los{" "}
+                    <Link href="/terms" target="_blank" className="underline font-semibold">Términos y Condiciones</Link>, la{" "}
+                    <Link href="/privacy" target="_blank" className="underline font-semibold">Política de Privacidad</Link> y la{" "}
+                    <Link href="/refunds" target="_blank" className="underline font-semibold">Política de Reembolsos</Link>.
+                  </span>
+                </label>
               </div>
             )}
 

@@ -42,6 +42,9 @@ async function studentForCourse(courseId: string) {
     include: { user: true },
   });
   if (!membership) throw new EnrollmentError("Regístrate en la academia para inscribirte.");
+  if (!membership.user.emailVerifiedAt) {
+    throw new EnrollmentError("Confirma tu correo electrónico para inscribirte: te enviamos un enlace al registrarte.");
+  }
 
   if (session.tenantId !== course.tenantId) {
     await setSession({

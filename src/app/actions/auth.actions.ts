@@ -63,7 +63,7 @@ export async function loginAction(formData: FormData) {
       include: { memberships: { include: { tenant: { select: { slug: true } } } } },
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user || !user.passwordHash || user.deletedAt) {
       await verifyPassword(validated.password, await getDummyHash());
       return { success: false, error: INVALID_CREDENTIALS };
     }
@@ -183,7 +183,13 @@ export async function resetPasswordAction(formData: FormData) {
     }
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: record.userId }, data: { passwordHash: await hashPassword(password) } }),
+      // Nueva contraseña: los tokens de sesión anteriores dejan de valer (sessionVersion).
+      // El enlace llegó al correo, así que el email también queda confirmado.
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash: await hashPassword(password), sessionVersion: { increment: 1 } },
+      }),
+      prisma.user.updateMany({ where: { id: record.userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } }),
       prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
       // Invalidar cualquier otro token pendiente del usuario
       prisma.passwordResetToken.updateMany({ where: { userId: record.userId, usedAt: null }, data: { usedAt: new Date() } }),

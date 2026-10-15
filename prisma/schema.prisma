@@ -69,10 +69,19 @@ model User {
   passwordHash String?
   avatarUrl    String?
   globalRole   GlobalRole @default(USER)
+  /// Email confirmado con el enlace enviado al correo (o por una invitación). Null = pendiente.
+  emailVerifiedAt DateTime? @db.Timestamptz(3)
+  /// Se incrementa al cambiar la contraseña o cerrar sesión en todos lados: invalida los JWT anteriores
+  sessionVersion  Int       @default(0)
+  /// Momento en que aceptó los Términos y la Política de Privacidad
+  termsAcceptedAt DateTime? @db.Timestamptz(3)
+  /// Cuenta eliminada por su titular (datos personales anonimizados)
+  deletedAt       DateTime? @db.Timestamptz(3)
   createdAt    DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
 
   memberships          Membership[]
+  emailVerificationTokens EmailVerificationToken[]
   submissions          Submission[]
   aiUsages             AIUsage[]
   aiCreditTransactions AICreditTransaction[]
@@ -87,6 +96,20 @@ model User {
   liveSessions         LiveSession[]
   progress             Progress[]
   payments             Payment[]
+}
+
+/// Tokens de un solo uso para confirmar el email (se guarda solo el hash SHA-256)
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// Tokens de un solo uso para restablecer contraseña (se guarda solo el hash SHA-256)

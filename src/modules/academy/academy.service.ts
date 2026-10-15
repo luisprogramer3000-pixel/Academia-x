@@ -25,6 +25,8 @@ export interface CreateAcademyInput {
   userEmail: string;
   userName?: string;
   passwordHash?: string;
+  /** Aceptación de Términos y Políticas en el formulario de alta */
+  termsAcceptedAt?: Date;
 }
 
 const RESERVED_SLUGS = new Set(["www", "app", "api", "admin", "dashboard", "login", "register", "campus", "a", "static", "mail"]);
@@ -70,6 +72,7 @@ export class AcademyService {
           email,
           name: input.userName || input.name,
           passwordHash: input.passwordHash,
+          termsAcceptedAt: input.termsAcceptedAt ?? null,
         },
       });
 

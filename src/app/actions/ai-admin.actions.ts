@@ -1,29 +1,20 @@
 "use server";
 
 import { z } from "zod";
-import { cookies } from "next/headers";
-import { verifySessionToken, TokenPayload } from "@/lib/auth";
+import { requireTenantAccess } from "@/lib/session";
 import { AICreditAdminService, LedgerAuditFilters, TopUpReportFilters } from "@/modules/ai/ai.admin-service";
 import { AICreditType, AICreditTransactionType, AIOperation } from "@prisma/client";
 
-async function getAdminSession(): Promise<{ user: TokenPayload | null; isSuperAdmin: boolean; isOwner: boolean }> {
+/**
+ * Rol del usuario validado contra la base de datos (membresía y globalRole),
+ * no contra lo que dice el token: quitar un rol surte efecto de inmediato.
+ * El OWNER solo ve los datos de su academia (user.tenantId sale de la sesión validada).
+ */
+async function getAdminSession(): Promise<{ user: { tenantId: string } | null; isSuperAdmin: boolean; isOwner: boolean }> {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) {
-      return { user: null, isSuperAdmin: false, isOwner: false };
-    }
-
-    const payload = await verifySessionToken(token);
-    if (!payload) {
-      return { user: null, isSuperAdmin: false, isOwner: false };
-    }
-
-    const isSuperAdmin = payload.globalRole === "SUPER_ADMIN";
-    const isOwner = payload.academyRole === "OWNER";
-
-    return { user: payload, isSuperAdmin, isOwner };
-  } catch (error) {
+    const ctx = await requireTenantAccess();
+    return { user: { tenantId: ctx.tenantId }, isSuperAdmin: ctx.isSuperAdmin, isOwner: ctx.role === "OWNER" };
+  } catch {
     return { user: null, isSuperAdmin: false, isOwner: false };
   }
 }
@@ -62,8 +53,9 @@ export async function getPlanDistributionMetricsAction(tenantIdParam?: string) {
 
 export async function getJobStatusSummaryAction() {
   try {
-    const { user, isSuperAdmin, isOwner } = await getAdminSession();
-    if (!user || (!isSuperAdmin && !isOwner)) {
+    // Estado global de toda la plataforma: solo el administrador de la plataforma
+    const { user, isSuperAdmin } = await getAdminSession();
+    if (!user || !isSuperAdmin) {
       return { success: false, error: "Unauthorized: Requiere permisos administrativos" };
     }
 

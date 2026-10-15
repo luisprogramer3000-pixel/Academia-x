@@ -94,8 +94,26 @@ export default function PrivacyPage() {
               5. Derechos ARCO y Contacto Legal
             </h2>
             <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Cualquier usuario tiene derecho a acceder, rectificar, cancelar o solicitar la eliminación total de sus datos personales enviando una solicitud a nuestro canal de soporte técnico y privacidad.
+              Conforme a la Ley Orgánica de Protección de Datos Personales del Ecuador, cualquier usuario tiene derecho a acceder, rectificar, actualizar,
+              oponerse al tratamiento y solicitar la eliminación de sus datos personales.
             </p>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700 dark:text-slate-300">
+              <li>
+                <strong>Eliminar tu cuenta:</strong> alumnos y profesores pueden hacerlo al instante desde{" "}
+                <Link href="/campus/cuenta" className="underline font-semibold">Mi cuenta</Link>. Se borran sus inscripciones, progreso, entregas y
+                certificados, y se anonimizan su nombre y correo.
+              </li>
+              <li>
+                <strong>Dueños de academia, copia de tus datos u otras solicitudes:</strong> escríbenos a nuestro canal de soporte desde el correo de tu
+                cuenta. Respondemos en un máximo de 15 días.
+              </li>
+              <li>
+                Solo conservamos, sin datos personales, los registros contables y de facturación que la ley obliga a guardar.
+              </li>
+              <li>
+                Solo usamos una cookie técnica e imprescindible (la de tu sesión). No usamos cookies de publicidad ni de seguimiento.
+              </li>
+            </ul>
           </div>
         </div>
 

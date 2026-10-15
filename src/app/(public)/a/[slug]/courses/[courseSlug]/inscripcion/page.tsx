@@ -43,7 +43,7 @@ export default async function CourseEnrollmentPage({ params, searchParams }: Pro
         where: { userId_tenantId: { userId: session.userId, tenantId: course.tenantId } },
         select: {
           id: true,
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, email: true, emailVerifiedAt: true } },
           enrollments: { where: { courseId: course.id }, select: { id: true } },
           enrollmentRequests: { where: { courseId: course.id }, select: { status: true, reviewNote: true, proofUrl: true, updatedAt: true } },
         },
@@ -112,10 +112,29 @@ export default async function CourseEnrollmentPage({ params, searchParams }: Pro
                   <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder="••••••••" className={input} />
                   <p className="mt-2 text-[11px] text-slate-500">¿Ya tienes cuenta en Mentor Studio Global? Usa tu correo y tu contraseña actual.</p>
                 </div>
+                <label className="flex items-start gap-3 text-xs text-slate-400 cursor-pointer">
+                  <input type="checkbox" name="acceptTerms" required className="mt-0.5 w-4 h-4" />
+                  <span>
+                    Acepto los <Link href="/terms" target="_blank" className="underline hover:text-slate-200">Términos y Condiciones</Link> y la{" "}
+                    <Link href="/privacy" target="_blank" className="underline hover:text-slate-200">Política de Privacidad</Link>.
+                  </span>
+                </label>
                 <button type="submit" className="w-full py-3.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2" style={{ backgroundColor: accent }}>
                   <UserPlus className="w-4 h-4" /> Continuar
                 </button>
               </form>
+            </div>
+          ) : !membership.user.emailVerifiedAt ? (
+            /* Cuenta nueva: falta confirmar el correo antes de inscribirse */
+            <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
+              <h2 className="text-lg font-bold text-white">Confirma tu correo para continuar</h2>
+              <p className="text-sm text-slate-400">
+                Te enviamos un enlace a <strong className="text-slate-200">{membership.user.email}</strong>. Ábrelo y vuelve a esta página para
+                inscribirte.
+              </p>
+              <Link href="/confirmar-email" className="inline-block px-6 py-3 rounded-xl text-white font-bold text-sm" style={{ backgroundColor: accent }}>
+                No me llegó el correo
+              </Link>
             </div>
           ) : enrolled ? (
             /* Ya inscrito */

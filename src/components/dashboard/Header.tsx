@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Sparkles, LogOut } from "lucide-react";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { logoutAction } from "@/app/actions/auth.actions";
@@ -27,10 +28,10 @@ export function Header({ userEmail, userName, tenantId, planLabel }: HeaderProps
           <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold">
             {(userName || userEmail || "U")[0].toUpperCase()}
           </div>
-          <div className="text-left hidden sm:block">
+          <Link href="/campus/cuenta" title="Mi cuenta" className="text-left hidden sm:block hover:opacity-80">
             <span className="block text-xs font-semibold text-white">{userName || "Mi cuenta"}</span>
             <span className="block text-[11px] text-slate-400 font-mono">{userEmail}</span>
-          </div>
+          </Link>
           <form action={logoutAction}>
             <button
               type="submit"

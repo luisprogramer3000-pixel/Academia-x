@@ -24,6 +24,8 @@ export interface TokenPayload {
   tenantId?: string;
   tenantSlug?: string;
   academyRole?: "OWNER" | "TEACHER" | "STUDENT";
+  /** User.sessionVersion al emitir el token: si cambió (nueva contraseña, cierre global), el token deja de valer */
+  sv?: number;
 }
 
 export async function createSessionToken(payload: TokenPayload): Promise<string> {

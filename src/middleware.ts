@@ -5,7 +5,7 @@ import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 const PROTECTED_PREFIXES = ["/dashboard", "/campus", "/vista-previa"];
 const PLATFORM_PREFIXES = [
   "/dashboard", "/campus", "/vista-previa", "/login", "/register", "/forgot-password", "/reset-password", "/create-academy", "/api",
-  "/a", "/d", "/invite", "/verify", "/inactive", "/privacy", "/terms", "/_next", "/images", "/live",
+  "/a", "/d", "/invite", "/verify", "/inactive", "/privacy", "/terms", "/refunds", "/confirmar-email", "/_next", "/images", "/live",
 ];
 
 /** Host oficial de la plataforma según NEXT_PUBLIC_APP_URL (p. ej. "www.mentorstudioglobal.com"). */

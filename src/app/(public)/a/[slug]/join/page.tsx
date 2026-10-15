@@ -132,6 +132,14 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
               <p className="mt-2 text-[11px] text-slate-500">¿Ya tienes cuenta en Mentor Studio Global? Usa tu contraseña actual.</p>
             </div>
 
+            <label className="flex items-start gap-3 text-xs text-slate-400 cursor-pointer">
+              <input type="checkbox" name="acceptTerms" required className="mt-0.5 w-4 h-4" />
+              <span>
+                Acepto los <Link href="/terms" target="_blank" className="underline hover:text-slate-200">Términos y Condiciones</Link> y la{" "}
+                <Link href="/privacy" target="_blank" className="underline hover:text-slate-200">Política de Privacidad</Link>.
+              </span>
+            </label>
+
             <button
               type="submit"
               className="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2"
@@ -142,10 +150,7 @@ export default async function JoinAcademyPage({ params, searchParams }: JoinPage
           </form>
 
           <p className="text-center text-xs text-slate-500">
-            Al registrarte aceptas las políticas de la escuela y nuestros{" "}
-            <Link href="/terms" className="underline hover:text-slate-300">
-              Términos de servicio
-            </Link>.
+            Te enviaremos un correo para confirmar tu cuenta.
           </p>
         </div>
       </main>

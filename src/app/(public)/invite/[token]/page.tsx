@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { acceptInvitationAction } from "@/app/actions/user.actions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { CheckCircle2, School, UserCheck } from "lucide-react";
 
 interface InvitePageProps {
@@ -13,6 +14,7 @@ export default function ClaimInvitationPage({ params }: InvitePageProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -27,6 +29,7 @@ export default function ClaimInvitationPage({ params }: InvitePageProps) {
     body.append("token", token);
     body.append("name", name);
     body.append("password", password);
+    if (acceptTerms) body.append("acceptTerms", "on");
 
     const res = await acceptInvitationAction(body);
 
@@ -92,6 +95,20 @@ export default function ClaimInvitationPage({ params }: InvitePageProps) {
                 className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
+
+            <label className="flex items-start gap-3 text-xs text-slate-400 cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-0.5 w-4 h-4"
+              />
+              <span>
+                Acepto los <Link href="/terms" target="_blank" className="underline hover:text-slate-200">Términos y Condiciones</Link> y la{" "}
+                <Link href="/privacy" target="_blank" className="underline hover:text-slate-200">Política de Privacidad</Link>.
+              </span>
+            </label>
 
             <button
               type="submit"

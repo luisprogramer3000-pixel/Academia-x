@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type { NextRequest } from "next/server";
 
 /**
@@ -19,7 +20,14 @@ export function verifyCronAuthorization(req: NextRequest): boolean {
   const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, "").trim() : undefined;
   const customHeader = req.headers.get("x-cron-secret")?.trim();
 
-  const isBearerValid = bearerToken !== undefined && bearerToken.length > 0 && bearerToken === cronSecret;
-  const isCustomValid = customHeader !== undefined && customHeader.length > 0 && customHeader === cronSecret;
+  const isBearerValid = Boolean(bearerToken) && secretsMatch(bearerToken!, cronSecret);
+  const isCustomValid = Boolean(customHeader) && secretsMatch(customHeader!, cronSecret);
   return isBearerValid || isCustomValid;
+}
+
+/** Comparación en tiempo constante (los hash igualan la longitud): no filtra el secreto por tiempos. */
+function secretsMatch(given: string, expected: string): boolean {
+  const a = crypto.createHash("sha256").update(given).digest();
+  const b = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
 }

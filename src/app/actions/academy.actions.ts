@@ -8,8 +8,7 @@ import { hashPassword, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { setSession, requireTenantAccess, OWNER_ONLY, AuthError } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { headers } from "next/headers";
-import { sendEmail, EmailTemplates } from "@/lib/email";
-import { getAppUrl } from "@/lib/app-url";
+import { sendVerificationEmail } from "@/modules/user/email-verification";
 import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
 import { assertPlanCapability, requireActiveSubscription, PlanLimitError } from "@/modules/billing/entitlements";
 
@@ -24,6 +23,7 @@ const createAcademySchema = z.object({
   password: z.string().min(MIN_PASSWORD_LENGTH, `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`).max(128),
   primaryColor: hexColor.optional(),
   secondaryColor: hexColor.optional(),
+  acceptTerms: z.literal("on", { errorMap: () => ({ message: "Debes aceptar los Términos, la Política de Privacidad y la Política de Reembolsos." }) }),
 });
 
 const updateBrandingSchema = z.object({
@@ -44,6 +44,7 @@ export async function createAcademyAction(formData: FormData) {
       password: (formData.get("password") as string) || "",
       primaryColor: (formData.get("primaryColor") as string) || "#3B82F6",
       secondaryColor: (formData.get("secondaryColor") as string) || DEFAULT_BRAND_BACKGROUND,
+      acceptTerms: formData.get("acceptTerms"),
     });
 
     // X-Real-IP lo pone nginx con la IP real de la conexión. El primer valor de
@@ -55,10 +56,11 @@ export async function createAcademyAction(formData: FormData) {
       return { success: false, error: "Demasiados registros desde esta conexión. Intenta más tarde." };
     }
 
-    const { password, ...academyInput } = validated;
+    const { password, acceptTerms: _acceptTerms, ...academyInput } = validated;
     const result = await AcademyService.createAcademy({
       ...academyInput,
       passwordHash: await hashPassword(password),
+      termsAcceptedAt: new Date(),
     });
 
     await setSession({
@@ -71,15 +73,9 @@ export async function createAcademyAction(formData: FormData) {
       academyRole: "OWNER",
     });
 
-    // Email de bienvenida (no bloquea el alta si falla)
-    await sendEmail({
-      to: result.user.email,
-      ...EmailTemplates.welcomeOwner({
-        name: result.user.name || "",
-        academyName: result.tenant.name,
-        dashboardUrl: `${getAppUrl()}/dashboard/billing`,
-      }),
-    }).catch(() => undefined);
+    // Confirmación del correo: el panel no se abre hasta confirmarlo. Así nadie puede
+    // crear academias (ni recibir correos de la plataforma) a nombre de un email ajeno.
+    await sendVerificationEmail(result.user.id, result.tenant.name).catch(() => undefined);
 
     return { success: true, data: { tenant: { id: result.tenant.id, slug: result.tenant.slug, name: result.tenant.name } } };
   } catch (error: any) {

@@ -5,7 +5,7 @@ import { CourseService } from "@/modules/course/course.service";
 import { selfEnrollAction, claimCertificateFormAction } from "@/app/actions/campus.actions";
 import { logoutAction } from "@/app/actions/auth.actions";
 import { BrandScope } from "@/lib/brand-theme";
-import { BookOpen, Award, LogOut, PlayCircle, LayoutDashboard } from "lucide-react";
+import { BookOpen, Award, LogOut, PlayCircle, LayoutDashboard, UserCircle2 } from "lucide-react";
 
 interface CampusPageProps {
   searchParams: Promise<{ error?: string }>;
@@ -68,7 +68,10 @@ export default async function CampusPage({ searchParams }: CampusPageProps) {
               <LayoutDashboard className="w-4 h-4" /> Panel
             </Link>
           )}
-          <span className="text-xs text-slate-400 hidden sm:block">{ctx.user.email}</span>
+          <Link href="/campus/cuenta" title="Mi cuenta" className="text-xs text-slate-400 hover:text-white hidden sm:block">{ctx.user.email}</Link>
+          <Link href="/campus/cuenta" title="Mi cuenta" className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 sm:hidden">
+            <UserCircle2 className="w-4 h-4" />
+          </Link>
           <form action={logoutAction}>
             <button type="submit" title="Cerrar sesión" className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
               <LogOut className="w-4 h-4" />
