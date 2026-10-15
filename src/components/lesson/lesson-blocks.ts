@@ -26,6 +26,15 @@ export interface LessonBlock {
   mindMap?: { center: string; branches: Array<{ label: string; children: string[] }> };
   /** Tamaño de la imagen de una sección de texto: "auto" lo decide según el espacio */
   imageSize?: ImageSize;
+  /** Ejercicio: audio, video o enlace que lo acompaña (además de la imagen en `url`) */
+  media?: ExerciseMedia;
+}
+
+export interface ExerciseMedia {
+  kind: "audio" | "video" | "link";
+  url: string;
+  /** Nombre del archivo subido (para mostrarlo en el editor) */
+  name?: string;
 }
 
 export type ImageSize = "auto" | "small" | "medium" | "large" | "full";

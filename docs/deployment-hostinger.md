@@ -153,7 +153,7 @@ pm2 startup        # ejecutar el comando que imprime, para que arranque al reini
 
 curl http://127.0.0.1:3000/api/health   # debe responder {"status":"ok","db":"ok"}
 
-# Biblioteca: crea el bucket privado y los índices de MongoDB (seguro repetirlo)
+# Biblioteca: índices de MongoDB y prueba de GridFS (seguro repetirlo)
 npx tsx scripts/setup-library.ts
 ```
 

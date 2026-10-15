@@ -43,7 +43,7 @@ const PRIVATE_FOLDERS = new Set(["materials", "payment-proofs"]);
 
 const notFound = () => new NextResponse("Not found", { status: 404 });
 
-export async function GET(_req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await context.params;
   if (!segments || segments.length !== 2) return notFound();
 
@@ -76,13 +76,18 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ path: 
   const contentType = CONTENT_TYPES[path.extname(fileName).toLowerCase()];
   if (!contentType) return notFound();
 
-  const file = await openUpload(folder, fileName);
+  // Audio y video se piden por trozos (para adelantar; Safari no reproduce video sin esto)
+  const media = contentType.startsWith("audio/") || contentType.startsWith("video/");
+  const file = await openUpload(folder, fileName, media ? req.headers.get("range") : null);
   if (!file) return notFound();
 
   return new NextResponse(file.body, {
+    status: file.contentRange ? 206 : 200,
     headers: {
       "Content-Type": contentType,
       ...(file.size !== null ? { "Content-Length": String(file.size) } : {}),
+      ...(media ? { "Accept-Ranges": "bytes" } : {}),
+      ...(file.contentRange ? { "Content-Range": file.contentRange } : {}),
       // El nombre es aleatorio e irrepetible, así que se puede cachear para siempre.
       // Lo privado va como "private": depende de la sesión y no debe quedar en
       // cachés compartidas donde lo alcanzaría alguien de otra academia.

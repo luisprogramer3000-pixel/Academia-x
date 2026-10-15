@@ -234,7 +234,8 @@ export async function updateLessonContentAction(lessonId: string, contentJsonStr
   if (Array.isArray(blockList)) {
     for (const block of blockList) {
       const url = (block as { url?: unknown })?.url;
-      if (url && safeExternalUrl(url) === null) {
+      const mediaUrl = (block as { media?: { url?: unknown } })?.media?.url;
+      if ((url && safeExternalUrl(url) === null) || (mediaUrl && safeExternalUrl(mediaUrl) === null)) {
         throw new Error("Los enlaces de los bloques deben empezar por http:// o https://");
       }
     }

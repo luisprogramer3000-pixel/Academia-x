@@ -32,12 +32,26 @@ const NEEDS_TEXT: RegExp[] = [
   /\b(read|summari[sz]e|analy[sz]e)\s+(the|this)\s+(paragraph|text|passage|dialogue|email|letter|article)\b/i,
 ];
 
-/** Remite a algo que el alumno no puede ver ni oír (imagen, audio, video) */
-const NEEDS_MEDIA: RegExp[] = [
+/** Remite a algo que el alumno tiene que VER (imagen, video, mapa...) */
+const NEEDS_VISUAL: RegExp[] = [
   /\b(observa|mira|describe|fíjate en|fijate en)\s+(la|las|el|los|esta|estas|este)\s+(imagen|im[aá]genes|foto|fotos|fotograf[ií]as?|ilustraci[oó]n(es)?|dibujos?|v[ií]deos?|mapa|gr[aá]fic[oa]s?|infograf[ií]a)\b/i,
-  /\b(escucha|oye|escuchar)\b.*\b(audio|grabaci[oó]n|canci[oó]n|podcast|di[aá]logo)\b/i,
-  /\b(look at|listen to|watch)\s+(the|this)\s+(picture|image|photo|audio|recording|video)\b/i,
+  /\b(look at|watch)\s+(the|this)\s+(picture|image|photo|video)\b/i,
 ];
+
+/** Remite a algo que el alumno tiene que OÍR (audio, grabación, canción...) */
+const NEEDS_AUDIO: RegExp[] = [
+  /\b(escucha|oye|escuchar)\b.*\b(audio|grabaci[oó]n|canci[oó]n|podcast|di[aá]logo)\b/i,
+  /\blisten to\s+(the|this)\s+(audio|recording|video|song)\b/i,
+];
+
+/** Material que el profesor adjuntó al ejercicio en el editor */
+export interface AttachedMaterial {
+  image?: boolean;
+  audio?: boolean;
+  video?: boolean;
+  /** Enlace web (YouTube, Vimeo, una página...) */
+  link?: boolean;
+}
 
 /** "Según la lectura…", "del texto", "el artículo": válido solo si la lección tiene una lectura */
 const READING_REF = /\b(la lectura|el texto de la lectura|the reading|(el|del|al|este)\s+(texto|art[ií]culo|relato|historia|cuento))\b/i;
@@ -58,11 +72,19 @@ function includesMaterial(text: string, triggerIndex: number): boolean {
 /**
  * Motivo por el que el ejercicio no se puede resolver, o null si está completo.
  * `readingAvailable`: la lección incluye una lectura a la que se puede remitir.
+ * `attached`: imagen, audio, video o enlace que el profesor adjuntó al ejercicio.
  */
-export function missingMaterial(text: string, opts: { readingAvailable?: boolean } = {}): string | null {
+export function missingMaterial(text: string, opts: { readingAvailable?: boolean; attached?: AttachedMaterial } = {}): string | null {
   const t = (text || "").trim();
   if (!t) return "enunciado vacío";
-  for (const re of NEEDS_MEDIA) if (re.test(t)) return "pide una imagen, audio o video que el alumno no tiene";
+  const a = opts.attached ?? {};
+  // Un video o un enlace (YouTube, una página) sirven para ver y para escuchar
+  const canSee = Boolean(a.image || a.video || a.link);
+  const canHear = Boolean(a.audio || a.video || a.link);
+  if (!canHear && NEEDS_AUDIO.some((re) => re.test(t))) return "pide un audio que el alumno no tiene";
+  if (!canSee && NEEDS_VISUAL.some((re) => re.test(t))) return "pide una imagen o video que el alumno no tiene";
+  // Un enlace a una página web puede ser el texto que el ejercicio pide leer
+  if (a.link) return null;
   for (const re of NEEDS_TEXT) {
     const m = re.exec(t);
     if (m && !includesMaterial(t, m.index)) return "remite a un texto que no está incluido";

@@ -142,7 +142,7 @@ que usa producción):
 
 ```bash
 npx prisma migrate deploy
-npx tsx scripts/setup-library.ts     # bucket e índices de la Biblioteca (seguro repetirlo)
+npx tsx scripts/setup-library.ts     # índices y prueba de la Biblioteca en MongoDB (seguro repetirlo)
 ```
 
 Esto se repite cada vez que un despliegue incluya migraciones nuevas. Conviene

@@ -1,11 +1,13 @@
-import { ObjectId, type Collection, type Filter } from "mongodb";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
+import { GridFSBucket, ObjectId, type Collection, type Filter } from "mongodb";
 import { getMongoDb } from "@/lib/mongo";
-import { deleteLibraryFile } from "@/lib/storage";
 
 /**
  * Biblioteca de la plataforma: archivos que cualquier profesor de cualquier
- * academia puede descargar. El archivo vive en Supabase Storage (bucket
- * privado "platform-library"); la ficha, en MongoDB (colección library_files).
+ * academia puede descargar. Todo vive en MongoDB: la ficha en library_files y
+ * el archivo en GridFS, en dos "carpetas" separadas para que no se mezclen:
+ * library_images (imágenes) y library_documents (PowerPoint, PDF, Word, audio...).
  *
  * Moderación: lo que sube el administrador de la plataforma se publica al
  * momento; lo que sube un profesor queda PENDIENTE hasta que el administrador
@@ -15,14 +17,25 @@ import { deleteLibraryFile } from "@/lib/storage";
 export const LIBRARY_LANGUAGES = ["Inglés", "Español", "Francés", "Portugués", "Italiano", "Alemán", "Chino", "Otro"] as const;
 export type LibraryLanguage = (typeof LIBRARY_LANGUAGES)[number];
 export type LibraryStatus = "approved" | "pending" | "rejected";
+export type LibraryFolder = "images" | "documents";
+
+/** Bucket de GridFS de cada carpeta (colecciones {bucket}.files y {bucket}.chunks). */
+const FOLDER_BUCKETS: Record<LibraryFolder, string> = { images: "library_images", documents: "library_documents" };
+
+export function libraryFolderOf(mimeType: string): LibraryFolder {
+  return mimeType.startsWith("image/") ? "images" : "documents";
+}
 
 export interface LibraryFileDoc {
   _id: ObjectId;
   title: string;
   description: string;
   language: LibraryLanguage;
-  /** Ruta en el bucket: files/{año}/{aleatorio}.{ext} */
-  storageKey: string;
+  /** Carpeta (bucket de GridFS) y id del archivo dentro de ella */
+  folder: LibraryFolder;
+  fileId: ObjectId;
+  /** Ruta antigua en Supabase Storage (solo en los archivos que se trajeron de allí) */
+  storageKey?: string;
   originalName: string;
   mimeType: string;
   size: number;
@@ -93,6 +106,10 @@ function toView(d: LibraryFileDoc, viewerUserId: string): LibraryFileView {
 
 const objectId = (id: string) => (ObjectId.isValid(id) ? new ObjectId(id) : null);
 
+async function bucket(folder: LibraryFolder): Promise<GridFSBucket> {
+  return new GridFSBucket(await getMongoDb(), { bucketName: FOLDER_BUCKETS[folder] });
+}
+
 export class LibraryService {
   /** Archivos publicados (con filtros) + los propios del profesor en cualquier estado. */
   static async list(viewer: { userId: string }, filters: { language?: string; q?: string; page?: number; mimeTypes?: string[] }) {
@@ -127,6 +144,50 @@ export class LibraryService {
     const col = await files();
     const docs = await col.find({ status: "pending" }).sort({ createdAt: 1 }).limit(100).toArray();
     return docs.map((d) => toView(d, viewerUserId));
+  }
+
+  /**
+   * Guarda el archivo en su carpeta de GridFS (imágenes o documentos). Si supera
+   * maxBytes se borra lo escrito y falla. Devuelve dónde quedó y su tamaño real.
+   */
+  static async storeFile(body: Readable, file: { originalName: string; mimeType: string; maxBytes: number }) {
+    const folder = libraryFolderOf(file.mimeType);
+    const upload = (await bucket(folder)).openUploadStream(file.originalName, { metadata: { mimeType: file.mimeType } });
+    let size = 0;
+    try {
+      await pipeline(
+        body,
+        async function* (source) {
+          for await (const chunk of source) {
+            size += chunk.length;
+            if (size > file.maxBytes) throw new Error(`El archivo no debe superar los ${Math.round(file.maxBytes / 1048576)} MB.`);
+            yield chunk;
+          }
+        },
+        upload
+      );
+    } catch (error) {
+      await upload.abort().catch(() => undefined);
+      throw error;
+    }
+    if (size === 0) {
+      await LibraryService.deleteFile(folder, upload.id);
+      throw new Error("El archivo está vacío.");
+    }
+    return { folder, fileId: upload.id, size };
+  }
+
+  /** Abre el archivo de una ficha como stream (para descargarlo), o null si no existe. */
+  static async openFile(doc: Pick<LibraryFileDoc, "folder" | "fileId" | "size">): Promise<{ body: ReadableStream; size: number } | null> {
+    if (!doc.fileId) return null;
+    const b = await bucket(doc.folder);
+    const info = await b.find({ _id: doc.fileId }).limit(1).next();
+    if (!info) return null;
+    return { body: Readable.toWeb(b.openDownloadStream(doc.fileId)) as unknown as ReadableStream, size: info.length };
+  }
+
+  static async deleteFile(folder: LibraryFolder, fileId: ObjectId) {
+    await (await bucket(folder)).delete(fileId).catch(() => undefined);
   }
 
   static async create(input: Omit<LibraryFileDoc, "_id" | "downloads" | "createdAt" | "updatedAt" | "status" | "reviewNote">) {
@@ -165,7 +226,7 @@ export class LibraryService {
     if (!doc) throw new Error("Archivo no encontrado.");
     if (!viewer.isPlatformAdmin && doc.uploadedBy.userId !== viewer.userId) throw new Error("Solo puedes eliminar los archivos que subiste tú.");
     await (await files()).deleteOne({ _id: doc._id });
-    await deleteLibraryFile(doc.storageKey);
+    await LibraryService.deleteFile(doc.folder, doc.fileId);
   }
 
   /** Resumen para el panel del administrador: estados, tipos, descargas y aportes de profesores. */

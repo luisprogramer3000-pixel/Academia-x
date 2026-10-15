@@ -10,13 +10,13 @@
  * ASIGNATURAS y cualquier otra carpeta, como "Otro". Las imágenes AVIF/HEIC
  * se convierten a JPG porque la biblioteca no las admite.
  *
- * El archivo va al bucket privado de Supabase y la ficha a MongoDB
- * (library_files), publicada a nombre de Mentor Studio Global (super admin).
+ * El archivo va a MongoDB (GridFS: library_images o library_documents) y la
+ * ficha a library_files, publicada a nombre de Mentor Studio Global (super admin).
  * Es seguro repetirlo: los archivos ya importados (mismo nombre) se saltan.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
-import crypto from "crypto";
+import { Readable } from "stream";
 
 // tsx no carga .env.local: se leen las variables necesarias (sin sobrescribir las del sistema)
 for (const file of [".env.local", ".env"]) {
@@ -26,7 +26,6 @@ for (const file of [".env.local", ".env"]) {
     if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
   }
 }
-process.env.STORAGE_DRIVER = "supabase";
 
 const MAX_BYTES = 50 * 1024 * 1024;
 /** Formatos que la biblioteca no admite pero que se pueden convertir a JPG */
@@ -67,7 +66,6 @@ async function main() {
   if (!existsSync(dir)) throw new Error(`No existe la carpeta "${dir}".`);
   if (!process.env.MONGODB_URI) throw new Error("Falta MONGODB_URI en .env.local.");
 
-  const storage = await import("../src/lib/storage");
   const { getMongoDb } = await import("../src/lib/mongo");
   const { LibraryService, LIBRARY_LANGUAGES } = await import("../src/modules/library/library.service");
   const { MATERIAL_TYPES } = await import("../src/lib/upload-types");
@@ -78,7 +76,6 @@ async function main() {
   await prisma.$disconnect();
   if (!admin) throw new Error("No hay ningún usuario SUPER_ADMIN para firmar los archivos.");
 
-  console.log(`Bucket: ${await storage.ensureLibraryBucket()}`);
   const col = (await getMongoDb()).collection("library_files");
 
   const languageOf = (folder: string) => {
@@ -116,10 +113,7 @@ async function main() {
       continue;
     }
 
-    const key = `files/${new Date().getUTCFullYear()}/${crypto.randomBytes(12).toString("hex")}${extension}`;
-    const uploadUrl = await storage.createLibrarySignedUpload(key);
-    const put = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": mimeType }, body: new Uint8Array(body) });
-    if (!put.ok) throw new Error(`Falló la subida de "${label}" (${put.status}): ${(await put.text()).slice(0, 200)}`);
+    const stored = await LibraryService.storeFile(Readable.from([body]), { originalName: name, mimeType, maxBytes: MAX_BYTES });
 
     const title = titleFromFile(name);
     const language = languageOf(folder);
@@ -127,7 +121,8 @@ async function main() {
       title,
       description: describe(title, mimeType),
       language,
-      storageKey: key,
+      folder: stored.folder,
+      fileId: stored.fileId,
       originalName: name,
       mimeType,
       size: body.length,

@@ -382,6 +382,7 @@ function Activity({
       </div>
       <div className="p-6 sm:p-8">
         <ExerciseImage block={block} />
+        <ExerciseMediaView block={block} />
         <p className="text-lg sm:text-xl font-bold text-slate-900 mb-5 leading-snug">{block.question}</p>
         <div className="space-y-2.5">
           {block.options!.map((opt, i) => {
@@ -458,6 +459,41 @@ function ExerciseImage({ block }: { block: LessonBlock }) {
   );
 }
 
+/** Audio, video o enlace de un ejercicio ("Escucha la grabación…", "Mira el video…"). */
+function ExerciseMediaView({ block }: { block: LessonBlock }) {
+  const media = block.media;
+  const src = safeExternalUrl(media?.url);
+  if (!media || !src) return null;
+  if (media.kind === "audio") return <audio src={src} controls preload="metadata" className="w-full mb-4" />;
+  if (media.kind === "video") {
+    return (
+      <div className="mb-4">
+        <video src={src} controls preload="metadata" className="w-full max-h-[420px] rounded-2xl bg-black" />
+      </div>
+    );
+  }
+  // Enlace: YouTube, Vimeo o un video se reproducen aquí mismo; cualquier otra página se abre aparte
+  const embed = toEmbedUrl(src);
+  if (embed && embed.kind !== "link") {
+    return (
+      <div className="mb-4">
+        <VideoEmbed url={src} title={block.title} />
+      </div>
+    );
+  }
+  let host = src;
+  try {
+    host = new URL(src, "https://local.invalid").hostname.replace(/^www\./, "");
+  } catch {}
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer"
+      className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 px-5 py-4 hover:border-slate-300 hover:bg-slate-50 transition-colors">
+      <span className="font-semibold text-slate-900">🔗 Abre el enlace del ejercicio</span>
+      <span className="text-sm text-slate-500 truncate">{host}</span>
+    </a>
+  );
+}
+
 function PracticeCard({ anchor, block, accent }: { anchor: string; block: LessonBlock; accent: string }) {
   const [text, setText] = useState("");
   const [shown, setShown] = useState(false);
@@ -472,6 +508,7 @@ function PracticeCard({ anchor, block, accent }: { anchor: string; block: Lesson
         )}
       </div>
       <ExerciseImage block={block} />
+      <ExerciseMediaView block={block} />
       <p className="text-lg sm:text-xl font-bold text-slate-900 leading-snug whitespace-pre-line mb-4">{block.question}</p>
       <textarea
         value={text}

@@ -3,13 +3,13 @@
  *
  *   npx tsx scripts/setup-library.ts
  *
- * 1. Crea el bucket PRIVADO "platform-library" en Supabase Storage (si no existe).
- * 2. Conecta con MongoDB (MONGODB_URI) y crea los índices de library_files.
- * 3. Prueba de ida y vuelta: sube un archivo, lo lee y lo borra.
+ * 1. Conecta con MongoDB (MONGODB_URI) y crea los índices de library_files.
+ * 2. Prueba de ida y vuelta en GridFS: guarda un archivo, lo lee y lo borra.
  *
  * Es seguro ejecutarlo varias veces. Lee la configuración de .env.local.
  */
 import { readFileSync, existsSync } from "fs";
+import { Readable } from "stream";
 
 // tsx no carga .env.local: se leen las variables necesarias (sin sobrescribir las del sistema)
 for (const file of [".env.local", ".env"]) {
@@ -19,13 +19,9 @@ for (const file of [".env.local", ".env"]) {
     if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
   }
 }
-process.env.STORAGE_DRIVER = "supabase";
 
 async function main() {
   if (!process.env.MONGODB_URI) throw new Error("Falta MONGODB_URI en .env.local.");
-
-  const storage = await import("../src/lib/storage");
-  console.log(`Bucket "${process.env.SUPABASE_LIBRARY_BUCKET || "platform-library"}": ${await storage.ensureLibraryBucket()} (privado)`);
 
   const { getMongoDb } = await import("../src/lib/mongo");
   const db = await getMongoDb();
@@ -41,16 +37,14 @@ async function main() {
   console.log(`Índices: ${(await col.indexes()).map((i) => i.name).join(", ")}`);
   console.log(`Fichas en la biblioteca: ${await col.countDocuments()}`);
 
-  // Ida y vuelta en el bucket con un archivo de prueba
-  const key = `files/${new Date().getUTCFullYear()}/${"0".repeat(24)}.txt`;
-  const uploadUrl = await storage.createLibrarySignedUpload(key);
-  const put = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": "text/plain", "x-upsert": "true" }, body: "prueba biblioteca" });
-  if (!put.ok) throw new Error(`La subida de prueba falló (${put.status}): ${await put.text()}`);
-  const read = await storage.openLibraryFile(key);
+  // Ida y vuelta en GridFS con un archivo de prueba
+  const { LibraryService } = await import("../src/modules/library/library.service");
+  const stored = await LibraryService.storeFile(Readable.from([Buffer.from("prueba biblioteca")]), { originalName: "prueba.txt", mimeType: "text/plain", maxBytes: 1024 });
+  const read = await LibraryService.openFile({ ...stored });
   const text = read ? await new Response(read.body).text() : null;
-  await storage.deleteLibraryFile(key);
+  await LibraryService.deleteFile(stored.folder, stored.fileId);
   if (text !== "prueba biblioteca") throw new Error("El archivo de prueba no se pudo leer de vuelta.");
-  console.log("Storage: subida directa, lectura y borrado OK");
+  console.log("GridFS: guardado, lectura y borrado OK");
 
   console.log("\nBiblioteca lista.");
   process.exit(0);

@@ -31,7 +31,8 @@ import { saveTeacherPlanAction } from "@/app/actions/course.actions";
 import { LessonReader, type LessonBlock as ReaderBlock } from "@/components/lesson/LessonReader";
 import { TeacherPlanPanel } from "./TeacherPlanPanel";
 import { LessonImagePicker } from "./LessonImagePicker";
-import { cleanTitle, stripStrayImageUrls } from "@/components/lesson/lesson-blocks";
+import { ExerciseMediaPicker } from "./ExerciseMediaPicker";
+import { cleanTitle, stripStrayImageUrls, type ExerciseMedia } from "@/components/lesson/lesson-blocks";
 
 const fieldLabel = "block text-xs font-medium text-slate-400 mb-1";
 
@@ -89,6 +90,8 @@ export interface LessonBlock {
   mindMap?: { center: string; branches: Array<{ label: string; children: string[] }> };
   /** Medida de la imagen de una sección de texto */
   imageSize?: "auto" | "small" | "medium" | "large" | "full";
+  /** Ejercicio: audio, video o enlace que lo acompaña */
+  media?: ExerciseMedia;
 }
 
 const IMAGE_SIZES: Array<[NonNullable<LessonBlock["imageSize"]>, string, string]> = [
@@ -488,10 +491,22 @@ export function LessonBlockEditor({
                   {(block.type === "quiz" || block.type === "practice") && (() => {
                     // Ejercicio que pide un material que no trae ("lee el siguiente párrafo" sin párrafo)
                     const hasReading = blocks.some((x) => x.type === "text" && (x.content?.length ?? 0) > 400);
-                    const problem = missingMaterial(block.question || "", { readingAvailable: hasReading });
+                    const problem = missingMaterial(block.question || "", {
+                      readingAvailable: hasReading,
+                      attached: {
+                        image: Boolean(block.url),
+                        audio: block.media?.kind === "audio",
+                        video: block.media?.kind === "video",
+                        link: block.media?.kind === "link",
+                      },
+                    });
+                    const needsMedia = /imagen|audio|video/.test(problem ?? "");
                     return problem ? (
                       <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-300 text-xs">
-                        <strong>Este ejercicio no se puede resolver:</strong> {problem}. Escribe el texto completo dentro del enunciado (después de dos puntos) o elimina el ejercicio antes de publicar.
+                        <strong>Este ejercicio no se puede resolver:</strong> {problem}.{" "}
+                        {needsMedia
+                          ? "Añade abajo la imagen, el audio, el video o el enlace que pide, o elimina el ejercicio antes de publicar."
+                          : "Escribe el texto completo dentro del enunciado (después de dos puntos), pega abajo el enlace a la página que hay que leer o elimina el ejercicio antes de publicar."}
                       </div>
                     ) : null;
                   })()}
@@ -610,6 +625,10 @@ export function LessonBlockEditor({
                           </div>
                         )}
                         <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
+                      </div>
+                      <div>
+                        <label className={fieldLabel}>Audio, video o enlace del ejercicio (opcional: se muestra encima del enunciado)</label>
+                        <ExerciseMediaPicker media={block.media} onChange={(media) => updateBlock(block.id, { media })} />
                       </div>
                     </div>
                   )}
@@ -870,6 +889,10 @@ export function LessonBlockEditor({
                           </div>
                         )}
                         <LessonImagePicker compact onPick={(img) => updateBlock(block.id, { url: img.url })} />
+                      </div>
+                      <div>
+                        <label className={fieldLabel}>Audio, video o enlace del ejercicio (opcional: se muestra encima del enunciado)</label>
+                        <ExerciseMediaPicker media={block.media} onChange={(media) => updateBlock(block.id, { media })} />
                       </div>
                     </div>
                   )}

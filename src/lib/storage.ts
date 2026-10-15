@@ -117,19 +117,28 @@ export async function putUpload(folder: UploadFolder, fileName: string, bytes: U
 /**
  * Abre un archivo para entregarlo (ruta /api/uploads). Devuelve el cuerpo como
  * stream sin cargarlo entero en memoria, o null si no existe.
+ *
+ * `range` ("bytes=inicio-fin"): solo ese trozo (audio y video, para poder
+ * adelantar; Safari no reproduce video sin esto). Devuelve entonces contentRange.
  */
-export async function openUpload(folder: UploadFolder, fileName: string): Promise<{ body: ReadableStream; size: number | null } | null> {
+export async function openUpload(
+  folder: UploadFolder,
+  fileName: string,
+  range?: string | null
+): Promise<{ body: ReadableStream; size: number | null; contentRange?: string } | null> {
   if (!isSafeFileName(fileName)) return null;
+  const wantedRange = range && /^bytes=\d*-\d*$/.test(range) && range !== "bytes=-" ? range : null;
 
   if (storageDriver() === "supabase") {
     const cfg = supabaseConfig()!;
     const res = await fetch(`${cfg.url}/storage/v1/object/authenticated/${cfg.bucket}/${encodePath(objectPath(folder, fileName))}`, {
-      headers: authHeaders(cfg.key),
+      headers: { ...authHeaders(cfg.key), ...(wantedRange ? { Range: wantedRange } : {}) },
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok || !res.body) return null;
     const length = Number(res.headers.get("content-length"));
-    return { body: res.body, size: Number.isFinite(length) && length > 0 ? length : null };
+    const contentRange = res.status === 206 ? res.headers.get("content-range") ?? undefined : undefined;
+    return { body: res.body, size: Number.isFinite(length) && length > 0 ? length : null, contentRange };
   }
 
   const { stat } = await import("fs/promises");
@@ -140,6 +149,19 @@ export async function openUpload(folder: UploadFolder, fileName: string): Promis
   try {
     const s = await stat(filePath);
     if (!s.isFile()) return null;
+    const m = wantedRange?.match(/^bytes=(\d*)-(\d*)$/);
+    if (m && s.size > 0) {
+      // "bytes=500-" (desde 500), "bytes=-500" (los últimos 500), "bytes=0-99"
+      const start = m[1] ? Number(m[1]) : Math.max(0, s.size - Number(m[2]));
+      const end = m[1] && m[2] ? Math.min(Number(m[2]), s.size - 1) : s.size - 1;
+      if (start <= end && start < s.size) {
+        return {
+          body: Readable.toWeb(createReadStream(filePath, { start, end })) as unknown as ReadableStream,
+          size: end - start + 1,
+          contentRange: `bytes ${start}-${end}/${s.size}`,
+        };
+      }
+    }
     // Stream web (como el de Supabase): mismo tipo para la ruta y para readUpload
     return { body: Readable.toWeb(createReadStream(filePath)) as unknown as ReadableStream, size: s.size };
   } catch {
@@ -176,79 +198,6 @@ export async function createSignedUpload(folder: UploadFolder, fileName: string)
   const { url } = (await res.json()) as { url?: string };
   if (!url) throw new Error("Supabase no devolvió el enlace de subida.");
   return { uploadUrl: `${cfg.url}/storage/v1${url}`, fileUrl: publicUploadUrl(folder, fileName) };
-}
-
-// ─── Biblioteca de la plataforma ────────────────────────────────────────────
-// Bucket PRIVADO propio, separado de los archivos de las academias. Los archivos
-// se guardan como files/{año}/{aleatorio}.{ext}; la ficha vive en MongoDB.
-
-const LIBRARY_KEY = /^files\/\d{4}\/[a-f0-9]{24}\.[a-z0-9]{2,5}$/;
-
-function libraryBucket(): string {
-  return process.env.SUPABASE_LIBRARY_BUCKET || "platform-library";
-}
-
-export function isLibraryKey(key: string): boolean {
-  return LIBRARY_KEY.test(key);
-}
-
-/** Enlace firmado para subir UN archivo de la biblioteca directo desde el navegador. */
-export async function createLibrarySignedUpload(key: string): Promise<string> {
-  const cfg = supabaseConfig();
-  if (!cfg) throw new Error("La biblioteca necesita Supabase Storage (faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY).");
-  if (!isLibraryKey(key)) throw new Error("Nombre de archivo no válido.");
-  const res = await fetch(`${cfg.url}/storage/v1/object/upload/sign/${libraryBucket()}/${encodePath(key)}`, {
-    method: "POST",
-    headers: { ...authHeaders(cfg.key), "x-upsert": "false" },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) throw new Error(`No se pudo preparar la subida (${res.status}).`);
-  const { url } = (await res.json()) as { url?: string };
-  if (!url) throw new Error("Supabase no devolvió el enlace de subida.");
-  return `${cfg.url}/storage/v1${url}`;
-}
-
-/** Abre un archivo de la biblioteca como stream (para la descarga), o null si no existe. */
-export async function openLibraryFile(key: string): Promise<{ body: ReadableStream; size: number | null } | null> {
-  const cfg = supabaseConfig();
-  if (!cfg || !isLibraryKey(key)) return null;
-  const res = await fetch(`${cfg.url}/storage/v1/object/authenticated/${libraryBucket()}/${encodePath(key)}`, {
-    headers: authHeaders(cfg.key),
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (!res.ok || !res.body) return null;
-  const length = Number(res.headers.get("content-length"));
-  return { body: res.body, size: Number.isFinite(length) && length > 0 ? length : null };
-}
-
-export async function deleteLibraryFile(key: string): Promise<void> {
-  const cfg = supabaseConfig();
-  if (!cfg || !isLibraryKey(key)) return;
-  await fetch(`${cfg.url}/storage/v1/object/${libraryBucket()}`, {
-    method: "DELETE",
-    headers: { ...authHeaders(cfg.key), "Content-Type": "application/json" },
-    body: JSON.stringify({ prefixes: [key] }),
-  });
-}
-
-/** Crea el bucket privado de la biblioteca si no existe (script de configuración). */
-export async function ensureLibraryBucket(): Promise<"creado" | "ya existía"> {
-  const cfg = supabaseConfig();
-  if (!cfg) throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.");
-  const bucket = libraryBucket();
-  const existing = await fetch(`${cfg.url}/storage/v1/bucket/${bucket}`, { headers: authHeaders(cfg.key) });
-  if (existing.ok) {
-    const info = (await existing.json()) as { public?: boolean };
-    if (info.public) throw new Error(`El bucket "${bucket}" es PÚBLICO: debe ser privado.`);
-    return "ya existía";
-  }
-  const res = await fetch(`${cfg.url}/storage/v1/bucket`, {
-    method: "POST",
-    headers: { ...authHeaders(cfg.key), "Content-Type": "application/json" },
-    body: JSON.stringify({ id: bucket, name: bucket, public: false, file_size_limit: 50 * 1024 * 1024 }),
-  });
-  if (!res.ok) throw new Error(`No se pudo crear el bucket de la biblioteca (${res.status}): ${(await res.text()).slice(0, 200)}`);
-  return "creado";
 }
 
 /** Máximo por archivo en el bucket (50 MB: el máximo por archivo del plan gratuito de Supabase). */

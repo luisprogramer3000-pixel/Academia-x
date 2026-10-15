@@ -49,6 +49,9 @@ const nextConfig: NextConfig = {
   // Los comprobantes de pago (hasta 5 MB) se envían por una acción del servidor; el límite por defecto es 1 MB
   experimental: {
     serverActions: { bodySizeLimit: "6mb" },
+    // Todo pasa por el middleware, que corta los cuerpos a 10 MB: la subida a la
+    // biblioteca (/api/library/upload) admite hasta 50 MB por archivo
+    middlewareClientMaxBodySize: "52mb",
   },
   // Los modelos de PowerPoint se leen desde el servidor: en producción los
   // archivos de public/ no están en las funciones si no se incluyen aquí.

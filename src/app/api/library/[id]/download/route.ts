@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireTenantAccess, STAFF_ROLES } from "@/lib/session";
-import { openLibraryFile } from "@/lib/storage";
 import { LibraryService } from "@/modules/library/library.service";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +22,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const canSee = doc && (doc.status === "approved" || ctx.isSuperAdmin || doc.uploadedBy.userId === ctx.userId);
   if (!doc || !canSee) return new NextResponse("Not found", { status: 404 });
 
-  const file = await openLibraryFile(doc.storageKey);
+  const file = await LibraryService.openFile(doc);
   if (!file) return new NextResponse("Not found", { status: 404 });
 
   // ?inline=1: miniatura en el selector de imágenes (se muestra, no se descarga ni se cuenta)
@@ -35,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   return new NextResponse(file.body, {
     headers: {
       "Content-Type": doc.mimeType,
-      ...(file.size !== null ? { "Content-Length": String(file.size) } : {}),
+      "Content-Length": String(file.size),
       "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${safeName.replace(/[^\x20-\x7e]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
       "Cache-Control": inline ? "private, max-age=3600" : "private, no-store",
       "X-Content-Type-Options": "nosniff",

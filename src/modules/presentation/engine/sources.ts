@@ -1,7 +1,6 @@
 import type { ResolvedImage } from "./types";
 import { loadLessonImage, lessonImageFromBytes } from "../presentation.images";
 import { isMongoConfigured } from "@/lib/mongo";
-import { openLibraryFile } from "@/lib/storage";
 import { IMAGE_TYPES } from "@/lib/upload-types";
 
 /**
@@ -30,7 +29,7 @@ export function librarySearch(viewerUserId: string) {
         if (!hit) return null;
         const doc = await LibraryService.get(hit.id);
         if (!doc || doc.size > 8 * 1024 * 1024) return null;
-        const file = await openLibraryFile(doc.storageKey);
+        const file = await LibraryService.openFile(doc);
         if (!file) return null;
         const img = lessonImageFromBytes(new Uint8Array(await new Response(file.body).arrayBuffer()));
         return img ? { data: img.data, mime: img.mime, width: img.width, height: img.height } : null;

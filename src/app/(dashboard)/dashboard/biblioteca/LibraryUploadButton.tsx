@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, UploadCloud } from "lucide-react";
 import { DialogShell, fieldCls, labelCls } from "@/components/dashboard/DialogShell";
-import { prepareLibraryUploadAction, registerLibraryFileAction } from "@/app/actions/library.actions";
-import { MATERIAL_FORMATS_LABEL, MATERIAL_TYPES } from "@/lib/upload-types";
+import { MATERIAL_FORMATS_LABEL, MATERIAL_TYPES, MAX_MATERIAL_BYTES } from "@/lib/upload-types";
 
 export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages: readonly string[]; isPlatformAdmin: boolean }) {
   const router = useRouter();
@@ -14,7 +13,7 @@ export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages:
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState("");
-  const [busy, setBusy] = useState<null | "upload" | "save">(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState<string | null>(null);
 
@@ -33,39 +32,28 @@ export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages:
     const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     const type = MATERIAL_TYPES[file.type] ? file.type : Object.keys(MATERIAL_TYPES).find((t) => MATERIAL_TYPES[t] === extension);
     if (!type) return setError(`Formato no permitido. Usa ${MATERIAL_FORMATS_LABEL}.`);
+    if (file.size > MAX_MATERIAL_BYTES) return setError(`El archivo no debe superar los ${Math.round(MAX_MATERIAL_BYTES / 1048576)} MB.`);
     setError("");
 
-    // 1. Enlace firmado y subida directa al bucket de la biblioteca
-    setBusy("upload");
-    const prepared = await prepareLibraryUploadAction({ type, size: file.size });
-    if (!prepared.success) {
-      setBusy(null);
-      return setError(prepared.error);
-    }
+    // Archivo y ficha van juntos al servidor, que los guarda en MongoDB
+    setBusy(true);
+    const form = new FormData();
+    form.append("title", title);
+    form.append("description", description);
+    form.append("language", language);
+    form.append("file", new File([file], file.name, { type }));
+    let res: { success: boolean; error?: string; status?: string };
     try {
-      const put = await fetch(prepared.uploadUrl, { method: "PUT", headers: { "Content-Type": type, "x-upsert": "false" }, body: file });
-      if (!put.ok) {
-        setBusy(null);
-        return setError(put.status === 413 ? "El archivo es demasiado grande." : `No se pudo subir el archivo (${put.status}).`);
-      }
+      const response = await fetch("/api/library/upload", { method: "POST", body: form });
+      res = await response.json().catch(() => ({
+        success: false,
+        error: response.status === 413 ? "El archivo es demasiado grande." : `No se pudo subir el archivo (${response.status}).`,
+      }));
     } catch {
-      setBusy(null);
-      return setError("Error de red al subir el archivo. Revisa tu conexión.");
+      res = { success: false, error: "Error de red al subir el archivo. Revisa tu conexión." };
     }
-
-    // 2. Ficha en la biblioteca
-    setBusy("save");
-    const res = await registerLibraryFileAction({
-      key: prepared.key,
-      title,
-      description,
-      language,
-      originalName: file.name,
-      mimeType: type,
-      size: file.size,
-    });
-    setBusy(null);
-    if (!res.success) return setError(res.error);
+    setBusy(false);
+    if (!res.success) return setError(res.error ?? "No se pudo subir el archivo.");
 
     setDone(res.status === "approved" ? "Archivo publicado en la biblioteca." : "Archivo enviado. Aparecerá en la biblioteca cuando el administrador lo apruebe.");
     reset();
@@ -124,10 +112,10 @@ export function LibraryUploadButton({ languages, isPlatformAdmin }: { languages:
             )}
             {error && <p className="text-sm text-red-400">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setOpen(false)} disabled={busy !== null} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Cancelar</button>
-              <button type="submit" disabled={busy !== null} className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-semibold flex items-center gap-2">
+              <button type="button" onClick={() => setOpen(false)} disabled={busy} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm">Cancelar</button>
+              <button type="submit" disabled={busy} className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-semibold flex items-center gap-2">
                 {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-                {busy === "upload" ? "Subiendo archivo…" : busy === "save" ? "Guardando…" : isPlatformAdmin ? "Publicar" : "Enviar a revisión"}
+                {busy ? "Subiendo archivo…" : isPlatformAdmin ? "Publicar" : "Enviar a revisión"}
               </button>
             </div>
           </form>
