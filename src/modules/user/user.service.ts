@@ -90,7 +90,9 @@ export class UserService {
       await assertCanAddMember(invitation.tenantId, invitation.role as "STUDENT" | "TEACHER", { countPendingInvitations: false });
     }
 
-    const user = await UserService.resolveUserWithPassword(invitation.email, input.name, input.password);
+    // El enlace llegó al correo invitado: demuestra que el email es suyo, así que
+    // aquí sí se puede poner contraseña a una cuenta que aún no la tenga.
+    const user = await UserService.resolveUserWithPassword(invitation.email, input.name, input.password, { emailVerified: true });
 
     const existingMembership = await prisma.membership.findUnique({
       where: { userId_tenantId: { userId: user.id, tenantId: invitation.tenantId } },
@@ -115,8 +117,15 @@ export class UserService {
   /**
    * Obtiene o crea un usuario verificando credenciales:
    * nunca permite tomar el control de una cuenta existente sin su contraseña.
+   * Una cuenta sin contraseña solo la recibe si el email está verificado (invitación);
+   * desde el registro público se rechaza: cualquiera podría escribir ese email.
    */
-  private static async resolveUserWithPassword(email: string, name: string, password?: string) {
+  private static async resolveUserWithPassword(
+    email: string,
+    name: string,
+    password?: string,
+    options: { emailVerified?: boolean } = {}
+  ) {
     const normalizedEmail = email.toLowerCase().trim();
     if (!password || password.length < MIN_PASSWORD_LENGTH) {
       throw new Error(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
@@ -132,7 +141,10 @@ export class UserService {
         }
         return existing;
       }
-      // Cuenta heredada sin contraseña: se establece ahora
+      if (!options.emailVerified) {
+        throw new Error("Ya existe una cuenta con este email. Usa \"¿Olvidaste tu contraseña?\" para recuperarla.");
+      }
+      // Cuenta heredada sin contraseña e email verificado por la invitación: se establece ahora
       return prisma.user.update({
         where: { id: existing.id },
         data: { passwordHash: await hashPassword(password), name: existing.name || name },

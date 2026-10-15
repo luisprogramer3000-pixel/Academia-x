@@ -46,7 +46,10 @@ export async function createAcademyAction(formData: FormData) {
       secondaryColor: (formData.get("secondaryColor") as string) || DEFAULT_BRAND_BACKGROUND,
     });
 
-    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    // X-Real-IP lo pone nginx con la IP real de la conexión. El primer valor de
+    // X-Forwarded-For lo puede inventar el cliente (nginx solo añade al final).
+    const h = await headers();
+    const ip = h.get("x-real-ip")?.trim() || h.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
     const rateLimit = await checkRateLimit({ key: `create_academy:${ip}`, limit: 5, windowMs: 60 * 60_000 });
     if (!rateLimit.success) {
       return { success: false, error: "Demasiados registros desde esta conexión. Intenta más tarde." };

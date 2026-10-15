@@ -29,7 +29,7 @@
     "jszip": "^3.10.2",
     "lucide-react": "^0.468.0",
     "mongodb": "^6.21.0",
-    "next": "^15.0.4",
+    "next": "^15.5.28",
     "openai": "^7.9.0",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1",
@@ -46,11 +46,16 @@
     "@types/react-dom": "^19.0.1",
     "autoprefixer": "^10.5.4",
     "eslint": "^9.16.0",
-    "eslint-config-next": "^15.0.4",
-    "postcss": "^8.4.49",
+    "eslint-config-next": "^15.5.28",
+    "postcss": "^8.5.26",
     "prisma": "^5.22.0",
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "sharp": "^0.35.5",
+    "postcss": "$postcss",
+    "image-size": "^2.0.3"
   }
 }

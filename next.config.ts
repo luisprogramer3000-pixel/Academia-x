@@ -57,14 +57,8 @@ const nextConfig: NextConfig = {
     "/api/presentation-models": ["./public/modelos powerpoint/**"],
     "/api/presentation-models/[id]/thumbnail": ["./public/modelos powerpoint/**"],
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "**",
-      },
-    ],
-  },
+  // Sin remotePatterns: el optimizador de imágenes solo procesa archivos propios.
+  // Abrirlo a cualquier dominio lo convierte en un proxy público (y en vector de fallos del optimizador).
   webpack(config, { isServer, webpack }) {
     // Estructuras de clase (src/content/**/*.md): se importan como texto
     config.module.rules.push({ test: /\.md$/, type: "asset/source" });
