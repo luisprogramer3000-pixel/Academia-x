@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import { ResourceService } from "@/modules/resources/resource.service";
 import type { ClassPlanOutput } from "@/modules/ai/class-plan.schema";
+import { startAIJob, getAIJobState } from "@/modules/ai/ai.background";
 
 const generateCourseAISchema = z.object({
   tenantId: z.string().min(1, "Tenant ID requerido"),
@@ -547,6 +548,13 @@ async function addPlanImages(
   }
 }
 
+export type ClassPlanJobResult = { plan: ClassPlanOutput; resourceId: string | null };
+export type LessonJobResult = { courseId: string; lessonId: string; images: { requested: number; generated: number } };
+
+/**
+ * Plan de clase con IA. Tarda más de lo que deja pasar el proxy del hosting, así
+ * que solo lanza el trabajo: el navegador sigue el resultado con getAIJobAction.
+ */
 export async function generateClassPlanAction(formData: FormData) {
   try {
     const auth = await requireTenantAccess(STAFF_ROLES);
@@ -554,25 +562,27 @@ export async function generateClassPlanAction(formData: FormData) {
     const validated = parseClassPlanForm(formData);
     const idempotencyKey = (formData.get("idempotencyKey") as string) || crypto.randomUUID();
 
-    const plan = await AIService.generateClassPlanAI({
-      tenantId: auth.tenantId,
-      userId: auth.userId,
-      idempotencyKey,
-      ...validated,
-    });
-    await addPlanImages(plan, formData, auth, idempotencyKey);
+    const jobId = await startAIJob<ClassPlanJobResult>(auth, "CLASS_PLAN", async () => {
+      const plan = await AIService.generateClassPlanAI({
+        tenantId: auth.tenantId,
+        userId: auth.userId,
+        idempotencyKey,
+        ...validated,
+      });
+      await addPlanImages(plan, formData, auth, idempotencyKey);
 
-    // Se guarda en "Mis recursos"; si falla el guardado, el profesor no pierde el plan ya pagado
-    let resourceId: string | null = null;
-    try {
-      const saved = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
-      resourceId = saved.id;
-      revalidatePath("/dashboard/resources");
-    } catch (err) {
-      console.warn("Could not save class plan to resources:", err);
-    }
+      // Se guarda en "Mis recursos"; si falla el guardado, el profesor no pierde el plan ya pagado
+      let resourceId: string | null = null;
+      try {
+        const saved = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
+        resourceId = saved.id;
+      } catch (err) {
+        console.warn("Could not save class plan to resources:", err);
+      }
+      return { plan, resourceId };
+    }, formatAIError);
 
-    return { success: true as const, plan, resourceId };
+    return { success: true as const, jobId };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return { success: false as const, error: error.issues[0]?.message ?? "Datos inválidos" };
@@ -584,7 +594,8 @@ export async function generateClassPlanAction(formData: FormData) {
 /**
  * Nueva lección con IA: genera el plan (mismo formulario y créditos que el Plan
  * de clase), lo guarda en "Mis recursos" y lo convierte en una lección suelta
- * con actividades intercaladas y el guion del profesor.
+ * con actividades intercaladas y el guion del profesor. Corre en segundo plano
+ * igual que generateClassPlanAction.
  */
 export async function createLessonWithAIAction(formData: FormData) {
   try {
@@ -593,25 +604,42 @@ export async function createLessonWithAIAction(formData: FormData) {
     const validated = parseClassPlanForm(formData);
     const idempotencyKey = (formData.get("idempotencyKey") as string) || crypto.randomUUID();
 
-    const plan = await AIService.generateClassPlanAI({
-      tenantId: auth.tenantId,
-      userId: auth.userId,
-      idempotencyKey,
-      ...validated,
-    });
-    const images = await addPlanImages(plan, formData, auth, idempotencyKey);
+    const jobId = await startAIJob<LessonJobResult>(auth, "LESSON_FROM_PLAN", async () => {
+      const plan = await AIService.generateClassPlanAI({
+        tenantId: auth.tenantId,
+        userId: auth.userId,
+        idempotencyKey,
+        ...validated,
+      });
+      const images = await addPlanImages(plan, formData, auth, idempotencyKey);
 
-    const resource = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
-    const { courseId, lessonId } = await ResourceService.convertToLesson(resource, auth.tenantId, { mode: "standalone" });
+      const resource = await ResourceService.saveClassPlan({ tenantId: auth.tenantId, userId: auth.userId, plan, ...validated });
+      const { courseId, lessonId } = await ResourceService.convertToLesson(resource, auth.tenantId, { mode: "standalone" });
+      return { courseId, lessonId, images: { requested: images.requested, generated: images.generated } };
+    }, formatAIError);
 
-    revalidatePath("/dashboard/resources");
-    revalidatePath("/dashboard/lessons");
-    return { success: true as const, courseId, lessonId, images: { requested: images.requested, generated: images.generated } };
+    return { success: true as const, jobId };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return { success: false as const, error: error.issues[0]?.message ?? "Datos inválidos" };
     }
     return { success: false as const, error: formatAIError(error) };
+  }
+}
+
+/** Estado de una generación lanzada en segundo plano (solo la ve quien la lanzó). */
+export async function getAIJobAction(jobId: string) {
+  try {
+    const auth = await requireTenantAccess(STAFF_ROLES);
+    const state = await getAIJobState<ClassPlanJobResult | LessonJobResult>(auth, String(jobId));
+    if (!state) return { status: "FAILED" as const, error: "No se encontró la generación." };
+    if (state.status === "DONE") {
+      revalidatePath("/dashboard/resources");
+      revalidatePath("/dashboard/lessons");
+    }
+    return state;
+  } catch (error) {
+    return { status: "FAILED" as const, error: formatAIError(error) };
   }
 }
 

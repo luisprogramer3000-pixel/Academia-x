@@ -164,6 +164,7 @@ model Tenant {
   payments             Payment[]
   paymentCard          PaymentCard?
   photoDecks           PhotoDeck[]
+  aiJobs               AIJob[]
 }
 
 model Membership {
@@ -772,4 +773,25 @@ model PhotoDeck {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, lessonId, updatedAt])
+}
+
+/// Generación con IA que corre en segundo plano: el proxy de Hostinger corta las
+/// peticiones a los ~30 s, así que la acción responde al instante con este id y
+/// el navegador consulta el estado hasta que termina.
+model AIJob {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  /// CLASS_PLAN | LESSON_FROM_PLAN
+  kind      String
+  /// RUNNING | DONE | FAILED
+  status    String   @default("RUNNING")
+  result    Json?
+  error     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
 }
