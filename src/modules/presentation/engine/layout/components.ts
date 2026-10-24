@@ -2,6 +2,7 @@ import type { ImageElement, LineElement, NormBox, ResolvedAsset, ResolvedDesignS
 import { blend, readableOn } from "../design/color";
 import { fitImageContain, inset, rectIntersects, TITLE_ZONE } from "./geometry";
 import { fitText } from "./text-fit";
+import { vectorIconFor } from "../vector-icons";
 
 /**
  * Biblioteca de componentes: cada método añade elementos validables (no
@@ -123,14 +124,26 @@ export class SlideBuilder {
     });
   }
 
-  /** Emoji como icono, opcionalmente dentro de un círculo de color. */
-  icon(emoji: string, b: NormBox, o: { circle?: string; group?: string } = {}): void {
+  /**
+   * Icono de un concepto, opcionalmente dentro de un círculo de color. Si hay
+   * dibujo vectorial para el emoji se exporta ese (en el color de la academia);
+   * si no, el propio emoji.
+   */
+  icon(emoji: string, area: NormBox, o: { circle?: string; group?: string } = {}): void {
     const group = o.group ?? this.newGroup("icon");
+    // Cuadrado centrado en el área: el círculo nunca sale ovalado
+    const side = Math.min(area.w * this.d.slide.widthIn, area.h * this.d.slide.heightIn);
+    const w = side / this.d.slide.widthIn;
+    const h = side / this.d.slide.heightIn;
+    const b = { x: area.x + (area.w - w) / 2, y: area.y + (area.h - h) / 2, w, h };
     if (o.circle) this.shape("ellipse", b, o.circle, { group });
+    const bg = o.circle ?? this.slideBg;
     const sizePt = Math.min(b.w * this.d.slide.widthIn, b.h * this.d.slide.heightIn) * 72 * (o.circle ? 0.5 : 0.75);
+    const svg = vectorIconFor(emoji);
     this.elements.push({
       kind: "text", role: "icon", text: emoji, box: b, fontSize: Math.max(14, Math.round(sizePt)), font: this.d.fonts.emoji,
-      color: this.d.colors.text, align: "center", valign: "middle", group, backgroundColor: o.circle ?? this.slideBg,
+      color: this.d.colors.text, align: "center", valign: "middle", group, backgroundColor: bg,
+      vector: svg ? { svg, color: readableOn(bg, [this.d.colors.primary, this.d.colors.text], 3) } : undefined,
     });
   }
 

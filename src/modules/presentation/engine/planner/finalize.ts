@@ -1,6 +1,5 @@
 import type { LessonContent, PedagogicalRole, PresentationPlan, SlideContentBlock, SlidePlan } from "../types";
 import { labels } from "../i18n";
-import { emojiFor } from "../icons";
 import { applyChallenge } from "./challenge";
 import { condense, mentions, seededRandom, similarity } from "../text";
 
@@ -148,7 +147,7 @@ function expansions(content: LessonContent, existing: SlidePlan[]): SlidePlan[] 
       mainIdea: condense(target.meaning!, 14),
       contentBlocks: [
         { kind: "question", text: `${condense(target.meaning!, 14)}` },
-        { kind: "options", options: options.map((o) => `${o.emoji ?? emojiFor(o.term) ?? ""} ${o.term}`.trim()), correctIndex: options.indexOf(target) },
+        { kind: "options", options: options.map((o) => o.term), correctIndex: options.indexOf(target) },
       ],
       visualIntent: "Adivina la palabra a partir de su definición",
       speakerNotes: [`✓ ${target.term}`],

@@ -23,7 +23,9 @@ export function normalize(text: string): string {
 /** Divide un texto en frases (respeta abreviaturas cortas como "p. ej."). */
 export function sentences(text: string): string[] {
   const clean = stripMarkdown(text).replace(/\s*\n+\s*/g, " ");
-  const parts = clean.match(/[^.!?¡¿]*[¡¿]?[^.!?]*[.!?]+(?=\s|$)|[^.!?]+$/g) ?? [];
+  // Se corta tras . ! ? (con comillas o paréntesis de cierre) cuando sigue una
+  // mayúscula: nunca se pierde texto ("Responde 'I am fine.' a una pregunta" queda entera)
+  const parts = clean.split(/(?<=[.!?…]["'”’»)\]]*)\s+(?=["'“‘«¿¡(]?[A-ZÁÉÍÓÚÑÜ0-9])/);
   const out: string[] = [];
   for (const raw of parts) {
     const s = raw.trim();

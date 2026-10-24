@@ -2,7 +2,7 @@ import path from "path";
 
 /**
  * Almacenamiento de archivos subidos (logos, materiales, imágenes de clase,
- * comprobantes de pago).
+ * comprobantes de pago) y de las presentaciones generadas en segundo plano.
  *
  * - "supabase": Supabase Storage, bucket PRIVADO, ruta tenants/{tenantId}/{carpeta}/{archivo}.
  *   Sobrevive a los redespliegues y a varios servidores. Requiere
@@ -17,7 +17,7 @@ import path from "path";
 export const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(process.cwd(), "uploads");
 
 /** Carpetas que existen. Cualquier otra se rechaza. */
-export const UPLOAD_FOLDERS = ["logos", "materials", "class-images", "payment-proofs"] as const;
+export const UPLOAD_FOLDERS = ["logos", "materials", "class-images", "payment-proofs", "presentations"] as const;
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
 const FILE_NAME = /^[A-Za-z0-9._-]+$/;

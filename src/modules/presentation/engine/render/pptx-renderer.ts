@@ -3,6 +3,7 @@ import type { DecoShape, ImageElement, LineElement, ResolvedDesignSystem, Resolv
 import { PptxExportError, SlideRenderError } from "../errors";
 import { TEXT_INSET_PT } from "../layout/text-fit";
 import { toSlideHeight, toSlideWidth, toSlideX, toSlideY } from "../layout/geometry";
+import { vectorIconSvg } from "../vector-icons";
 
 /**
  * Exportador PPTX: SlideElement[] (ya validados) → PowerPoint editable.
@@ -89,6 +90,41 @@ function renderShape(pptx: PptxGenJS, slide: PptxGenJS.Slide, d: ResolvedDesignS
   });
 }
 
+/** Lado en píxeles del PNG de cada icono vectorial: nítido incluso a pantalla completa */
+const ICON_PX = 256;
+const iconCache = new Map<string, Promise<string>>();
+
+async function vectorIconPng(svg: string, color: string): Promise<string> {
+  const key = `${color}|${svg}`;
+  let png = iconCache.get(key);
+  if (!png) {
+    png = import("sharp").then(async ({ default: sharp }) => {
+      const bytes = await sharp(Buffer.from(vectorIconSvg(svg, color, ICON_PX))).png().toBuffer();
+      return `image/png;base64,${bytes.toString("base64")}`;
+    });
+    iconCache.set(key, png);
+    png.catch(() => iconCache.delete(key));
+  }
+  return png;
+}
+
+/** Icono vectorial: del tamaño que tendría el emoji, centrado en su caja. Si falla, el emoji. */
+async function renderIcon(slide: PptxGenJS.Slide, d: ResolvedDesignSystem, e: TextElement) {
+  if (e.vector) {
+    try {
+      const data = await vectorIconPng(e.vector.svg, e.vector.color);
+      const w = toSlideWidth(d, e.box.w);
+      const h = toSlideHeight(d, e.box.h);
+      const side = Math.min(w, h, e.fontSize / 72);
+      slide.addImage({ data, x: toSlideX(d, e.box.x) + (w - side) / 2, y: toSlideY(d, e.box.y) + (h - side) / 2, w: side, h: side, altText: "Icono" });
+      return;
+    } catch (error) {
+      console.warn("[presentation] Icono vectorial no disponible, se usa el emoji", error);
+    }
+  }
+  renderText(slide, d, e);
+}
+
 function renderImage(slide: PptxGenJS.Slide, d: ResolvedDesignSystem, e: ImageElement) {
   const x = toSlideX(d, e.box.x);
   const y = toSlideY(d, e.box.y);
@@ -133,7 +169,10 @@ export async function renderPptx(slides: ResolvedSlide[], meta: { title: string;
     try {
       const slide = pptx.addSlide({ masterName: s.plan.pedagogicalRole === "cover" ? MASTER_COVER : MASTER_CONTENT });
       for (const e of s.elements) {
-        if (e.kind === "text") renderText(slide, d, e);
+        if (e.kind === "text") {
+          if (e.role === "icon") await renderIcon(slide, d, e);
+          else renderText(slide, d, e);
+        }
         else if (e.kind === "shape") renderShape(pptx, slide, d, e);
         else if (e.kind === "image") renderImage(slide, d, e);
         else renderLine(pptx, slide, d, e);

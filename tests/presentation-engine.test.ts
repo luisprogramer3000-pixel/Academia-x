@@ -17,6 +17,9 @@ import { generatePresentation } from "@/modules/presentation/engine";
 import { getPresetTheme } from "@/modules/presentation/presentation.themes";
 import type { SlideElement, SlidePlan } from "@/modules/presentation/engine/types";
 import { TRANSPORT_LESSON } from "./fixtures/transport-lesson";
+import { sentences } from "@/modules/presentation/engine/text";
+import { emojiFor } from "@/modules/presentation/engine/icons";
+import { vectorIconFor } from "@/modules/presentation/engine/vector-icons";
 
 /**
  * Motor de presentaciones v2. Pruebas puras: no tocan la base de datos ni
@@ -536,4 +539,31 @@ describe("motor completo (integración)", () => {
     expect(fallback.plan.metadata.planner).toBe("heuristic");
     expect(fallback.warnings.join(" ")).toMatch(/planificador pedagógico interno/);
   }, 60000);
+});
+
+describe("Texto e iconos", () => {
+  it("no pierde texto cuando una frase cierra con comillas o paréntesis", () => {
+    expect(sentences("Responde 'I am fine.' a una pregunta")).toEqual(["Responde 'I am fine.' a una pregunta"]);
+    expect(sentences('Escribe "Hello!" y responde.')).toEqual(['Escribe "Hello!" y responde.']);
+    expect(sentences("Hola. ¿Qué tal? Bien (gracias.) Fin.")).toEqual(["Hola.", "¿Qué tal?", "Bien (gracias.)", "Fin."]);
+  });
+
+  it("el icono sale del término, nunca de su definición", async () => {
+    const content = extractLessonContent({
+      lessonId: "t", title: "Las partes del cuerpo", courseTitle: "", academyName: "", language: "es", level: "A1",
+      blocks: [{ type: "flashcards", cards: [{ front: "Ojos", back: "eyes: por ejemplo, tengo ojos marrones" }, { front: "Saludar", back: "decir hola con la mano" }] }],
+    } as never);
+    expect(content.vocabulary.find((v) => v.term === "Ojos")?.emoji).toBe("👁️");
+    // "mano" está en la definición, no en el término: sin icono antes que uno equivocado
+    expect(content.vocabulary.find((v) => v.term === "Saludar")?.emoji).toBeUndefined();
+    expect(emojiFor("La comida es cara")).toBe("🍽️");
+  });
+
+  it("cada concepto del diccionario tiene su dibujo vectorial", () => {
+    for (const word of ["cabeza", "nariz", "boca", "silla", "mesa", "ventana", "bicicleta", "manzana", "flor"]) {
+      const emoji = emojiFor(word);
+      expect(emoji, word).toBeTruthy();
+      expect(vectorIconFor(emoji!), word).toBeTruthy();
+    }
+  });
 });

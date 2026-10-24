@@ -782,7 +782,7 @@ model AIJob {
   id        String   @id @default(cuid())
   tenantId  String
   userId    String
-  /// CLASS_PLAN | LESSON_FROM_PLAN
+  /// CLASS_PLAN | LESSON_FROM_PLAN | PRESENTATION
   kind      String
   /// RUNNING | DONE | FAILED
   status    String   @default("RUNNING")

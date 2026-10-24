@@ -39,7 +39,9 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /** Carpetas privadas: el tenant va codificado en el nombre (prefijo-tenantId-hex.ext) */
-const PRIVATE_FOLDERS = new Set(["materials", "payment-proofs"]);
+const PRIVATE_FOLDERS = new Set(["materials", "payment-proofs", "presentations"]);
+/** Solo el personal: comprobantes (datos bancarios) y presentaciones (material de preparación) */
+const STAFF_FOLDERS = new Set(["payment-proofs", "presentations"]);
 
 const notFound = () => new NextResponse("Not found", { status: 404 });
 
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ path: s
   if (PRIVATE_FOLDERS.has(folder)) {
     const owningTenantId = tenantOfFile(fileName);
     const session = await getSession();
-    const staffOnly = folder === "payment-proofs";
+    const staffOnly = STAFF_FOLDERS.has(folder);
     // La membresía y el rol se leen de la base de datos, no del token: si a alguien
     // lo quitan de la academia, deja de ver sus archivos en ese mismo momento.
     const membership =

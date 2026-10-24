@@ -30,7 +30,11 @@ export const MATCHING: LayoutDef = {
       const left = box(0.07, y, 0.33, rowsH);
       const onL = b.card(left, { fill: tone.soft, group: lg, shadow: false });
       const emoji = pairs.leftEmoji?.[i] || emojiFor(pairs.left[i]);
-      b.text("body", `${emoji ? `${emoji}  ` : ""}${pairs.left[i]}`, inset(left, 0.015, 0.005), { on: onL, group: lg, bold: true, valign: "middle", max: d.sizes.body + 2, min: 15 });
+      const iconW = emoji ? Math.min(0.06, (rowsH * 0.7 * d.slide.heightIn) / d.slide.widthIn) : 0;
+      if (emoji) b.icon(emoji, box(left.x + 0.015, y + (rowsH - (iconW * d.slide.widthIn) / d.slide.heightIn) / 2, iconW, (iconW * d.slide.widthIn) / d.slide.heightIn), { group: lg });
+      const textBox = inset(left, 0.015, 0.005);
+      const shift = emoji ? iconW + 0.015 : 0;
+      b.text("body", pairs.left[i], { ...textBox, x: textBox.x + shift, w: textBox.w - shift }, { on: onL, group: lg, bold: true, valign: "middle", max: d.sizes.body + 2, min: 15 });
       b.shape("ellipse", box(0.41, y + rowsH / 2 - 0.018, 0.018, 0.036), tone.strong, { decorative: true });
       const rg = b.newGroup("mr");
       const right = box(0.6, y, 0.33, rowsH);
@@ -205,7 +209,7 @@ export const CLASSIFY: LayoutDef = {
       const tone = d.colors.tones[i % d.colors.tones.length];
       const g = b.newGroup("cls");
       b.shape("roundRect", cells[i], tone.soft, { radius: d.radius.medium, line: { color: tone.strong, width: 2, dash: "dash" }, group: g });
-      b.text("subtitle", `${c.emoji ?? emojiFor(c.heading) ?? ""} ${c.heading}`.trim(), box(cells[i].x, cells[i].y + 0.02, cells[i].w, 0.1), { on: tone.soft, group: g, bold: true, align: "center", color: tone.strong });
+      b.text("subtitle", c.heading, box(cells[i].x, cells[i].y + 0.02, cells[i].w, 0.1), { on: tone.soft, group: g, bold: true, align: "center", color: tone.strong });
     });
   },
 };

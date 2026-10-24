@@ -12,7 +12,7 @@ import { prisma } from "@/lib/db";
  * after(); el navegador consulta el estado hasta que termina.
  */
 
-export type AIJobKind = "CLASS_PLAN" | "LESSON_FROM_PLAN";
+export type AIJobKind = "CLASS_PLAN" | "LESSON_FROM_PLAN" | "PRESENTATION";
 
 export type AIJobState<T> =
   | { status: "RUNNING" }

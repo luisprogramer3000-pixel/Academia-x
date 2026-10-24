@@ -365,6 +365,8 @@ export interface TextElement extends BaseElement {
   backgroundColor?: string;
   /** true si el texto no cabía ni con el tamaño mínimo */
   overflow?: boolean;
+  /** Icono (role "icon"): dibujo vectorial que se exporta en lugar del emoji */
+  vector?: { svg: string; color: string };
 }
 
 export interface ShapeElement extends BaseElement {

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { DialogShell } from "./DialogShell";
 import { PRESET_THEMES, brandTheme, SLIDE_H, SLIDE_W, type DeckTheme, type TextDensity } from "@/modules/presentation/presentation.themes";
 import { Check, CheckCircle2, FileText, Globe, Loader2, Paperclip, Presentation, Sparkles, Upload, Wand2 } from "lucide-react";
+import { waitForAIJob } from "@/lib/ai-job-client";
+import type { PresentationJobResult } from "@/modules/presentation/presentation.job";
 
 type DesignMode = "preset" | "upload" | "web";
 const PREFS_KEY = "academiax:presentation-prefs";
@@ -120,6 +122,23 @@ export function PresentationWizard({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "No se pudo generar la presentación.");
+        return;
+      }
+      // Con IA o fotos se genera en segundo plano: se espera y se descarga el archivo guardado
+      if (res.status === 202) {
+        const { jobId } = await res.json();
+        let job: PresentationJobResult;
+        try {
+          job = await waitForAIJob<PresentationJobResult>(jobId);
+        } catch (err) {
+          setError(err instanceof Error && err.message ? err.message : "No se pudo generar la presentación.");
+          return;
+        }
+        const a = document.createElement("a");
+        a.href = job.url;
+        a.download = job.fileName;
+        a.click();
+        setSummary({ slides: job.slides, quality: job.quality, planner: job.planner, warnings: job.warnings, fileName: job.fileName });
         return;
       }
       const blob = await res.blob();

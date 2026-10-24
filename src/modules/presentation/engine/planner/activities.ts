@@ -53,7 +53,7 @@ export function classifyBlocks(c: LessonContent, prompt?: string): Blocks | null
   return [
     { kind: "text", text: prompt ?? labels(c.language).classifyPrompt },
     { kind: "columns", columns: cats.map((cat) => ({ heading: cat.label, emoji: emojiFor(cat.label), items: [] })) },
-    { kind: "bullets", items: words.map((w) => `${emojiFor(w) ?? ""} ${w}`.trim()) },
+    { kind: "bullets", items: words },
   ];
 }
 

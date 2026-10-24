@@ -25,6 +25,10 @@ import { renderLessonDocument } from "@/modules/presentation/lesson-document";
 import { AIService } from "@/modules/ai/ai.service";
 import { AICreditError } from "@/modules/ai/ai.credit-engine";
 import { requireActiveSubscription } from "@/modules/billing/entitlements";
+import { startAIJob } from "@/modules/ai/ai.background";
+import { putUpload } from "@/lib/storage";
+import type { PresentationJobResult } from "@/modules/presentation/presentation.job";
+import { randomBytes } from "crypto";
 
 export const dynamic = "force-dynamic";
 // La versión con IA puede tardar (diseño + ilustraciones)
@@ -275,11 +279,12 @@ async function respond(
   }
 }
 
+const PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
 function fileResponse(file: Buffer, title: string, format: string) {
   return new NextResponse(new Uint8Array(file), {
     headers: {
-      "Content-Type":
-        format === "pptx" ? "application/vnd.openxmlformats-officedocument.presentationml.presentation" : "application/pdf",
+      "Content-Type": format === "pptx" ? PPTX_TYPE : "application/pdf",
       "Content-Disposition": `attachment; filename="${deckFileName(title, format)}"`,
       "Content-Length": String(file.length),
       "Cache-Control": "no-store",
@@ -408,39 +413,72 @@ async function respondV2(lessonId: string, opts: V2Options) {
   }
   const vocabOnly = !planner && opts.vocabPhotos;
 
+  // Solo lanza mensajes que se pueden mostrar al profesor
+  const run = async (): Promise<GeneratePresentationResult> => {
+    try {
+      const result = await generatePresentation({
+        lesson: {
+          lessonId,
+          title: lesson.title,
+          courseTitle: course.title,
+          academyName: course.tenant.name,
+          language: course.language || "es",
+          level: course.level,
+          blocks,
+          teacherPlan: (lesson.teacherPlan as never) ?? null,
+        },
+        density: opts.density,
+        targetSlides: opts.slideCount,
+        design: { ...design, brandPrimary: primary },
+        planner: planner ? { kind: "llm", call: planner.call } : { kind: "heuristic" },
+        images: {
+          load: loadImage,
+          searchLibrary: librarySearch(auth.userId),
+          generate: planner && opts.ai?.imageCount
+            ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey })
+            : vocabOnly ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: `vocab-${vocabOnly.idempotencyKey}` }) : undefined,
+        },
+        imageBudget: vocabOnly ? MAX_VOCAB_PHOTOS : opts.ai?.imageCount ?? 0,
+        imagePurposes: vocabOnly ? ["vocabulary"] : undefined,
+      });
+      await planner?.finish(result.plan.metadata.planner === "llm");
+      return result;
+    } catch (error) {
+      await planner?.finish(false, error).catch(() => undefined);
+      console.error("[presentation-v2] Error generando", error);
+      throw new Error(error instanceof PresentationEngineError ? error.message : "No se pudo generar la presentación.");
+    }
+  };
+
+  // Con IA o fotos tarda más de lo que deja pasar el proxy del hosting (~30 s):
+  // se genera en segundo plano, se guarda y el navegador la descarga al terminar
+  if (planner || vocabOnly) {
+    const jobId = await startAIJob<PresentationJobResult>(
+      auth,
+      "PRESENTATION",
+      async () => {
+        const result = await run();
+        const fileName = `pres-${auth.tenantId}-${randomBytes(12).toString("hex")}.pptx`;
+        const url = await putUpload("presentations", fileName, result.file, PPTX_TYPE);
+        return {
+          url,
+          fileName: deckFileName(lesson.title, "pptx"),
+          slides: result.slides.length,
+          quality: result.quality.finalScore,
+          planner: result.plan.metadata.planner,
+          warnings: result.warnings,
+        };
+      },
+      (error) => (error instanceof Error && error.message ? error.message : "No se pudo generar la presentación.")
+    );
+    return NextResponse.json({ jobId }, { status: 202 });
+  }
+
   let result: GeneratePresentationResult;
   try {
-    result = await generatePresentation({
-      lesson: {
-        lessonId,
-        title: lesson.title,
-        courseTitle: course.title,
-        academyName: course.tenant.name,
-        language: course.language || "es",
-        level: course.level,
-        blocks,
-        teacherPlan: (lesson.teacherPlan as never) ?? null,
-      },
-      density: opts.density,
-      targetSlides: opts.slideCount,
-      design: { ...design, brandPrimary: primary },
-      planner: planner ? { kind: "llm", call: planner.call } : { kind: "heuristic" },
-      images: {
-        load: loadImage,
-        searchLibrary: librarySearch(auth.userId),
-        generate: planner && opts.ai?.imageCount
-          ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: opts.ai.idempotencyKey })
-          : vocabOnly ? imageGenerator({ tenantId: auth.tenantId, userId: auth.userId, idempotencyKey: `vocab-${vocabOnly.idempotencyKey}` }) : undefined,
-      },
-      imageBudget: vocabOnly ? MAX_VOCAB_PHOTOS : opts.ai?.imageCount ?? 0,
-      imagePurposes: vocabOnly ? ["vocabulary"] : undefined,
-    });
-    await planner?.finish(result.plan.metadata.planner === "llm");
+    result = await run();
   } catch (error) {
-    await planner?.finish(false, error).catch(() => undefined);
-    console.error("[presentation-v2] Error generando", error);
-    const message = error instanceof PresentationEngineError ? error.message : "No se pudo generar la presentación.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 
   const res = fileResponse(result.file, lesson.title, "pptx");

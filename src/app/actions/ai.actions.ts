@@ -631,7 +631,7 @@ export async function createLessonWithAIAction(formData: FormData) {
 export async function getAIJobAction(jobId: string) {
   try {
     const auth = await requireTenantAccess(STAFF_ROLES);
-    const state = await getAIJobState<ClassPlanJobResult | LessonJobResult>(auth, String(jobId));
+    const state = await getAIJobState<unknown>(auth, String(jobId));
     if (!state) return { status: "FAILED" as const, error: "No se encontró la generación." };
     if (state.status === "DONE") {
       revalidatePath("/dashboard/resources");
