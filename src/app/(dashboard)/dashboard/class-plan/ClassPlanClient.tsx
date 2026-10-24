@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { generateClassPlanAction, type ClassPlanJobResult } from "@/app/actions/ai.actions";
-import { waitForAIJob, LOST_CONNECTION_ERROR } from "@/lib/ai-job-client";
+import type { ClassPlanJobResult } from "@/app/actions/ai.actions";
+import { runAIJob, LOST_CONNECTION_ERROR } from "@/lib/ai-job-client";
 import type { ClassPlanOutput } from "@/modules/ai/class-plan.schema";
 import { ClassPlanForm } from "./ClassPlanForm";
 import { ClassPlanView } from "./ClassPlanView";
@@ -20,12 +20,7 @@ export function ClassPlanClient() {
     startTransition(async () => {
       let res: ClassPlanJobResult;
       try {
-        const started = await generateClassPlanAction(fd);
-        if (!started.success) {
-          setError(started.error);
-          return;
-        }
-        res = await waitForAIJob<ClassPlanJobResult>(started.jobId);
+        res = await runAIJob<ClassPlanJobResult>("/api/ai/class-plan", fd);
       } catch (err) {
         setError(err instanceof Error && err.message ? err.message : LOST_CONNECTION_ERROR);
         return;

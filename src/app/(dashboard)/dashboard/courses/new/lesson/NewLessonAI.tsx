@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createLessonWithAIAction, type LessonJobResult } from "@/app/actions/ai.actions";
-import { waitForAIJob, LOST_CONNECTION_ERROR } from "@/lib/ai-job-client";
+import type { LessonJobResult } from "@/app/actions/ai.actions";
+import { runAIJob, LOST_CONNECTION_ERROR } from "@/lib/ai-job-client";
 import { ClassPlanForm } from "../../../class-plan/ClassPlanForm";
 
 export function NewLessonAI() {
@@ -22,9 +22,7 @@ export function NewLessonAI() {
         startTransition(async () => {
           let res: LessonJobResult;
           try {
-            const started = await createLessonWithAIAction(fd);
-            if (!started.success) return setError(started.error);
-            res = await waitForAIJob<LessonJobResult>(started.jobId);
+            res = await runAIJob<LessonJobResult>("/api/ai/lesson", fd);
           } catch (err) {
             return setError(err instanceof Error && err.message ? err.message : LOST_CONNECTION_ERROR);
           }
