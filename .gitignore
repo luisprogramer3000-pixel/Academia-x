@@ -55,3 +55,4 @@ next-env.d.ts
 # Archivos comprimidos de despliegue
 *.zip
 
+.env.hostinger-tokyo
