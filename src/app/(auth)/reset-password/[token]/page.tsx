@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { resetPasswordAction } from "@/app/actions/auth.actions";
+import { useI18n } from "@/i18n/client";
 
 interface ResetPasswordPageProps {
   params: Promise<{ token: string }>;
@@ -10,6 +11,8 @@ interface ResetPasswordPageProps {
 
 export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const { token } = use(params);
+  const { t: d } = useI18n();
+  const t = d.auth.reset;
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -17,7 +20,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   async function handleSubmit(formData: FormData) {
     setError(null);
     if (formData.get("password") !== formData.get("confirm")) {
-      setError("Las contraseñas no coinciden.");
+      setError(t.mismatch);
       return;
     }
     setLoading(true);
@@ -25,32 +28,32 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
     const res = await resetPasswordAction(formData);
     setLoading(false);
     if (res.success) setDone(true);
-    else setError(res.error || "No se pudo restablecer la contraseña.");
+    else setError(res.error || t.failed);
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
       <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900 border border-slate-800 space-y-6">
-        <h1 className="text-2xl font-bold text-white">Crea una nueva contraseña</h1>
+        <h1 className="text-2xl font-bold text-white">{t.title}</h1>
         {done ? (
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm">
-              Tu contraseña fue actualizada.
+              {t.done}
             </div>
             <Link href="/login" className="block text-center py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold">
-              Iniciar sesión
+              {d.common.signIn}
             </Link>
           </div>
         ) : (
           <form action={handleSubmit} className="space-y-4">
             {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
-            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder="Nueva contraseña (mín. 8)"
+            <input type="password" name="password" required minLength={8} autoComplete="new-password" placeholder={t.newPassword}
               className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500" />
-            <input type="password" name="confirm" required minLength={8} autoComplete="new-password" placeholder="Repite la contraseña"
+            <input type="password" name="confirm" required minLength={8} autoComplete="new-password" placeholder={t.repeat}
               className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500" />
             <button type="submit" disabled={loading}
               className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm disabled:opacity-50">
-              {loading ? "Guardando..." : "Guardar contraseña"}
+              {loading ? t.saving : t.save}
             </button>
           </form>
         )}

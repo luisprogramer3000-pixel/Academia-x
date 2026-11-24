@@ -7,6 +7,7 @@ import { getSession, clearSession } from "@/lib/session";
 import { verifyPassword } from "@/lib/password";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendVerificationEmail } from "@/modules/user/email-verification";
+import { getI18n } from "@/i18n/server";
 
 /**
  * Acciones de "Mi cuenta": reenviar la confirmación del email, cerrar sesión en
@@ -15,12 +16,13 @@ import { sendVerificationEmail } from "@/modules/user/email-verification";
  */
 
 export async function resendVerificationAction(): Promise<{ success: boolean; message: string }> {
+  const { t } = await getI18n();
   const session = await getSession();
-  if (!session?.userId) return { success: false, message: "Inicia sesión para continuar." };
+  if (!session?.userId) return { success: false, message: t.serverErrors.signInToContinue };
   const sent = await sendVerificationEmail(session.userId);
   return sent
-    ? { success: true, message: "Te enviamos un nuevo enlace. Revisa tu bandeja de entrada (y la carpeta de spam)." }
-    : { success: false, message: "Ya pediste varios enlaces. Espera unos minutos antes de pedir otro." };
+    ? { success: true, message: t.serverErrors.verificationSent }
+    : { success: false, message: t.serverErrors.verificationThrottled };
 }
 
 /** Invalida todos los tokens de sesión emitidos (también el de este navegador). */

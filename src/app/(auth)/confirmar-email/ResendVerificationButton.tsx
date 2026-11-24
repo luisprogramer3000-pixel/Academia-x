@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { resendVerificationAction } from "@/app/actions/account.actions";
+import { useI18n } from "@/i18n/client";
 
 export function ResendVerificationButton() {
+  const { t } = useI18n();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -15,7 +17,7 @@ export function ResendVerificationButton() {
         onClick={() => startTransition(async () => setResult(await resendVerificationAction()))}
         className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm disabled:opacity-50"
       >
-        {pending ? "Enviando..." : "Reenviar el enlace"}
+        {pending ? t.auth.confirm.sending : t.auth.confirm.resend}
       </button>
       {result && <p className={`text-xs ${result.success ? "text-emerald-400" : "text-amber-400"}`}>{result.message}</p>}
     </div>

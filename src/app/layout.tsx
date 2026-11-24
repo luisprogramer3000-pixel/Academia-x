@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { getI18n } from "@/i18n/server";
+import { I18nProvider } from "@/i18n/client";
 
-export const metadata: Metadata = {
-  title: "Virtual Language School in a Box — Mentor Studio Global",
-  description: "Crea tu propia academia de idiomas online, administra tus alumnos, vende tus cursos y utiliza IA para enseñar mejor.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t.meta.title, description: t.meta.description };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Idioma de la interfaz: cookie del botón de idioma o, si no hay, el del navegador
+  const { locale, t } = await getI18n();
   return (
-    <html lang="es" className="dark" data-theme="dark" suppressHydrationWarning>
+    <html lang={locale} className="dark" data-theme="dark" suppressHydrationWarning>
       <body className="antialiased min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300" suppressHydrationWarning>
-        {children}
+        <I18nProvider locale={locale} t={t}>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );

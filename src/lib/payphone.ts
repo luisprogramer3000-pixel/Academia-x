@@ -51,21 +51,22 @@ export function splitIva(totalCents: number): { amountWithTax: number; tax: numb
 
 /**
  * Identificador nuestro ante Payphone: 15 caracteres (el límite más estricto
- * de su documentación). Prefijo: S = plan, T = créditos, R = renovación automática.
+ * de su documentación). Prefijo: S = plan, T = créditos, R = renovación automática,
+ * L = intento de Link de Suscripción (identificador interno: PayPhone asigna el suyo al pago).
  */
-export function newClientTransactionId(prefix: "S" | "T" | "R"): string {
+export function newClientTransactionId(prefix: "S" | "T" | "R" | "L"): string {
   const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const bytes = crypto.randomBytes(14);
   return prefix + Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
-async function call<T>(path: string, body: unknown): Promise<T> {
+async function call<T>(path: string, body: unknown, method: "POST" | "GET" = "POST"): Promise<T> {
   const token = process.env.PAYPHONE_TOKEN;
   if (!token) throw new Error("PAYPHONE_TOKEN no está configurado.");
   const res = await fetch(`${API}${path}`, {
-    method: "POST",
+    method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: method === "POST" ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(30_000),
     cache: "no-store",
   });
@@ -163,6 +164,16 @@ function normalize(r: any): PayphoneResult {
 /** Confirma un pago del botón (obligatorio en los 5 minutos siguientes, o Payphone lo anula). */
 export async function confirmPayment(id: number, clientTransactionId: string): Promise<PayphoneResult> {
   return normalize(await call("/button/V2/Confirm", { id, clientTxId: clientTransactionId }));
+}
+
+/**
+ * Consulta una transacción por el identificador de PayPhone (API Sale:
+ * GET /api/Sale/{transactionId}, statusCode 1 pendiente, 2 rechazada, 3 aprobada).
+ * Se usa para verificar los pagos de Links de Suscripción, que no pasan por
+ * nuestro Prepare/Confirm. Límite de PayPhone: 30 consultas por minuto.
+ */
+export async function getSale(transactionId: number): Promise<PayphoneResult> {
+  return normalize(await call(`/Sale/${encodeURIComponent(String(transactionId))}`, null, "GET"));
 }
 
 // ─── Tarjeta guardada (tokenización) ─────────────────────────────────────────

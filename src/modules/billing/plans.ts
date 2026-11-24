@@ -116,3 +116,17 @@ export const SAAS_PLANS: Record<string, PlanConfig> = {
     },
   },
 };
+
+/** Importe máximo que PayPhone admite en un solo cobro (USD 1,000). */
+export const PAYPHONE_MAX_CHARGE_CENTS = 100_000;
+/** Horas entre la primera y la segunda parte de un plan cobrado en dos pagos (día 1 → día 2). */
+export const SECOND_INSTALLMENT_DELAY_HOURS = 24;
+
+/**
+ * Número de cobros en que se divide un plan: 2 si supera el máximo de PayPhone
+ * (hoy solo Academy Executive anual: 1,910.40 = 2 × 955.20), 1 en los demás.
+ */
+export function chargeInstallments(planId: string, billingInterval: BillingInterval): 1 | 2 {
+  const amount = SAAS_PLANS[planId]?.pricing[billingInterval]?.amountCents ?? 0;
+  return amount > PAYPHONE_MAX_CHARGE_CENTS ? 2 : 1;
+}

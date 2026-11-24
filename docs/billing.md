@@ -7,7 +7,22 @@
 
 La venta de cursos de cada academia a sus alumnos no pasa por la plataforma: cada curso tiene un enlace de pago externo (Payphone, PayPal…).
 
-## 2. Payphone no tiene suscripciones
+## 2. Dos caminos en Payphone
+
+```text
+PAYPHONE
+├── Cajita / botón (Prepare → Confirm)   → créditos de IA, pagos puntuales y Academy Executive anual (2 pagos)
+└── Links de Suscripción (PayPhone Business, recurrencia gestionada por PayPhone)
+    ├── STARTER_MONTHLY            → PAYPHONE_SUB_STARTER_MONTHLY
+    ├── STARTER_ANNUAL             → PAYPHONE_SUB_STARTER_ANNUAL
+    ├── PROFESSIONAL_VIP_MONTHLY   → PAYPHONE_SUB_PRO_MONTHLY
+    ├── PROFESSIONAL_VIP_ANNUAL    → PAYPHONE_SUB_PRO_ANNUAL
+    └── ACADEMY_EXECUTIVE_MONTHLY  → PAYPHONE_SUB_ACADEMY_MONTHLY
+```
+
+Ver la sección 7. Lo que sigue (secciones 2–4) aplica a la Cajita y a las suscripciones antiguas pagadas con botón.
+
+## 2b. La Cajita no tiene suscripciones
 
 Payphone ofrece un **botón de pago** y, con aprobación previa, **tokenización** de tarjetas. Su documentación es explícita: *"La tokenización de Payphone NO es un sistema de pagos recurrentes"*. La recurrencia la implementa la plataforma:
 
@@ -45,3 +60,28 @@ Sin `PAYPHONE_TOKEN` / `PAYPHONE_STORE_ID` y fuera de producción, los pagos se 
 ## 6. Panel del administrador
 
 `/dashboard/admin/sales` (`sales-analytics.service.ts`): MRR estimado de las suscripciones `pp_` vigentes, lo **cobrado** por mes (pagos `APPROVED`), estados, renovaciones próximas y si cada academia tiene cobro automático o manual.
+
+## 7. Links de Suscripción de PayPhone (5 planes recurrentes)
+
+Archivos: `subscription-plan-codes.ts` (códigos y mapeo, apto para cliente), `payphone-subscription-links.ts` (lee las variables `PAYPHONE_SUB_*`, solo servidor), `payphone-subscription-link.service.ts` (lógica), `POST /api/payphone/subscription-checkout`.
+
+1. **Contratar**: el panel envía solo `{ planCode }`. El servidor valida sesión (OWNER), código y variable; registra un `Payment` `PENDING` con `method = "LINK"` (identificador interno `L…`) y devuelve `{ checkoutUrl }`. Si falta la variable: 503 «Este método de pago no está disponible temporalmente.» y el error se registra en el servidor. Mismo plan ya activo por link: 409. Un intento pendiente del mismo plan se reutiliza 24 h.
+2. **Redirigir no activa nada.** Estados: `PENDING` (Payment LINK pendiente, sin fila de Subscription) → `active` → `past_due` (vencido, 7 días de gracia) → `canceled`.
+3. **Primer cobro**: PayPhone envía `NotificacionPago` (solo notifica pagos **aprobados**). Si el `ClientTransactionId` no es de un pago del botón, se **verifica** con `GET /api/Sale/{TransactionId}` (nunca se confía en el aviso) y se casa así: importe = precio de uno de los 5 planes **y** correo del pagador = correo del usuario que inició el intento (últimos 7 días). Si hay una sola academia posible, el Payment pasa a `APPROVED` y `applySubscriptionPayment` activa el plan. Si no hay coincidencia o es ambigua, se registra `[payphone] … Revisar a mano` en el log y no se activa nada.
+4. **Renovaciones**: si PayPhone también notifica cada cobro recurrente, se registra un nuevo Payment LINK aprobado (idempotente por `payphoneTransactionId`) y se suma un periodo, siempre que la academia siga con ese plan por link.
+5. **Cron**: `renewDueSubscriptions` nunca cobra ni recuerda renovar a mano un plan por link. Si vence sin notificación de renovación, pasa a `past_due` y se avisa una vez; tras la gracia, `canceled`.
+6. **Cambio de plan** con un link activo: se permite (el panel advierte), el nuevo plan empieza desde su primer cobro, pero **la suscripción anterior debe cancelarse en PayPhone** (no hay API documentada para hacerlo desde aquí).
+
+Requisitos: `PAYPHONE_TOKEN` (para consultar la venta), la notificación externa habilitada por PayPhone apuntando a `https://<dominio>/api/payphone/NotificacionPago`, y el importe de cada link igual al precio interno (`plans.ts`).
+
+**No documentado por PayPhone (pendiente de confirmar con su soporte)**: eventos de cancelación, rechazo o mora de una suscripción; si los cobros recurrentes generan `NotificacionPago`; si los links aceptan un parámetro propio (p. ej. referencia) para identificar la academia sin depender del correo; si `GET /api/Sale/{id}` devuelve las ventas de links de PayPhone Business con el token de la aplicación.
+
+### Academy Executive anual en dos pagos (Cajita, sin renovación automática)
+
+PayPhone no admite cobros de más de USD 1,000 (`PAYPHONE_MAX_CHARGE_CENTS`) y el plan cuesta 1,910.40, así que `chargeInstallments` lo divide en **dos pagos de 955.20 con la Cajita**. `Payment.installment` guarda la parte (1 o 2). No usa Links de Suscripción.
+
+1. **Día 1**: «Contratar» o «Renovar» cobra la parte 1. Al confirmarse, el plan queda activo con **acceso provisional de 3 días** (`PROVISIONAL_ACCESS_DAYS`), salvo que ya tuviera un periodo pagado más largo (renovación anticipada).
+2. **Día 2** (24 h después, `SECOND_INSTALLMENT_DELAY_HOURS`): el mismo botón cobra la parte 2. Antes de las 24 h muestra la hora en que se habilita. Facturación enseña «Pagar segunda parte» y el cron horario avisa por panel y correo (y lo repite a las 48 h).
+3. **Parte 2 confirmada**: un año desde el pago de la parte 1; si era una renovación con acceso vigente, un año más sobre el vencimiento que tenía.
+4. **Renovación**: manual. El cron avisa 7, 3 y 1 días antes y al vencer, como cualquier plan de la Cajita; el cliente repite parte 1 y parte 2. Sin cobro automático con tarjeta guardada (supera el máximo por cobro).
+5. Sin parte 2 en 10 días (`SECOND_INSTALLMENT_WINDOW_DAYS`), el siguiente pago vuelve a ser la parte 1. El acceso termina tras los 3 días provisionales más los 7 de gracia.

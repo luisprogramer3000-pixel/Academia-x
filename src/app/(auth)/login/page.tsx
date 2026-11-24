@@ -8,9 +8,13 @@ import { ArrowRight, ArrowLeft, LogIn, Mail, Lock } from "lucide-react";
 import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useI18n } from "@/i18n/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t: d } = useI18n();
+  const t = d.auth.login;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,7 +35,7 @@ export default function LoginPage() {
       router.push(res.redirectTo || "/dashboard");
       router.refresh();
     } else {
-      setError(res.error || "Error al iniciar sesión");
+      setError(res.error || t.genericError);
       setLoading(false);
     }
   };
@@ -43,7 +47,8 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative z-10">
         {/* Top bar theme toggle */}
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
+          <LanguageSwitcher />
           <ThemeToggle />
         </div>
 
@@ -56,7 +61,7 @@ export default function LoginPage() {
                 Mentor Studio Global
               </span>
               <span className="block text-[10px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
-                Executive EdTech Suite
+                {d.common.tagline}
               </span>
             </div>
           </Link>
@@ -67,10 +72,10 @@ export default function LoginPage() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <LogIn className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              Iniciar Sesión
+              {t.title}
             </h1>
             <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-              Accede a tu panel de control de academia o campus de alumno.
+              {t.subtitle}
             </p>
           </div>
 
@@ -83,7 +88,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                Correo Electrónico
+                {t.email}
               </label>
               <div className="relative">
                 <Mail className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
@@ -92,7 +97,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="profesor@miacademia.com"
+                  placeholder={t.emailPlaceholder}
                   className="w-full pl-11 pr-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                 />
               </div>
@@ -100,10 +105,10 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                Contraseña
+                {t.password}
               </label>
               <Link href="/forgot-password" className="float-right -mt-6 text-xs text-amber-700 dark:text-amber-400 hover:underline font-semibold">
-                ¿Olvidaste tu contraseña?
+                {t.forgot}
               </Link>
               <div className="relative">
                 <Lock className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5" />
@@ -124,10 +129,10 @@ export default function LoginPage() {
               className="w-full py-3.5 px-4 rounded-xl gold-gradient-bg text-slate-950 font-bold transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
             >
               {loading ? (
-                "Iniciando sesión..."
+                t.submitting
               ) : (
                 <>
-                  <span>Ingresar a mi Cuenta</span>
+                  <span>{t.submit}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -135,9 +140,9 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-xs text-slate-700 dark:text-slate-400 font-medium">
-            ¿No tienes una academia aún?{" "}
+            {t.noAcademy}{" "}
             <Link href="/create-academy" className="text-amber-700 dark:text-amber-400 hover:underline font-bold">
-              Crea tu academia
+              {t.createAcademy}
             </Link>
           </div>
         </div>
@@ -146,7 +151,7 @@ export default function LoginPage() {
         <div className="text-center mt-6">
           <Link href="/" className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
-            Volver a la página principal
+            {d.common.backHome}
           </Link>
         </div>
       </div>

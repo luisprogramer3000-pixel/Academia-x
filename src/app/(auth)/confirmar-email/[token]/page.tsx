@@ -2,8 +2,12 @@ import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { confirmEmailToken } from "@/modules/user/email-verification";
+import { getI18n } from "@/i18n/server";
 
-export const metadata = { title: "Confirmar correo" };
+export async function generateMetadata() {
+  const { t } = await getI18n();
+  return { title: t.auth.confirm.tokenPageTitle };
+}
 export const dynamic = "force-dynamic";
 
 interface Props {
@@ -16,6 +20,8 @@ export default async function ConfirmEmailTokenPage({ params }: Props) {
   const userId = await confirmEmailToken(token);
   const session = await getSession();
   const sameUser = Boolean(userId && session?.userId === userId);
+  const { t: d } = await getI18n();
+  const t = d.auth.confirm;
   const next = session?.academyRole === "STUDENT" ? "/campus" : "/dashboard/billing?welcome=1";
 
   return (
@@ -24,24 +30,24 @@ export default async function ConfirmEmailTokenPage({ params }: Props) {
         {userId ? (
           <>
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto" />
-            <h1 className="text-2xl font-bold text-white">¡Correo confirmado!</h1>
-            <p className="text-sm text-slate-400">Tu cuenta ya está activa.</p>
+            <h1 className="text-2xl font-bold text-white">{t.confirmedTitle}</h1>
+            <p className="text-sm text-slate-400">{t.confirmedBody}</p>
             <Link
               href={sameUser ? next : "/login"}
               className="inline-block w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm"
             >
-              {sameUser ? "Continuar" : "Iniciar sesión"}
+              {sameUser ? t.continue : d.common.signIn}
             </Link>
           </>
         ) : (
           <>
             <XCircle className="w-12 h-12 text-red-400 mx-auto" />
-            <h1 className="text-2xl font-bold text-white">El enlace no es válido</h1>
+            <h1 className="text-2xl font-bold text-white">{t.invalidTitle}</h1>
             <p className="text-sm text-slate-400">
-              Puede que haya caducado (dura 48 horas) o que ya lo hayas usado. Inicia sesión para pedir uno nuevo.
+              {t.invalidBody}
             </p>
             <Link href={session ? "/confirmar-email" : "/login"} className="inline-block w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm">
-              {session ? "Pedir un enlace nuevo" : "Iniciar sesión"}
+              {session ? t.requestNew : d.common.signIn}
             </Link>
           </>
         )}

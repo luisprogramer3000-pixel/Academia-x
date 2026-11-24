@@ -15,7 +15,7 @@ import {
   type PayphoneResult,
 } from "@/lib/payphone";
 import { BillingService, PAST_DUE_GRACE_DAYS, payphoneSubscriptionId, type PlanId } from "./billing.service";
-import { SAAS_PLANS } from "./plans";
+import { SAAS_PLANS, chargeInstallments } from "./plans";
 import { CreditPurchaseService } from "./credit-purchase.service";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -23,6 +23,22 @@ const DAY = 24 * 60 * 60 * 1000;
 const MAX_RENEWAL_ATTEMPTS = 3;
 
 const escapeHtml = (v: string) => v.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** La parte 2 de un plan en dos pagos aún no se puede pagar (se habilita 24 h después de la parte 1). */
+export class SecondInstallmentNotYetError extends Error {
+  constructor(public availableAt: Date) {
+    super(`Ya pagaste la primera parte. La segunda parte se habilita el ${availableAt.toISOString()}.`);
+    this.name = "SecondInstallmentNotYetError";
+  }
+}
+
+/** No se pudo iniciar el cobro con Payphone (Prepare falló). */
+export class PaymentStartError extends Error {
+  constructor() {
+    super("No se pudo iniciar el pago con Payphone. Inténtalo de nuevo en unos minutos.");
+    this.name = "PaymentStartError";
+  }
+}
 
 type Outcome = { status: "approved" | "canceled" | "error"; kind: "SUBSCRIPTION" | "TOPUP" | null; message?: string };
 
@@ -50,7 +66,23 @@ export class PayphonePaymentService {
   }): Promise<{ redirectUrl: string }> {
     const plan = SAAS_PLANS[input.planId];
     if (!plan) throw new Error("Plan no válido.");
-    const amountCents = plan.pricing[input.billingInterval].amountCents;
+    const fullAmountCents = plan.pricing[input.billingInterval].amountCents;
+
+    // Plan por encima del máximo de PayPhone (Academy anual): dos pagos, día 1 y día 2
+    const installments = chargeInstallments(input.planId, input.billingInterval);
+    let installment: 1 | 2 | null = null;
+    if (installments === 2) {
+      const awaiting = await BillingService.getAwaitingSecondInstallment(input.tenantId);
+      if (awaiting && awaiting.planId === input.planId && awaiting.billingInterval === input.billingInterval) {
+        if (Date.now() < awaiting.availableAt.getTime()) {
+          throw new SecondInstallmentNotYetError(awaiting.availableAt);
+        }
+        installment = 2;
+      } else {
+        installment = 1;
+      }
+    }
+    const amountCents = installment ? fullAmountCents / installments : fullAmountCents;
 
     if (isMockPaymentsMode()) {
       // Desarrollo sin Payphone: se aprueba al instante (bloqueado en producción)
@@ -69,11 +101,14 @@ export class PayphonePaymentService {
         amountCents,
         taxCents: splitIva(amountCents).tax,
         clientTransactionId: newClientTransactionId("S"),
-        saveCard: input.saveCard && isTokenizationEnabled(),
+        installment,
+        // Un plan en dos pagos no se puede cobrar solo con la tarjeta (supera el máximo por cobro)
+        saveCard: input.saveCard && isTokenizationEnabled() && !installment,
       },
     });
     const interval = input.billingInterval === "YEARLY" ? "anual" : "mensual";
-    return this.prepare(payment.id, payment.clientTransactionId, amountCents, `Mentor Studio Global · Plan ${plan.name} (${interval})`, "/dashboard/billing?checkout=canceled");
+    const part = installment ? ` · parte ${installment} de 2` : "";
+    return this.prepare(payment.id, payment.clientTransactionId, amountCents, `Mentor Studio Global · Plan ${plan.name} (${interval})${part}`, "/dashboard/billing?checkout=canceled");
   }
 
   static async startTopupPayment(input: {
@@ -114,7 +149,7 @@ export class PayphonePaymentService {
         where: { id: paymentId },
         data: { status: "FAILED", failureReason: error instanceof Error ? error.message.slice(0, 300) : "Prepare falló" },
       });
-      throw new Error("No se pudo iniciar el pago con Payphone. Inténtalo de nuevo en unos minutos.");
+      throw new PaymentStartError();
     }
   }
 
@@ -186,7 +221,26 @@ export class PayphonePaymentService {
 
   private static async applyApproved(paymentId: string) {
     const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
-    if (payment.kind === "SUBSCRIPTION" && payment.planId && payment.billingInterval) {
+    if (payment.kind === "SUBSCRIPTION" && payment.planId && payment.billingInterval && payment.installment === 1) {
+      await BillingService.applyFirstInstallment({
+        tenantId: payment.tenantId,
+        planId: payment.planId as PlanId,
+        billingInterval: payment.billingInterval,
+        paidAt: payment.confirmedAt ?? new Date(),
+      });
+    } else if (payment.kind === "SUBSCRIPTION" && payment.planId && payment.billingInterval && payment.installment === 2) {
+      const part1 = await prisma.payment.findFirst({
+        where: { tenantId: payment.tenantId, kind: "SUBSCRIPTION", status: "APPROVED", installment: 1, planId: payment.planId, createdAt: { lt: payment.createdAt } },
+        orderBy: { createdAt: "desc" },
+        select: { confirmedAt: true, createdAt: true },
+      });
+      await BillingService.applySecondInstallment({
+        tenantId: payment.tenantId,
+        planId: payment.planId as PlanId,
+        billingInterval: payment.billingInterval,
+        part1PaidAt: part1 ? part1.confirmedAt ?? part1.createdAt : payment.confirmedAt ?? new Date(),
+      });
+    } else if (payment.kind === "SUBSCRIPTION" && payment.planId && payment.billingInterval) {
       await BillingService.applySubscriptionPayment({
         tenantId: payment.tenantId,
         planId: payment.planId as PlanId,
@@ -211,8 +265,46 @@ export class PayphonePaymentService {
 
   // ─── Renovación automática (cron diario u horario) ────────────────────────
 
+  /**
+   * Academy Executive anual (Cajita en dos pagos): desde el día 2 (24 h tras
+   * aprobarse la parte 1) avisa por el panel y por correo que ya puede pagar la
+   * parte 2, y lo recuerda 24 h después. El cliente paga desde Facturación.
+   */
+  static async remindSecondInstallments(now = new Date()): Promise<number> {
+    const parts1 = await prisma.payment.findMany({
+      where: {
+        kind: "SUBSCRIPTION",
+        status: "APPROVED",
+        installment: 1,
+        createdAt: { lte: new Date(now.getTime() - DAY), gte: new Date(now.getTime() - 10 * DAY) },
+      },
+      select: { tenantId: true },
+      distinct: ["tenantId"],
+      take: 200,
+    });
+    let sent = 0;
+    for (const { tenantId } of parts1) {
+      const awaiting = await BillingService.getAwaitingSecondInstallment(tenantId, now);
+      if (!awaiting || awaiting.availableAt > now) continue;
+      const step = now.getTime() - awaiting.part1PaidAt.getTime() >= 2 * DAY ? 2 : 1;
+      const plan = SAAS_PLANS[awaiting.planId];
+      const ok = await this.notify(
+        tenantId,
+        "SUBSCRIPTION_RENEWAL_REMINDER",
+        `second-installment:${awaiting.part1Id}:${step}`,
+        step === 1 ? "Ya puedes pagar la segunda parte de tu plan" : "Falta la segunda parte de tu plan",
+        `Tu plan ${plan?.name ?? ""} anual se paga en dos partes de ${(awaiting.amountCents / 100).toFixed(2)} USD. ` +
+          "Ya está habilitada la segunda: págala desde Facturación con Payphone para completar tu año de acceso.",
+        true
+      );
+      if (ok) sent++;
+    }
+    return sent;
+  }
+
   static async renewDueSubscriptions(now = new Date()) {
-    const summary = { charged: 0, failed: 0, reminded: 0, expired: 0 };
+    const summary = { charged: 0, failed: 0, reminded: 0, expired: 0, secondInstallmentReminders: 0 };
+    summary.secondInstallmentReminders = await this.remindSecondInstallments(now);
     const subs = await prisma.subscription.findMany({
       where: {
         externalId: { startsWith: "pp_" },
@@ -229,12 +321,38 @@ export class PayphonePaymentService {
       if (!plan) continue;
       const msLeft = sub.currentPeriodEnd.getTime() - now.getTime();
       const card = sub.tenant.paymentCard;
-      const canAutoCharge = Boolean(card) && sub.autoRenew && isTokenizationEnabled();
+      // Un plan en dos pagos supera el máximo por cobro: nunca se cobra solo con la tarjeta
+      const canAutoCharge = Boolean(card) && sub.autoRenew && isTokenizationEnabled() && chargeInstallments(planId, sub.billingInterval) === 1;
 
       // Venció hace más que la gracia: se marca vencida (el acceso ya se cortó)
       if (msLeft < -PAST_DUE_GRACE_DAYS * DAY) {
         await prisma.subscription.update({ where: { id: sub.id }, data: { status: "canceled" } });
         summary.expired++;
+        continue;
+      }
+
+      // Plan con Link de Suscripción: PayPhone cobra solo. Aquí nunca se cobra ni se
+      // pide renovar a mano; si al vencer no llegó la notificación del cobro, pasa a
+      // past_due (gracia) y se avisa una vez.
+      if ((await BillingService.getCurrentSubscriptionPaymentMethod(sub.tenantId)) === "LINK") {
+        if (msLeft <= 0) {
+          if (sub.status === "active") await prisma.subscription.update({ where: { id: sub.id }, data: { status: "past_due" } });
+          const sent = await this.notify(
+            sub.tenantId,
+            "SUBSCRIPTION_PAYMENT_FAILED",
+            `link-renewal-missing:${sub.tenantId}:${sub.currentPeriodEnd.toISOString().slice(0, 10)}`,
+            "No recibimos la renovación de tu plan",
+            `PayPhone aún no nos confirmó el cobro de renovación de tu plan ${plan.name}. Revisa tu tarjeta o tu suscripción en PayPhone; tienes ${PAST_DUE_GRACE_DAYS} días de gracia. Si ya se te cobró, escríbenos a info@mentorstudioglobal.com.`,
+            true
+          );
+          if (sent) summary.reminded++;
+        }
+        continue;
+      }
+
+      // Pagó la parte 1 y falta la 2: el aviso lo envía remindSecondInstallments
+      if (await BillingService.getAwaitingSecondInstallment(sub.tenantId, now)) {
+        if (msLeft <= 0 && sub.status === "active") await prisma.subscription.update({ where: { id: sub.id }, data: { status: "past_due" } });
         continue;
       }
 

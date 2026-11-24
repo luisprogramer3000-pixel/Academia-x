@@ -617,7 +617,8 @@ model Payment {
   tenantId              String
   userId                String?
   kind                  String          // SUBSCRIPTION | TOPUP
-  /// BUTTON: el cliente pagó en el formulario de Payphone; TOKEN: cobro automático de la tarjeta guardada
+  /// BUTTON: el cliente pagó en el formulario de Payphone; TOKEN: cobro automático de la tarjeta guardada;
+  /// LINK: Link de Suscripción de PayPhone (PENDING = intento sin primer cobro verificado; PayPhone gestiona la recurrencia)
   method                String          @default("BUTTON")
   status                String          @default("PENDING") // PENDING | APPROVED | CANCELED | FAILED
   planId                String?
@@ -633,6 +634,8 @@ model Payment {
   lastDigits            String?
   /// El cliente aceptó guardar la tarjeta para cobros automáticos
   saveCard              Boolean         @default(false)
+  /// Parte de un plan cobrado en dos links (Academy Executive anual): 1 o 2. null = pago normal
+  installment           Int?
   failureReason         String?
   confirmedAt           DateTime?       @db.Timestamptz(3)
   createdAt             DateTime        @default(now()) @db.Timestamptz(3)

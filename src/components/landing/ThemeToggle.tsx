@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
+import { useI18n } from "@/i18n/client";
 
 export function ThemeToggle() {
+  const { t } = useI18n();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   const applyTheme = (newTheme: "dark" | "light") => {
@@ -37,7 +39,7 @@ export function ThemeToggle() {
       type="button"
       aria-label="Toggle Theme"
       className="p-2.5 rounded-xl glass-panel text-amber-500 hover:text-amber-400 hover:border-amber-400/50 transition-all duration-300 shadow-md flex items-center justify-center cursor-pointer"
-      title={theme === "dark" ? "Cambiar a Modo Claro VIP" : "Cambiar a Modo Oscuro VIP"}
+      title={theme === "dark" ? t.common.themeToLight : t.common.themeToDark}
     >
       {theme === "dark" ? (
         <Sun className="w-4.5 h-4.5 text-amber-400" />

@@ -110,6 +110,15 @@ export class SalesAnalyticsService {
       }),
     ]);
 
+    // Método del último pago de plan aprobado de cada academia (LINK = suscripción de PayPhone, cobro automático)
+    const lastPlanPayments = await prisma.payment.findMany({
+      where: { kind: "SUBSCRIPTION", status: "APPROVED" },
+      orderBy: { createdAt: "desc" },
+      distinct: ["tenantId"],
+      select: { tenantId: true, method: true },
+    });
+    const planMethodOf = new Map(lastPlanPayments.map((p) => [p.tenantId, p.method]));
+
     const ownerOf = new Map<string, string>();
     for (const o of owners) if (!ownerOf.has(o.tenantId)) ownerOf.set(o.tenantId, o.user.email);
 
@@ -139,7 +148,9 @@ export class SalesAnalyticsService {
         kind,
         currentPeriodEnd: s.currentPeriodEnd.toISOString(),
         createdAt: s.createdAt.toISOString(),
-        autoCharge: kind === "payphone" && s.autoRenew && Boolean(s.tenant.paymentCard),
+        autoCharge:
+          kind === "payphone" &&
+          (planMethodOf.get(s.tenantId) === "LINK" || (s.autoRenew && Boolean(s.tenant.paymentCard))),
       });
     }
 

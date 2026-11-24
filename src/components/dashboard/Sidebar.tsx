@@ -29,6 +29,7 @@ import {
   Cpu,
 } from "lucide-react";
 import { useIsPlatformAdmin } from "@/components/dashboard/AdminFlag";
+import { useI18n } from "@/i18n/client";
 
 interface SidebarProps {
   tenantSlug: string;
@@ -38,26 +39,28 @@ interface SidebarProps {
 export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
   const pathname = usePathname();
   const isPlatformAdmin = useIsPlatformAdmin();
+  const { t: d } = useI18n();
+  const t = d.dashboard.nav;
 
   const navItems = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Plan de clase IA", href: "/dashboard/class-plan", icon: CalendarClock },
-    { label: "Herramientas IA", href: "/dashboard/ai-tools", icon: Wand2 },
-    { label: "Mis recursos", href: "/dashboard/resources", icon: FolderOpen },
-    { label: "Biblioteca de la plataforma", href: "/dashboard/biblioteca", icon: Library },
-    { label: "Planificador", href: "/dashboard/planner", icon: CalendarDays },
-    { label: "Cursos", href: "/dashboard/courses", icon: Layers },
-    { label: "Lecciones", href: "/dashboard/lessons", icon: FileText },
-    { label: "Estudiantes", href: "/dashboard/students", icon: Users },
-    { label: "Solicitudes", href: "/dashboard/enrollment-requests", icon: Inbox },
-    { label: "Profesores", href: "/dashboard/teachers", icon: GraduationCap },
-    { label: "Copiloto IA", href: "/dashboard/ai-copilot", icon: Sparkles },
-    { label: "Certificados", href: "/dashboard/certificates", icon: Award },
-    { label: "Analíticas (Academy)", href: "/dashboard/analytics", icon: BarChart3 },
-    { label: "Facturación & Planes", href: "/dashboard/billing", icon: CreditCard },
-    { label: "Configuración & Branding", href: "/dashboard/settings", icon: Settings },
-    { label: "Papelera", href: "/dashboard/papelera", icon: Trash2 },
-    { label: "Soporte VIP", href: "/dashboard/support", icon: LifeBuoy },
+    { label: t.dashboard, href: "/dashboard", icon: LayoutDashboard },
+    { label: t.classPlan, href: "/dashboard/class-plan", icon: CalendarClock },
+    { label: t.aiTools, href: "/dashboard/ai-tools", icon: Wand2 },
+    { label: t.resources, href: "/dashboard/resources", icon: FolderOpen },
+    { label: t.library, href: "/dashboard/biblioteca", icon: Library },
+    { label: t.planner, href: "/dashboard/planner", icon: CalendarDays },
+    { label: t.courses, href: "/dashboard/courses", icon: Layers },
+    { label: t.lessons, href: "/dashboard/lessons", icon: FileText },
+    { label: t.students, href: "/dashboard/students", icon: Users },
+    { label: t.requests, href: "/dashboard/enrollment-requests", icon: Inbox },
+    { label: t.teachers, href: "/dashboard/teachers", icon: GraduationCap },
+    { label: t.copilot, href: "/dashboard/ai-copilot", icon: Sparkles },
+    { label: t.certificates, href: "/dashboard/certificates", icon: Award },
+    { label: t.analytics, href: "/dashboard/analytics", icon: BarChart3 },
+    { label: t.billing, href: "/dashboard/billing", icon: CreditCard },
+    { label: t.settings, href: "/dashboard/settings", icon: Settings },
+    { label: t.trash, href: "/dashboard/papelera", icon: Trash2 },
+    { label: t.support, href: "/dashboard/support", icon: LifeBuoy },
   ];
 
   return (
@@ -105,11 +108,11 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
           {isPlatformAdmin && (
             <div className="pt-3 mt-3 border-t border-slate-800/80 space-y-1">
               <p className="px-4 pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" /> Administración
+                <ShieldCheck className="w-3.5 h-3.5" /> {t.admin}
               </p>
               {[
-                { label: "Ventas y biblioteca", href: "/dashboard/admin/sales", icon: BadgeDollarSign },
-                { label: "Créditos IA (global)", href: "/dashboard/admin/ai-credits", icon: Cpu },
+                { label: t.adminSales, href: "/dashboard/admin/sales", icon: BadgeDollarSign },
+                { label: t.adminCredits, href: "/dashboard/admin/ai-credits", icon: Cpu },
               ].map(({ label, href, icon: Icon }) => (
                 <Link
                   key={href}
@@ -134,7 +137,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 border border-slate-800/50 hover:border-blue-500/30 transition-all group"
             >
               <Home className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" />
-              <span>Inicio Mentor Studio Global</span>
+              <span>{t.home}</span>
             </Link>
           </div>
         </nav>
@@ -148,7 +151,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
           className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs font-mono text-slate-300 hover:text-white hover:border-blue-500/40 transition-all"
         >
           <span className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-blue-400" /> Ver Página Pública
+            <Globe className="w-4 h-4 text-blue-400" /> {t.publicPage}
           </span>
           <span>↗</span>
         </Link>
@@ -157,7 +160,7 @@ export function Sidebar({ tenantSlug, academyName }: SidebarProps) {
           className="flex items-center justify-between p-3 rounded-xl bg-blue-600/10 border border-blue-500/30 text-xs font-semibold text-blue-200 hover:bg-blue-600/20 hover:text-white transition-all"
         >
           <span className="flex items-center gap-2">
-            <Pencil className="w-4 h-4 text-blue-400" /> Editar página principal
+            <Pencil className="w-4 h-4 text-blue-400" /> {t.editHome}
           </span>
         </Link>
       </div>

@@ -4,9 +4,13 @@ import Link from "next/link";
 import { ArrowRight, ArrowLeft, School } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { useI18n } from "@/i18n/client";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 function RegisterContent() {
   const searchParams = useSearchParams();
+  const { t: d } = useI18n();
+  const t = d.auth.register;
   const queryString = searchParams.toString();
   const createAcademyHref = queryString ? `/create-academy?${queryString}` : "/create-academy";
   return (
@@ -15,6 +19,9 @@ function RegisterContent() {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="w-full max-w-xl relative z-10">
+        <div className="flex justify-end mb-4">
+          <LanguageSwitcher variant="dashboard" />
+        </div>
         {/* Header Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-3 group">
@@ -37,10 +44,10 @@ function RegisterContent() {
         <div className="p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl backdrop-blur-xl">
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-bold text-white mb-3">
-              Comienza en Mentor Studio Global
+              {t.title}
             </h1>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Crea tu academia con tu propia marca en pocos minutos.
+              {t.subtitle}
             </p>
           </div>
 
@@ -57,12 +64,12 @@ function RegisterContent() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h2 className="font-bold text-lg text-white group-hover:text-blue-300 transition-colors">
-                      Soy Profesor / Fundador
+                      {t.founderTitle}
                     </h2>
                     <ArrowRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 transition-transform" />
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    Quiero crear y lanzar mi propia escuela de idiomas o centro de enseñanza con mi marca.
+                    {t.founderBody}
                   </p>
                 </div>
               </div>
@@ -71,9 +78,9 @@ function RegisterContent() {
           </div>
 
           <div className="mt-8 text-center text-xs text-slate-400">
-            ¿Ya posees una cuenta?{" "}
+            {t.haveAccount}{" "}
             <Link href="/login" className="text-blue-400 hover:underline font-medium">
-              Iniciar Sesión
+              {d.common.signIn}
             </Link>
           </div>
         </div>
@@ -82,7 +89,7 @@ function RegisterContent() {
         <div className="text-center mt-6">
           <Link href="/" className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
-            Volver a la página principal
+            {d.common.backHome}
           </Link>
         </div>
       </div>
@@ -92,7 +99,7 @@ function RegisterContent() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-100">Cargando...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-100" />}>
       <RegisterContent />
     </Suspense>
   );

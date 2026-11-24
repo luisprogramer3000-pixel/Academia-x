@@ -24,9 +24,13 @@ import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
 import { LandingPricing } from "@/components/landing/LandingPricing";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { getI18n } from "@/i18n/server";
 
 // Landing page for Mentor Studio Global EdTech Platform - Adaptative VIP Executive Style
-export default function Home() {
+export default async function Home() {
+  const { t: d } = await getI18n();
+  const t = d.landing;
   return (
     <div className="min-h-screen relative text-main selection:bg-amber-500 selection:text-slate-950 font-sans transition-colors duration-300">
       {/* 3D Multi-layer Interactive Parallax Background */}
@@ -45,7 +49,7 @@ export default function Home() {
                   Mentor Studio Global
                 </span>
                 <span className="block text-[10px] text-sky-custom font-mono tracking-widest uppercase font-semibold">
-                  Executive EdTech Suite
+                  {d.common.tagline}
                 </span>
               </div>
             </div>
@@ -56,36 +60,37 @@ export default function Home() {
                 href="#features"
                 className="hover:text-gold-custom transition-colors"
               >
-                Características VIP
+                {t.nav.features}
               </a>
               <a
                 href="#ai"
                 className="hover:text-gold-custom transition-colors"
               >
-                Copiloto IA
+                {t.nav.ai}
               </a>
               <a
                 href="#pricing"
                 className="hover:text-gold-custom transition-colors"
               >
-                Planes
+                {t.nav.pricing}
               </a>
             </nav>
 
             {/* Right actions */}
             <div className="flex items-center gap-3">
+              <LanguageSwitcher />
               <ThemeToggle />
               <Link
                 href="/login"
                 className="px-4 py-2 text-sm font-semibold text-muted-custom hover:text-main transition-colors"
               >
-                Iniciar Sesión
+                {d.common.signIn}
               </Link>
               <Link
                 href="/create-academy"
                 className="px-5 py-2.5 text-sm font-bold rounded-xl gold-gradient-bg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition-all"
               >
-                Crear Academia VIP
+                {t.nav.createAcademy}
               </Link>
             </div>
           </div>
@@ -105,25 +110,21 @@ export default function Home() {
                   </span>
                   <Sparkles className="w-4 h-4 text-gold-custom shrink-0" />
                   <span className="tracking-wide">
-                    La Plataforma de Élite para Educadores y Creadores de Conocimiento
+                    {t.hero.badge}
                   </span>
                 </div>
 
                 {/* Main Headline */}
                 <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.15] text-main">
-                  Transforma tu Pasión Docente en un{" "}
+                  {t.hero.titleStart}{" "}
                   <span className="gold-gradient-text block mt-1">
-                    Imperio Educativo Digital.
+                    {t.hero.titleHighlight}
                   </span>
                 </h1>
 
                 {/* Expanded Inspiring Message */}
                 <p className="text-base sm:text-lg text-muted-custom leading-relaxed font-normal max-w-2xl">
-                  Sin barreras técnicas ni intermediarios. Te brindamos el estándar
-                  VIP que mereces: crea tu propia academia de alta reputación,
-                  emite diplomas internacionales, multiplica tus ingresos y
-                  guía a tus alumnos con Copilotos Pedagógicos impulsados por IA.
-                  Tu legado educativo empieza aquí.
+                  {t.hero.body}
                 </p>
 
                 {/* CTA Buttons */}
@@ -132,7 +133,7 @@ export default function Home() {
                     href="/create-academy"
                     className="px-8 py-4 rounded-xl gold-gradient-bg font-bold text-base transition-all flex items-center justify-center gap-3 group shadow-xl shadow-amber-500/25"
                   >
-                    Comenzar Mi Academia
+                    {t.hero.cta}
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>
@@ -141,15 +142,15 @@ export default function Home() {
                 <div className="pt-4 flex flex-wrap items-center gap-6 text-xs text-subtle-custom font-semibold">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-gold-custom" />
-                    <span>Sin código requerido</span>
+                    <span>{t.hero.trustNoCode}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-sky-custom" />
-                    <span>Marca Blanca 100% Tuya</span>
+                    <span>{t.hero.trustWhiteLabel}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-custom" />
-                    <span>Certificados Automáticos</span>
+                    <span>{t.hero.trustCertificates}</span>
                   </div>
                 </div>
               </div>
@@ -164,7 +165,7 @@ export default function Home() {
                   <div className="relative aspect-[3/4] rounded-xl overflow-hidden shadow-2xl">
                     <Image
                       src="/images/teachers-hero.jpg"
-                      alt="Profesores realizando clases en plataforma Mentor Studio Global"
+                      alt={t.hero.imageAlt}
                       fill
                       sizes="(min-width: 1024px) 45vw, 100vw"
                       priority
@@ -181,10 +182,10 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="text-xs font-extrabold text-main">
-                        +1,200 Estudiantes
+                        {t.hero.studentsCount}
                       </div>
                       <div className="text-[11px] text-gold-custom font-bold">
-                        Comunidad Activa
+                        {t.hero.community}
                       </div>
                     </div>
                   </div>
@@ -196,10 +197,10 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="text-xs font-extrabold text-main">
-                        Copiloto IA Pedagógico
+                        {t.hero.copilot}
                       </div>
                       <div className="text-[11px] text-sky-custom font-bold">
-                        Generación MCER A1-C2 Activa
+                        {t.hero.copilotLevels}
                       </div>
                     </div>
                   </div>
@@ -214,13 +215,13 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
               <span className="text-xs font-mono tracking-widest text-gold-custom font-bold uppercase glass-panel px-4 py-1.5 rounded-full border border-amber-500/40 shadow-sm">
-                Infraestructura Educativa VIP
+                {t.features.badge}
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-main">
-                Todo lo que necesitas para escalar tu enseñanza con prestigio
+                {t.features.title}
               </h2>
               <p className="text-muted-custom text-base font-medium">
-                Consolida tu presencia digital sin fragmentación. Olvídate de plataformas lentas y hojas de cálculo.
+                {t.features.subtitle}
               </p>
             </div>
 
@@ -232,14 +233,14 @@ export default function Home() {
                     <BookOpen className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-bold mb-3 text-main">
-                    LMS Modular & Cursos Premium
+                    {t.features.lmsTitle}
                   </h3>
                   <p className="text-muted-custom leading-relaxed text-sm font-medium">
-                    Estructura módulos interactivos, recursos multimedia, ejercicios avanzados y enlaces a material complementario.
+                    {t.features.lmsBody}
                   </p>
                 </div>
                 <div className="pt-6 mt-6 border-t border-amber-500/20 flex items-center justify-between text-xs text-gold-custom font-mono font-bold">
-                  <span>Módulo Académico</span>
+                  <span>{t.features.lmsTag}</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -251,14 +252,14 @@ export default function Home() {
                     <Sparkles className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-bold mb-3 text-main">
-                    Copiloto IA Pedagógico
+                    {t.hero.copilot}
                   </h3>
                   <p className="text-muted-custom leading-relaxed text-sm font-medium">
-                    Diseña currículos alineados al estándar europeo (MCER A1-C2), quizes automáticos y planes de estudio personalizados en segundos.
+                    {t.features.aiBody}
                   </p>
                 </div>
                 <div className="pt-6 mt-6 border-t border-amber-500/20 flex items-center justify-between text-xs text-sky-custom font-mono font-bold">
-                  <span>Inteligencia Docente</span>
+                  <span>{t.features.aiTag}</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -270,14 +271,14 @@ export default function Home() {
                     <Shield className="w-7 h-7" />
                   </div>
                   <h3 className="text-xl font-bold mb-3 text-main">
-                    Multi-Tenancy y Marca Exclusiva
+                    {t.features.brandTitle}
                   </h3>
                   <p className="text-muted-custom leading-relaxed text-sm font-medium">
-                    Tu logo, tus colores corporativos y tu dominio personalizado. Aislamiento total de datos con seguridad de nivel institucional.
+                    {t.features.brandBody}
                   </p>
                 </div>
                 <div className="pt-6 mt-6 border-t border-amber-500/20 flex items-center justify-between text-xs text-emerald-custom font-mono font-bold">
-                  <span>Dominio Propio</span>
+                  <span>{t.features.brandTag}</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
@@ -292,13 +293,13 @@ export default function Home() {
               {/* Left Side: Copiloto IA Capabilities */}
               <div className="lg:col-span-6 space-y-6">
                 <span className="text-xs font-mono tracking-widest text-sky-custom font-bold uppercase glass-panel px-4 py-1.5 rounded-full border border-sky-500/40 shadow-sm">
-                  Copiloto IA Pedagógico Avanzado
+                  {t.ai.badge}
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-main">
-                  Genera Cursos Completo en Minutos alineados al Marco MCER
+                  {t.ai.title}
                 </h2>
                 <p className="text-muted-custom leading-relaxed font-medium">
-                  Nuestra Inteligencia Artificial comprende las metodologías de enseñanza de idiomas y creación de cursos profesionales. Te ayuda a redactar objetivos de aprendizaje, guiones de lección y quizes adaptativos automáticamente.
+                  {t.ai.body}
                 </p>
 
                 <div className="space-y-4 pt-2">
@@ -307,9 +308,9 @@ export default function Home() {
                       <Brain className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-main text-sm">Estructuración Automática de Niveles A1 a C2</h4>
+                      <h4 className="font-bold text-main text-sm">{t.ai.levelsTitle}</h4>
                       <p className="text-subtle-custom text-xs font-medium mt-0.5">
-                        Establece secuencias didácticas óptimas recomendadas por expertos de la industria.
+                        {t.ai.levelsBody}
                       </p>
                     </div>
                   </div>
@@ -319,9 +320,9 @@ export default function Home() {
                       <FileCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-main text-sm">Evaluaciones y Quizes Automatizados</h4>
+                      <h4 className="font-bold text-main text-sm">{t.ai.quizTitle}</h4>
                       <p className="text-subtle-custom text-xs font-medium mt-0.5">
-                        Genera ejercicios de opción múltiple, desarrollo y gramática contextualizada con 1 clic.
+                        {t.ai.quizBody}
                       </p>
                     </div>
                   </div>
@@ -340,39 +341,39 @@ export default function Home() {
                         <div className="text-xs font-bold text-main">Mentor Studio Global AI Copilot</div>
                         <div className="text-[10px] text-emerald-custom font-semibold flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                          Listo para asistir
+                          {t.ai.ready}
                         </div>
                       </div>
                     </div>
                     <span className="text-[10px] font-mono text-gold-custom font-bold glass-panel px-2.5 py-1 rounded-md">
-                      Modelo MCER v2.4
+                      {t.ai.model}
                     </span>
                   </div>
 
                   {/* Simulated AI Chat Box */}
                   <div className="space-y-3 font-mono text-xs">
                     <div className="p-3 rounded-lg glass-panel text-main font-semibold">
-                      <span className="text-gold-custom font-bold">Docente: </span>
-                      &quot;Genera una lección interactiva de Business English Nivel B2 sobre Negociación Internacional.&quot;
+                      <span className="text-gold-custom font-bold">{t.ai.teacher} </span>
+                      &quot;{t.ai.prompt}&quot;
                     </div>
 
                     <div className="p-3 rounded-lg glass-panel border border-sky-500/40 text-main space-y-2">
                       <div className="flex items-center gap-2 text-sky-custom font-bold">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Copiloto IA Generando...</span>
+                        <span>{t.ai.generating}</span>
                       </div>
                       <ul className="space-y-1 text-[11px] text-muted-custom font-sans font-medium">
                         <li className="flex items-center gap-1.5">
                           <Check className="w-3 h-3 text-emerald-custom" />
-                          <span>Vocabulario clave: High-stakes bargaining, concessions, win-win strategy.</span>
+                          <span>{t.ai.item1}</span>
                         </li>
                         <li className="flex items-center gap-1.5">
                           <Check className="w-3 h-3 text-emerald-custom" />
-                          <span>Roleplay Práctico: Caso real de fusión corporativa europea.</span>
+                          <span>{t.ai.item2}</span>
                         </li>
                         <li className="flex items-center gap-1.5">
                           <Check className="w-3 h-3 text-emerald-custom" />
-                          <span>Quiz interactivo de 5 preguntas generado automáticamente.</span>
+                          <span>{t.ai.item3}</span>
                         </li>
                       </ul>
                     </div>
@@ -388,13 +389,13 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
               <span className="text-xs font-mono tracking-widest text-sky-custom font-bold uppercase glass-panel px-4 py-1.5 rounded-full border border-sky-500/40 shadow-sm">
-                Inversión Transparente
+                {t.pricing.badge}
               </span>
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-main">
-                Planes VIP Diseñados para Crecer Contigo
+                {t.pricing.title}
               </h2>
               <p className="text-muted-custom text-base font-medium">
-                Sin comisiones por alumno ni costos ocultos. Potencia tu independencia financiera.
+                {t.pricing.subtitle}
               </p>
             </div>
 
@@ -417,13 +418,13 @@ export default function Home() {
               <Mail className="w-4 h-4" /> info@mentorstudioglobal.com
             </a>
             <p className="text-xs text-subtle-custom font-medium">
-              © 2026 Mentor Studio Global — Virtual Language & Knowledge Suite. Todos los derechos reservados.
+              {t.footer.rights}
             </p>
           </div>
           <nav className="max-w-7xl mx-auto px-6 mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold">
-            <a href="/terms" className="hover:text-gold-custom transition-colors">Términos y Condiciones</a>
-            <a href="/privacy" className="hover:text-gold-custom transition-colors">Política de Privacidad</a>
-            <a href="/refunds" className="hover:text-gold-custom transition-colors">Política de Reembolsos</a>
+            <a href="/terms" className="hover:text-gold-custom transition-colors">{d.common.terms}</a>
+            <a href="/privacy" className="hover:text-gold-custom transition-colors">{d.common.privacy}</a>
+            <a href="/refunds" className="hover:text-gold-custom transition-colors">{d.common.refunds}</a>
           </nav>
         </footer>
       </div>

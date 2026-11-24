@@ -10,6 +10,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { headers } from "next/headers";
 import { sendVerificationEmail } from "@/modules/user/email-verification";
 import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
+import { getI18n } from "@/i18n/server";
 import { assertPlanCapability, requireActiveSubscription, PlanLimitError } from "@/modules/billing/entitlements";
 
 const hexColor = z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Color hexadecimal no válido");
@@ -34,6 +35,7 @@ const updateBrandingSchema = z.object({
 });
 
 export async function createAcademyAction(formData: FormData) {
+  const { t } = await getI18n();
   try {
     const validated = createAcademySchema.parse({
       name: formData.get("name") as string,
@@ -53,7 +55,7 @@ export async function createAcademyAction(formData: FormData) {
     const ip = h.get("x-real-ip")?.trim() || h.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
     const rateLimit = await checkRateLimit({ key: `create_academy:${ip}`, limit: 5, windowMs: 60 * 60_000 });
     if (!rateLimit.success) {
-      return { success: false, error: "Demasiados registros desde esta conexión. Intenta más tarde." };
+      return { success: false, error: t.serverErrors.tooManySignups };
     }
 
     const { password, acceptTerms: _acceptTerms, ...academyInput } = validated;
@@ -80,9 +82,22 @@ export async function createAcademyAction(formData: FormData) {
     return { success: true, data: { tenant: { id: result.tenant.id, slug: result.tenant.slug, name: result.tenant.name } } };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      // El formulario ya valida esto en el navegador; se traduce el campo que falló
+      const field = error.errors[0]?.path[0];
+      const msg =
+        field === "name" ? t.createAcademy.errors.nameTooShort
+        : field === "userEmail" ? t.createAcademy.errors.emailInvalid
+        : field === "password" ? t.createAcademy.errors.passwordShort
+        : field === "acceptTerms" ? t.createAcademy.errors.acceptTerms
+        : t.serverErrors.createFailed;
+      return { success: false, error: msg };
     }
-    return { success: false, error: error.message || "Error al crear la academia" };
+    // Errores conocidos de AcademyService (en español) → idioma del usuario
+    const known: Record<string, string> = {
+      "Ya existe una cuenta con este email. Inicia sesión para continuar.": t.serverErrors.emailTaken,
+      "El subdominio elegido no está disponible.": t.serverErrors.slugTaken,
+    };
+    return { success: false, error: known[error?.message] ?? t.serverErrors.createFailed };
   }
 }
 

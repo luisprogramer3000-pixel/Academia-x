@@ -9,13 +9,12 @@ import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { sendEmail, EmailTemplates } from "@/lib/email";
 import { getAppUrl } from "@/lib/app-url";
+import { getI18n } from "@/i18n/server";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Email no válido"),
   password: z.string().min(1, "La contraseña es requerida"),
 });
-
-const INVALID_CREDENTIALS = "Email o contraseña incorrectos.";
 
 // Hash de referencia para igualar el tiempo de respuesta cuando el usuario no existe (evita enumeración de emails).
 let dummyHashPromise: Promise<string> | null = null;
@@ -43,6 +42,8 @@ function destinationForRole(role?: string) {
 }
 
 export async function loginAction(formData: FormData) {
+  const { t } = await getI18n();
+  const INVALID_CREDENTIALS = t.serverErrors.invalidCredentials;
   try {
     const validated = loginSchema.parse({
       email: (formData.get("email") as string) || "",
@@ -54,7 +55,7 @@ export async function loginAction(formData: FormData) {
     if (!rateLimit.success) {
       return {
         success: false,
-        error: "Demasiados intentos de inicio de sesión. Por favor intenta de nuevo en un minuto.",
+        error: t.serverErrors.tooManyLogins,
       };
     }
 
@@ -75,7 +76,7 @@ export async function loginAction(formData: FormData) {
 
     const membership = pickPrimaryMembership(user.memberships);
     if (!membership) {
-      return { success: false, error: "Tu cuenta no pertenece a ninguna academia." };
+      return { success: false, error: t.serverErrors.noAcademy };
     }
 
     await setSession({
@@ -96,10 +97,11 @@ export async function loginAction(formData: FormData) {
     };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      // Email mal escrito o contraseña vacía: mismo mensaje que credenciales incorrectas
+      return { success: false, error: INVALID_CREDENTIALS };
     }
     console.error("[auth] loginAction error:", error?.message);
-    return { success: false, error: "Error al iniciar sesión" };
+    return { success: false, error: t.serverErrors.loginFailed };
   }
 }
 
@@ -141,7 +143,8 @@ function hashResetToken(token: string) {
  * Solicita un enlace de restablecimiento. Siempre responde igual para no revelar si el email existe.
  */
 export async function requestPasswordResetAction(formData: FormData) {
-  const GENERIC = { success: true, message: "Si el email está registrado, recibirás un enlace para restablecer tu contraseña." };
+  const { t } = await getI18n();
+  const GENERIC = { success: true, message: t.serverErrors.resetGeneric };
   try {
     const email = z.string().trim().toLowerCase().email().parse(formData.get("email"));
 
@@ -159,7 +162,7 @@ export async function requestPasswordResetAction(formData: FormData) {
     await sendEmail({ to: user.email, ...EmailTemplates.passwordReset({ url: `${getAppUrl()}/reset-password/${token}` }) });
     return GENERIC;
   } catch (error: any) {
-    if (error instanceof z.ZodError) return { success: false, message: "Email no válido." };
+    if (error instanceof z.ZodError) return { success: false, message: t.serverErrors.invalidEmail };
     console.error("[auth] requestPasswordResetAction:", error?.message);
     return GENERIC;
   }
@@ -169,6 +172,7 @@ export async function requestPasswordResetAction(formData: FormData) {
  * Establece una nueva contraseña con un token válido de un solo uso.
  */
 export async function resetPasswordAction(formData: FormData) {
+  const { t } = await getI18n();
   try {
     const token = z.string().min(32).parse(formData.get("token"));
     const password = z
@@ -179,7 +183,7 @@ export async function resetPasswordAction(formData: FormData) {
 
     const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashResetToken(token) } });
     if (!record || record.usedAt || record.expiresAt < new Date()) {
-      return { success: false, error: "El enlace no es válido o ha caducado. Solicita uno nuevo." };
+      return { success: false, error: t.serverErrors.resetLinkInvalid };
     }
 
     await prisma.$transaction([
@@ -197,7 +201,11 @@ export async function resetPasswordAction(formData: FormData) {
 
     return { success: true };
   } catch (error: any) {
-    if (error instanceof z.ZodError) return { success: false, error: error.errors[0].message };
-    return { success: false, error: "No se pudo restablecer la contraseña." };
+    if (error instanceof z.ZodError) {
+      // Token mal formado → enlace no válido; contraseña corta → mismo aviso que en el formulario
+      const pw = String(formData.get("password") ?? "");
+      return { success: false, error: pw.length < MIN_PASSWORD_LENGTH ? t.createAcademy.errors.passwordShort : t.serverErrors.resetLinkInvalid };
+    }
+    return { success: false, error: t.serverErrors.resetFailed };
   }
 }

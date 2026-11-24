@@ -9,10 +9,15 @@ import { NLogoBadge } from "@/components/landing/NLogoBadge";
 import { ParallaxBackground } from "@/components/landing/ParallaxBackground";
 import { ThemeToggle } from "@/components/landing/ThemeToggle";
 import { DEFAULT_BRAND_BACKGROUND } from "@/lib/brand-theme";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useI18n } from "@/i18n/client";
+import { rich } from "@/i18n/format";
 
 function CreateAcademyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t: d } = useI18n();
+  const t = d.createAcademy;
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +51,11 @@ function CreateAcademyContent() {
 
     if (currentStep === 1) {
       if (!formData.name.trim() || formData.name.trim().length < 3) {
-        setError("El nombre de la academia debe tener al menos 3 caracteres.");
+        setError(t.errors.nameTooShort);
         return false;
       }
       if (!formData.slug.trim()) {
-        setError("Ingresa un subdominio o slug válido para tu academia.");
+        setError(t.errors.slugRequired);
         return false;
       }
     }
@@ -58,11 +63,11 @@ function CreateAcademyContent() {
     if (currentStep === 2) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!formData.userEmail.trim() || !emailRegex.test(formData.userEmail.trim())) {
-        setError("Ingresa un correo electrónico de fundador válido (ej. profesor@escuela.com).");
+        setError(t.errors.emailInvalid);
         return false;
       }
       if (formData.password.length < 8) {
-        setError("La contraseña debe tener al menos 8 caracteres.");
+        setError(t.errors.passwordShort);
         return false;
       }
     }
@@ -101,7 +106,7 @@ function CreateAcademyContent() {
     }
 
     if (!acceptTerms) {
-      setError("Debes aceptar los Términos, la Política de Privacidad y la Política de Reembolsos.");
+      setError(t.errors.acceptTerms);
       return;
     }
 
@@ -119,11 +124,11 @@ function CreateAcademyContent() {
         // Primero hay que confirmar el correo; el enlace del email lleva luego a Facturación
         router.push("/confirmar-email");
       } else {
-        setError(res.error || "Ocurrió un error al crear la academia");
+        setError(res.error || t.errors.generic);
         setLoading(false);
       }
     } catch (err: any) {
-      setError(err.message || "Error al conectar con el servidor.");
+      setError(err.message || t.errors.network);
       setLoading(false);
     }
   };
@@ -135,7 +140,8 @@ function CreateAcademyContent() {
 
       <div className="w-full max-w-xl relative z-10">
         {/* Top bar theme toggle */}
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
+          <LanguageSwitcher />
           <ThemeToggle />
         </div>
 
@@ -148,7 +154,7 @@ function CreateAcademyContent() {
                 Mentor Studio Global
               </span>
               <span className="block text-[10px] text-sky-700 dark:text-sky-400 font-mono tracking-widest uppercase font-semibold">
-                Executive EdTech Suite
+                {d.common.tagline}
               </span>
             </div>
           </Link>
@@ -172,7 +178,7 @@ function CreateAcademyContent() {
             >
               1
             </div>
-            <span>Tu Escuela</span>
+            <span>{t.steps.school}</span>
           </button>
           <div className="h-0.5 w-12 bg-slate-300 dark:bg-slate-800" />
           <button
@@ -191,7 +197,7 @@ function CreateAcademyContent() {
             >
               2
             </div>
-            <span>Enseñanza</span>
+            <span>{t.steps.teaching}</span>
           </button>
           <div className="h-0.5 w-12 bg-slate-300 dark:bg-slate-800" />
           <button
@@ -210,7 +216,7 @@ function CreateAcademyContent() {
             >
               3
             </div>
-            <span>Branding</span>
+            <span>{t.steps.branding}</span>
           </button>
         </div>
 
@@ -219,14 +225,14 @@ function CreateAcademyContent() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <School className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              {step === 1 && "Crea tu Escuela de Idiomas"}
-              {step === 2 && "Idioma & Formato de Enseñanza"}
-              {step === 3 && "Personaliza la Identidad de Marca"}
+              {step === 1 && t.step1Title}
+              {step === 2 && t.step2Title}
+              {step === 3 && t.step3Title}
             </h1>
             <p className="text-sm text-slate-700 dark:text-slate-300 font-medium">
-              {step === 1 && "Ingresa el nombre público de tu academia o proyecto educativo."}
-              {step === 2 && "Selecciona el idioma principal de impartición y tus datos."}
-              {step === 3 && "Elige los colores distintivos con los que te identificarán tus alumnos."}
+              {step === 1 && t.step1Subtitle}
+              {step === 2 && t.step2Subtitle}
+              {step === 3 && t.step3Subtitle}
             </p>
           </div>
 
@@ -242,7 +248,7 @@ function CreateAcademyContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Nombre de la Academia *
+                    {t.name}
                   </label>
                   <input
                     type="text"
@@ -250,14 +256,14 @@ function CreateAcademyContent() {
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Ej. JL Global Institute"
+                    placeholder={t.namePlaceholder}
                     className="w-full px-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    URL / Subdominio *
+                    {t.slug}
                   </label>
                   <div className="flex items-center rounded-xl glass-panel border border-slate-300 dark:border-slate-700 overflow-hidden px-4 py-3 focus-within:border-amber-500 transition-colors">
                     <span className="text-slate-500 dark:text-slate-400 text-sm font-mono mr-1">mentorstudioglobal.com/a/</span>
@@ -267,7 +273,7 @@ function CreateAcademyContent() {
                       required
                       value={formData.slug}
                       onChange={handleChange}
-                      placeholder="mi-academia"
+                      placeholder={t.slugPlaceholder}
                       className="bg-transparent w-full text-amber-600 dark:text-amber-400 font-mono font-semibold focus:outline-none text-sm"
                     />
                   </div>
@@ -279,7 +285,7 @@ function CreateAcademyContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Tu Email de Fundador / Profesor *
+                    {t.email}
                   </label>
                   <input
                     type="email"
@@ -287,14 +293,14 @@ function CreateAcademyContent() {
                     required
                     value={formData.userEmail}
                     onChange={handleChange}
-                    placeholder="profesor@miacademia.com"
+                    placeholder={d.auth.login.emailPlaceholder}
                     className="w-full px-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Contraseña * (mínimo 8 caracteres)
+                    {t.password}
                   </label>
                   <input
                     type="password"
@@ -311,21 +317,21 @@ function CreateAcademyContent() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Tu Nombre Completo
+                    {t.fullName}
                   </label>
                   <input
                     type="text"
                     name="userName"
                     value={formData.userName}
                     onChange={handleChange}
-                    placeholder="Tu nombre"
+                    placeholder={t.fullNamePlaceholder}
                     className="w-full px-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2">
-                    Idioma Principal de Enseñanza
+                    {t.teachingLanguage}
                   </label>
                   <select
                     name="language"
@@ -333,12 +339,12 @@ function CreateAcademyContent() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 glass-panel border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-colors text-sm font-medium"
                   >
-                    <option value="es" className="bg-slate-900 text-white">Español (ELE / General)</option>
-                    <option value="en" className="bg-slate-900 text-white">Inglés (ESL / Business)</option>
-                    <option value="fr" className="bg-slate-900 text-white">Francés</option>
-                    <option value="de" className="bg-slate-900 text-white">Alemán</option>
-                    <option value="pt" className="bg-slate-900 text-white">Portugués</option>
-                    <option value="it" className="bg-slate-900 text-white">Italiano</option>
+                    <option value="es" className="bg-slate-900 text-white">{t.languages.es}</option>
+                    <option value="en" className="bg-slate-900 text-white">{t.languages.en}</option>
+                    <option value="fr" className="bg-slate-900 text-white">{t.languages.fr}</option>
+                    <option value="de" className="bg-slate-900 text-white">{t.languages.de}</option>
+                    <option value="pt" className="bg-slate-900 text-white">{t.languages.pt}</option>
+                    <option value="it" className="bg-slate-900 text-white">{t.languages.it}</option>
                   </select>
                 </div>
               </div>
@@ -348,7 +354,7 @@ function CreateAcademyContent() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-amber-600 dark:text-amber-400" /> Color Primario de Marca
+                    <Palette className="w-4 h-4 text-amber-600 dark:text-amber-400" /> {t.primaryColor}
                   </label>
                   <div className="flex items-center gap-3">
                     <input
@@ -371,13 +377,13 @@ function CreateAcademyContent() {
                 {/* Previsualización rápida */}
                 <div className="p-4 rounded-xl border border-slate-300 dark:border-slate-800 glass-panel mt-4">
                   <div className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-mono uppercase font-semibold">
-                    Previsualización de Tarjeta:
+                    {t.preview}
                   </div>
                   <div
                     className="p-4 rounded-xl text-white font-bold flex items-center justify-between shadow-lg"
                     style={{ backgroundColor: formData.primaryColor }}
                   >
-                    <span>{formData.name || "Tu Academia"}</span>
+                    <span>{formData.name || t.previewFallback}</span>
                     <Sparkles className="w-5 h-5 text-white/80" />
                   </div>
                 </div>
@@ -393,10 +399,11 @@ function CreateAcademyContent() {
                     className="mt-0.5 w-4 h-4 accent-amber-500"
                   />
                   <span>
-                    Acepto los{" "}
-                    <Link href="/terms" target="_blank" className="underline font-semibold">Términos y Condiciones</Link>, la{" "}
-                    <Link href="/privacy" target="_blank" className="underline font-semibold">Política de Privacidad</Link> y la{" "}
-                    <Link href="/refunds" target="_blank" className="underline font-semibold">Política de Reembolsos</Link>.
+                    {rich(t.acceptTerms, {
+                      terms: <Link href="/terms" target="_blank" className="underline font-semibold">{d.common.terms}</Link>,
+                      privacy: <Link href="/privacy" target="_blank" className="underline font-semibold">{d.common.privacy}</Link>,
+                      refunds: <Link href="/refunds" target="_blank" className="underline font-semibold">{d.common.refunds}</Link>,
+                    })}
                   </span>
                 </label>
               </div>
@@ -409,7 +416,7 @@ function CreateAcademyContent() {
                   onClick={handlePrevStep}
                   className="px-4 py-2.5 rounded-xl glass-panel text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2 text-sm font-semibold"
                 >
-                  <ArrowLeft className="w-4 h-4" /> Anterior
+                  <ArrowLeft className="w-4 h-4" /> {t.previous}
                 </button>
               ) : (
                 <div />
@@ -421,7 +428,7 @@ function CreateAcademyContent() {
                   onClick={handleNextStep}
                   className="px-6 py-2.5 rounded-xl gold-gradient-bg text-slate-950 font-bold transition-all shadow-lg shadow-amber-500/25 flex items-center gap-2 text-sm hover:scale-105"
                 >
-                  <span>Siguiente</span> <ArrowRight className="w-4 h-4" />
+                  <span>{t.next}</span> <ArrowRight className="w-4 h-4" />
                 </button>
               ) : (
                 <button
@@ -429,7 +436,7 @@ function CreateAcademyContent() {
                   disabled={loading}
                   className="px-8 py-3.5 rounded-xl gold-gradient-bg text-slate-950 font-bold transition-all shadow-lg shadow-amber-500/25 flex items-center gap-2 disabled:opacity-50 text-sm hover:scale-105"
                 >
-                  <span>{loading ? "Creando Academia..." : "Lanzar Mi Academia"}</span> <CheckCircle2 className="w-5 h-5" />
+                  <span>{loading ? t.creating : t.launch}</span> <CheckCircle2 className="w-5 h-5" />
                 </button>
               )}
             </div>
@@ -443,7 +450,7 @@ function CreateAcademyContent() {
             className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Volver a la página principal
+            {d.common.backHome}
           </Link>
         </div>
       </div>
@@ -453,7 +460,7 @@ function CreateAcademyContent() {
 
 export default function CreateAcademyPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen text-slate-900 dark:text-slate-100 flex items-center justify-center">Cargando...</div>}>
+    <Suspense fallback={<div className="min-h-screen" />}>
       <CreateAcademyContent />
     </Suspense>
   );

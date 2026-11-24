@@ -53,8 +53,14 @@ export function safeTimezone(tz?: string | null): string {
 }
 
 /** Formatea una fecha en la zona indicada (por defecto, en español). */
-export function formatInTimezone(date: Date | string, tz: string | null | undefined, options: Intl.DateTimeFormatOptions): string {
-  return new Intl.DateTimeFormat("es", { ...options, timeZone: safeTimezone(tz) }).format(new Date(date));
+export function formatInTimezone(
+  date: Date | string,
+  tz: string | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  /** Idioma del formato (Intl). Por defecto español. */
+  locale = "es"
+): string {
+  return new Intl.DateTimeFormat(locale, { ...options, timeZone: safeTimezone(tz) }).format(new Date(date));
 }
 
 /** Año, mes (0-11) y día de una fecha vista en una zona horaria. */
